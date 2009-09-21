@@ -1,4 +1,5 @@
 module Git.Plumbing ( Hash, Tree, Commit,
+                      checkoutCopy,
                       lsfiles, updateindex, writetree, updateref,
                       headhash, commitTree ) where
 
@@ -16,6 +17,15 @@ mkHash a s = Hash a (cleanhash s)
 
 data Tree = Tree deriving Show
 data Commit = Commit deriving Show
+
+checkoutCopy :: String -> IO ()
+checkoutCopy pfx =
+    do (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-checkout-index" ["-a","--prefix="++pfx])
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-checkout-index failed"
 
 lsfiles :: IO [String]
 lsfiles =
