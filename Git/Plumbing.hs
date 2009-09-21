@@ -103,12 +103,8 @@ commitTree t pars m =
     do let pflags = concatMap (\p -> ["-p",show p]) pars
        (Just i, Just o, Nothing, pid) <-
            createProcess (proc "git-commit-tree" (show t:pflags)) {
-               env = Just [("GIT_AUTHOR_NAME","David Roundy"),
-                           ("GIT_AUTHOR_EMAIL", "droundy@abridgegame.org"),
-                           ("GIT_COMMITTER_NAME","David Roundy"),
-                           ("GIT_COMMITTER_EMAIL", "droundy@abridgegame.org")],
-               std_out = CreatePipe,
-               std_in = CreatePipe }
+                               std_out = CreatePipe,
+                               std_in = CreatePipe }
        out <- hGetContents o
        hPutStr i m
        hClose i
