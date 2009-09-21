@@ -15,7 +15,8 @@
 -- the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 -- Boston, MA 02110-1301, USA.
 
-module Arcs.Flags ( ArcsFlag( .. ), Compression( .. ), compression, want_external_merge, isInteractive) where
+module Arcs.Flags ( ArcsFlag( .. ), Compression( .. ), compression,
+                    want_external_merge, isInteractive ) where
 import Arcs.RepoPath ( AbsolutePath, AbsolutePathOrStd )
 
 -- | The 'ArcsFlag' type is a list of all flags that can ever be
@@ -35,7 +36,7 @@ data ArcsFlag = Help | ListOptions | NoTest | Test
                | TagName String | LastN Int | PatchIndexRange Int Int
                | NumberPatches
                | OneTag String | AfterTag String | UpToTag String
-               | Context AbsolutePath | Count
+               | Count
                | LogFile AbsolutePath | RmLogFile
                | DistName String | All
                | Recursive | NoRecursive | Reorder

@@ -20,6 +20,7 @@ module Arcs.Commands ( command_control_list ) where
 import Arcs.Commands.Record ( record )
 import Arcs.Commands.Add ( add )
 import Arcs.Commands.WhatsNew ( whatsnew )
+import Arcs.Commands.Changes ( changes )
 import Arcs.Command ( CommandControl( Command_data, -- Hidden_command,
                                       Group_name) )
 
@@ -31,6 +32,7 @@ command_control_list =
     [Group_name "Changing and querying the working copy:",
      Command_data add,
      Command_data whatsnew,
+     Command_data changes,
      Command_data record
      -- Command_data add
     ]

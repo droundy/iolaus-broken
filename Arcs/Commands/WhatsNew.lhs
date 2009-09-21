@@ -26,10 +26,11 @@
 module Arcs.Commands.WhatsNew ( whatsnew ) where
 
 import Arcs.Command ( ArcsCommand(..), nodefaults )
-import Arcs.Arguments ( ArcsFlag(..), working_repo_dir, summary )
+import Arcs.Arguments ( ArcsFlag(Summary), working_repo_dir, summary )
 
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( lsfiles, diffAllFiles, diffFiles )
+import Git.Plumbing ( lsfiles, diffFiles,
+                      DiffOption(Stat, DiffAll, DiffPatch) )
 \end{code}
 
 \options{whatsnew}
@@ -70,8 +71,9 @@ whatsnew = ArcsCommand {command_name = "whatsnew",
 
 \begin{code}
 whatsnew_cmd :: [ArcsFlag] -> [String] -> IO ()
-whatsnew_cmd _ [] = diffAllFiles >>= putStr
-whatsnew_cmd _ fs = diffFiles fs >>= putStr
+whatsnew_cmd opts fs = diffFiles flags fs >>= putStr
+    where flags = (if null fs then [DiffAll] else []) ++
+                  (if Summary `elem` opts then [Stat] else [DiffPatch])
 \end{code}
 
 If you give one or more file or directory names as an argument to

@@ -1,8 +1,8 @@
 module Git.Plumbing ( Hash, Tree, Commit,
                       checkoutCopy,
-                      lsfiles, lsothers,
+                      lsfiles, lsothers, revList,
                       updateindex, writetree, updateref,
-                      diffAllFiles, diffFiles,
+                      diffFiles, DiffOption(..),
                       headhash, commitTree ) where
 
 import System.IO ( hGetContents, hPutStr, hClose )
@@ -50,21 +50,21 @@ lsothers =
          ExitSuccess -> return $ lines out
          ExitFailure _ -> fail "git-ls-files failed"
 
-diffAllFiles :: IO String
-diffAllFiles =
-    do (Nothing, Just stdout, Nothing, pid) <-
-           createProcess (proc "git-diff-files" ["-a","-p"])
-                             { std_out = CreatePipe }
-       out <- hGetContents stdout
-       ec <- length out `seq` waitForProcess pid
-       case ec of
-         ExitSuccess -> return out
-         ExitFailure _ -> fail "git-diff-files failed"
+class Flag a where
+    toFlags :: a -> [String]
 
-diffFiles :: [FilePath] -> IO String
-diffFiles fs =
-    do (Nothing, Just stdout, Nothing, pid) <-
-           createProcess (proc "git-diff-files" ("-p":"--":fs))
+data DiffOption = DiffAll | Stat | DiffPatch
+instance Flag DiffOption where
+    toFlags DiffAll = ["-a"]
+    toFlags Stat = ["--stat"]
+    toFlags DiffPatch = ["-p"]
+
+diffFiles :: [DiffOption] -> [FilePath] -> IO String
+diffFiles opts fs =
+    do let flags = case opts of [] -> ["-p"]
+                                _ -> concatMap toFlags opts
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-diff-files" (flags++"--":fs))
                              { std_out = CreatePipe }
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
@@ -127,3 +127,15 @@ commitTree t pars m =
 
 cleanhash :: String -> String
 cleanhash = take 40
+
+revList :: IO String
+revList =
+    do (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-rev-list" ["master","--pretty=medium",
+                                               "--graph","--date=relative"])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return out
+         ExitFailure _ -> fail "git-rev-list failed"
