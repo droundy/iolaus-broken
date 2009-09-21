@@ -21,6 +21,16 @@ lsfiles =
          ExitSuccess -> return $ lines out
          ExitFailure x -> fail "git-ls-files failed"
 
+headhash :: IO String
+headhash =
+    do (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-show-ref" ["-h"]) { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ cleanhash out
+         ExitFailure x -> fail "git-show-ref failed"
+
 updateindex :: [String] -> IO ()
 updateindex fs =
     do (Nothing, Nothing, Nothing, pid) <-
@@ -58,8 +68,9 @@ commit message =
        updateindex fs
        t <- writetree
        putStrLn ("write-tree gives "++show t)
+       par <- headhash
        (Just i, Just o, Nothing, pid) <-
-           createProcess (proc "git-commit-tree" [t,"-p","d1211a2ccd5bd661f7debf43a1dff4ed4211dd33"]) {
+           createProcess (proc "git-commit-tree" [t,"-p",par]) {
                   env = Just [("GIT_AUTHOR_NAME","David Roundy"),
                               ("GIT_AUTHOR_EMAIL", email),
                               ("GIT_AUTHOR_DATE","Today"),
