@@ -2,28 +2,11 @@ module Main where
 
 import Control.Monad ( when )
 import System.Environment ( getArgs )
-import System.Exit
-import System.Process.Redirects ( system )
-import System.Directory
 
 import Git.Plumbing ( lsfiles, writetree, updateindex, updateref,
                       diffAllFiles, diffFiles,
-                      checkoutCopy, commitTree, headhash )
-
-email :: String
-email = "roundyd@physics.oregonstate.edu"
-
-testIndex :: IO ()
-testIndex = do checkoutCopy "/tmp/testing/"
-               here <- getCurrentDirectory
-               setCurrentDirectory "/tmp/testing"
-               ec <- system "./.git-hooks/test"
-               case ec of
-                 ExitFailure _ -> fail "test failed"
-                 ExitSuccess -> return ()
-               setCurrentDirectory here
-               system "rm -rf /tmp/testing"
-               return ()
+                      commitTree, headhash )
+import Git.Helpers ( testIndex )
 
 commit :: String -> IO ()
 commit message =
