@@ -1,4 +1,4 @@
-module Git.Plumbing ( Hash,
+module Git.Plumbing ( Hash, Tree, Commit,
                       lsfiles, updateindex, writetree, updateref,
                       headhash, commitTree ) where
 
