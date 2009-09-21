@@ -1,6 +1,7 @@
 module Git.Plumbing ( Hash, Tree, Commit,
                       checkoutCopy,
-                      lsfiles, updateindex, writetree, updateref,
+                      lsfiles, lsothers,
+                      updateindex, writetree, updateref,
                       diffAllFiles, diffFiles,
                       headhash, commitTree ) where
 
@@ -32,6 +33,17 @@ lsfiles :: IO [String]
 lsfiles =
     do (Nothing, Just stdout, Nothing, pid) <-
            createProcess (proc "git-ls-files" []) { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ lines out
+         ExitFailure _ -> fail "git-ls-files failed"
+
+lsothers :: IO [String]
+lsothers =
+    do (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-ls-files" ["--others"])
+                             { std_out = CreatePipe }
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
