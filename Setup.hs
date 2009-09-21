@@ -1,4 +1,5 @@
 #!/usr/bin/runhaskell
 import Distribution.Franchise.V1
 
-main = build [] $ executable "arcs" "arcs.hs" []
+main = build [] $ do hcFlags ["-Wall"]
+                     executable "arcs" "arcs.hs" []
