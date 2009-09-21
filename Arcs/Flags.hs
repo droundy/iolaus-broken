@@ -46,7 +46,6 @@ data ArcsFlag = Help | ListOptions | NoTest | Test
                | Sign | SignAs String | NoSign | SignSSL String
                | HappyForwarding
                | Verify AbsolutePath | VerifySSL AbsolutePath
-               | SSHControlMaster | NoSSHControlMaster
                | EditDescription | NoEditDescription
                | Toks String
                | EditLongComment | NoEditLongComment | PromptLongComment

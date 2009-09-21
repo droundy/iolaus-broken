@@ -15,16 +15,11 @@
 -- the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 -- Boston, MA 02110-1301, USA.
 
--- | This was originally Tomasz Zielonka's AtExit module, slightly generalised
--- to include global variables.  Here, we attempt to cover broad, global
--- features, such as exit handlers.  These features slightly break the Haskellian
--- purity of darcs, in favour of programming convenience.
 module Arcs.Global ( atexit, with_atexit,
-                      sshControlMasterDisabled, setSshControlMasterDisabled,
-                      verboseMode, setVerboseMode,
-                      timingsMode, setTimingsMode,
-                      whenDebugMode, withDebugMode, setDebugMode,
-                      debugMessage, debugFail, putTiming ) where
+                     verboseMode, setVerboseMode,
+                     timingsMode, setTimingsMode,
+                     whenDebugMode, withDebugMode, setDebugMode,
+                     debugMessage, debugFail, putTiming ) where
 
 import Control.Monad ( when )
 import Control.Concurrent.MVar
@@ -119,14 +114,4 @@ setVerboseMode = writeIORef _verboseMode True
 verboseMode :: Bool
 verboseMode = unsafePerformIO $ readIORef _verboseMode
 
-{-# NOINLINE _sshControlMasterDisabled #-}
-_sshControlMasterDisabled :: IORef Bool
-_sshControlMasterDisabled = unsafePerformIO $ newIORef False
-
-setSshControlMasterDisabled :: IO ()
-setSshControlMasterDisabled = writeIORef _sshControlMasterDisabled True
-
-{-# NOINLINE sshControlMasterDisabled #-}
-sshControlMasterDisabled :: Bool
-sshControlMasterDisabled = unsafePerformIO $ readIORef _sshControlMasterDisabled
 

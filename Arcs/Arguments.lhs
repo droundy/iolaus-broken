@@ -69,7 +69,6 @@ module Arcs.Arguments ( ArcsFlag( .. ), flagToString, optionFlags,
                          posthook_cmd, get_posthook_cmd,
                          prehook_cmd, get_prehook_cmd, nullFlag,
                          patch_select_flag,
-                         network_options,
                          allow_unrelated_repos
                       ) where
 import System.Console.GetOpt
@@ -168,8 +167,6 @@ getContent Complement = NoContent
 getContent Sign = NoContent
 getContent NoSign = NoContent
 getContent HappyForwarding = NoContent
-getContent SSHControlMaster = NoContent
-getContent NoSSHControlMaster = NoContent
 getContent (Toks s) = StringContent s
 getContent (WorkDir s) = StringContent s
 getContent (RepoDir s) = StringContent s
@@ -1304,50 +1301,6 @@ get_prehook_cmd :: [ArcsFlag] -> Maybe String
 get_prehook_cmd (PrehookCmd a:_) = Just a
 get_prehook_cmd (_:flags) = get_prehook_cmd flags
 get_prehook_cmd [] = Nothing
-\end{code}
-
-\begin{options}
---ssh-cm, --no-ssh-cm
-\end{options}
-
-For commands which invoke ssh, darcs will normally multiplex ssh
-sessions over a single connection as long as your version of ssh has
-the ControlMaster feature from OpenSSH versions 3.9 and above.  This
-option will avoid darcs trying to use this feature even if your ssh
-supports it.
-
-\begin{options}
---http-pipelining, --no-http-pipelining
-\end{options}
-
-When compiled with libwww or curl (version 7.18.0 and above), darcs can
-use HTTP pipelining. It is enabled by default for libwww and curl
-(version 7.19.1 and above). This option will make darcs enable or
-disable HTTP pipelining, overwriting default. Note that if HTTP
-pipelining is really used depends on the server.
-
-\begin{options}
---no-cache
-\end{options}
-
-Do not use patch caches.
-\begin{code}
-network_options :: [ArcsOption]
-network_options =
-    [ArcsMultipleChoiceOption
-     [ArcsNoArgOption [] ["ssh-cm"] SSHControlMaster
-                           "use SSH ControlMaster feature",
-      ArcsNoArgOption [] ["no-ssh-cm"] NoSSHControlMaster
-                           "don't use SSH ControlMaster feature [DEFAULT]"],
-     ArcsMultipleChoiceOption
-     [ArcsNoArgOption [] ["http-pipelining"] HTTPPipelining
-                           pipelining_description,
-      ArcsNoArgOption [] ["no-http-pipelining"] NoHTTPPipelining
-                           no_pipelining_description],
-     ArcsNoArgOption [] ["no-cache"] NoCache
-                          "don't use patch caches"]
-    where pipelining_description = "enable HTTP pipelining [DEFAULT]"
-          no_pipelining_description = "disable HTTP pipelining"
 \end{code}
 
 \begin{options}
