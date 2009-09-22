@@ -1,6 +1,7 @@
 module Git.Plumbing ( Hash, Tree, Commit,
                       checkoutCopy,
-                      lsfiles, lsothers, revList,
+                      lsfiles, lsothers,
+                      revList, revListHashes, RevListOption(..),
                       updateindex, writetree, updateref,
                       diffFiles, DiffOption(..),
                       headhash, commitTree ) where
@@ -101,16 +102,16 @@ writetree =
          ExitSuccess -> return $ mkHash Tree out
          ExitFailure _ -> fail "git-write-tree failed"
 
-updateref :: String -> String -> IO ()
+updateref :: String -> Hash Commit -> IO ()
 updateref r h =
     do (Nothing, Nothing, Nothing, pid) <-
-           createProcess (proc "git-update-ref" [r,h])
+           createProcess (proc "git-update-ref" [r,show h])
        ec <- waitForProcess pid
        case ec of
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-update-ref failed"
 
-commitTree :: Hash Tree -> [Hash Commit] -> String -> IO String
+commitTree :: Hash Tree -> [Hash Commit] -> String -> IO (Hash Commit)
 commitTree t pars m =
     do let pflags = concatMap (\p -> ["-p",show p]) pars
        (Just i, Just o, Nothing, pid) <-
@@ -122,20 +123,31 @@ commitTree t pars m =
        hClose i
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> return $ cleanhash out
+         ExitSuccess -> return $ mkHash Commit out
          ExitFailure _ -> fail "git-commit-tree failed"
 
 cleanhash :: String -> String
 cleanhash = take 40
 
-revList :: IO String
-revList =
-    do (Nothing, Just stdout, Nothing, pid) <-
-           createProcess (proc "git-rev-list" ["master","--pretty=medium",
-                                               "--graph","--date=relative"])
+data RevListOption = MediumPretty | Graph | RelativeDate | MaxCount Int
+instance Flag RevListOption where
+    toFlags MediumPretty = ["--pretty=medium"]
+    toFlags Graph = ["--graph"]
+    toFlags RelativeDate = ["--date=relative"]
+    toFlags (MaxCount n) = ["--max-count="++show n]
+
+revList :: [RevListOption] -> IO String
+revList opts =
+    do let flags = concatMap toFlags opts
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-rev-list" ("master":flags))
                              { std_out = CreatePipe }
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
          ExitSuccess -> return out
          ExitFailure _ -> fail "git-rev-list failed"
+
+revListHashes :: IO [Hash Commit]
+revListHashes = do x <- revList []
+                   return $ map (mkHash Commit) $ words x
