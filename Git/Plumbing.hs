@@ -1,4 +1,5 @@
 module Git.Plumbing ( Hash, Tree, Commit,
+                      clone,
                       checkoutCopy,
                       lsfiles, lsothers, revList,
                       updateindex, writetree, updateref,
@@ -139,3 +140,14 @@ revList =
        case ec of
          ExitSuccess -> return out
          ExitFailure _ -> fail "git-rev-list failed"
+
+-- | FIXME: I believe that clone is porcelain...
+
+clone :: [String] -> IO ()
+clone args =
+    do (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-clone" args)
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-clone failed"
