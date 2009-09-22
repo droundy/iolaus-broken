@@ -1,4 +1,5 @@
 module Git.Plumbing ( Hash, Tree, Commit,
+                      clone,
                       checkoutCopy,
                       lsfiles, lsothers,
                       revList, revListHashes, RevListOption(..),
@@ -151,3 +152,14 @@ revList opts =
 revListHashes :: IO [Hash Commit]
 revListHashes = do x <- revList []
                    return $ map (mkHash Commit) $ words x
+
+-- | FIXME: I believe that clone is porcelain...
+
+clone :: [String] -> IO ()
+clone args =
+    do (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-clone" args)
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-clone failed"

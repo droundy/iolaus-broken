@@ -22,6 +22,7 @@ import Arcs.Commands.Unrecord ( unrecord )
 import Arcs.Commands.Add ( add )
 import Arcs.Commands.WhatsNew ( whatsnew )
 import Arcs.Commands.Changes ( changes )
+import Arcs.Commands.Get ( get )
 import Arcs.Command ( CommandControl( Command_data, -- Hidden_command,
                                       Group_name) )
 
@@ -35,6 +36,6 @@ command_control_list =
      Command_data whatsnew,
      Command_data changes,
      Command_data unrecord,
-     Command_data record
-     -- Command_data add
+     Command_data record,
+     Command_data get
     ]
