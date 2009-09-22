@@ -34,7 +34,7 @@ data ArcsFlag = Help | ListOptions | NoTest | Test
                | OnePatch String | SeveralPatch String
                | AfterPatch String | UpToPatch String
                | TagName String | LastN Int | PatchIndexRange Int Int
-               | NumberPatches
+               | NumberPatches | MaxC Int
                | OneTag String | AfterTag String | UpToTag String
                | Count
                | LogFile AbsolutePath | RmLogFile

@@ -130,9 +130,11 @@ commitTree t pars m =
 cleanhash :: String -> String
 cleanhash = take 40
 
-data RevListOption = MediumPretty | Graph | RelativeDate | MaxCount Int
+data RevListOption = MediumPretty | OneLine
+                   | Graph | RelativeDate | MaxCount Int
 instance Flag RevListOption where
     toFlags MediumPretty = ["--pretty=medium"]
+    toFlags OneLine = ["--pretty=oneline"]
     toFlags Graph = ["--graph"]
     toFlags RelativeDate = ["--date=relative"]
     toFlags (MaxCount n) = ["--max-count="++show n]

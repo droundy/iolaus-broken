@@ -27,7 +27,7 @@ module Arcs.Arguments ( ArcsFlag( .. ), flagToString, optionFlags,
                          fixSubPaths, areFileArgs,
                          ArcsOption( .. ), option_from_darcsoption,
                          help, list_options,
-                         help_on_match,
+                         max_count, help_on_match,
                          any_verbosity, disable,
                          notest, test, working_repo_dir,
                          testByDefault,
@@ -130,6 +130,7 @@ getContent (AfterPatch s) = StringContent s
 getContent (UpToPatch s) = StringContent s
 getContent (TagName s) = StringContent s
 getContent (LastN s) = StringContent (show s)
+getContent (MaxC s) = StringContent (show s)
 getContent (OneTag s) = StringContent s
 getContent (AfterTag s) = StringContent s
 getContent (UpToTag s) = StringContent s
@@ -611,6 +612,13 @@ __last = ArcsArgOption [] ["last"] lastn "NUMBER"
     where lastn s = if and (map isDigit s)
                     then LastN (read s)
                     else LastN (-1)
+
+max_count :: ArcsOption
+max_count = ArcsArgOption [] ["max-count"] maxc "NUMBER"
+         "limit the number of patches displayed"
+    where maxc s = if and (map isDigit s)
+                   then MaxC (read s)
+                   else MaxC (-1)
 
 __index = ArcsArgOption ['n'] ["index"] indexrange "N-M" "select a range of patches"
     where indexrange s = if all isDigit s
