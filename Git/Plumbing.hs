@@ -1,4 +1,5 @@
-module Git.Plumbing ( Hash, Tree, Commit,
+module Git.Plumbing ( Hash, Tree, Commit, Blob, Tag,
+                      catBlob, catTree, TreeEntry(..),
                       clone,
                       checkoutCopy,
                       lsfiles, lsothers,
@@ -12,6 +13,8 @@ import System.IO ( hGetContents, hPutStr, hClose )
 import System.Exit ( ExitCode(..) )
 import System.Process.Redirects ( createProcess, waitForProcess, proc,
                                   CreateProcess(..), StdStream(..) )
+import qualified Data.ByteString as B
+import Arcs.FileName ( FileName, fp2fn )
 
 data Hash a = Hash !a !String
 instance Show (Hash a) where
@@ -19,6 +22,8 @@ instance Show (Hash a) where
 mkHash :: a -> String -> Hash a
 mkHash a s = Hash a (cleanhash s)
 
+data Tag = Tag deriving Show
+data Blob = Blob deriving Show
 data Tree = Tree deriving Show
 data Commit = Commit deriving Show
 
@@ -165,3 +170,42 @@ clone args =
        case ec of
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-clone failed"
+
+catBlob :: Hash Blob -> IO B.ByteString
+catBlob (Hash Blob h) =
+    do (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-cat-file" ["blob",h])
+                             { std_out = CreatePipe }
+       out <- B.hGetContents stdout
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return out
+         ExitFailure _ -> fail "git-cat-file blob failed"
+
+data TreeEntry = Subtree (Hash Tree)
+               | File (Hash Blob)
+               | Executable (Hash Blob)
+                 deriving Show
+
+catTree :: Hash Tree -> IO [(FileName, TreeEntry)]
+catTree (Hash Tree h) =
+    do (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-cat-file" ["-p",h])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ map parseit $ lines out
+         ExitFailure _ -> fail "git-cat-file blob failed"
+    where parseit x =
+              case splitAt 12 x of
+                ("040000 tree ",x') ->
+                    case splitAt 40 x' of
+                      (h, _:fp) -> (fp2fn fp, Subtree $ Hash Tree h) 
+                ("100755 blob ",x') ->
+                    case splitAt 40 x' of
+                      (h, _:fp) -> (fp2fn fp, Executable $ Hash Blob h) 
+                ("100644 blob ",x') ->
+                    case splitAt 40 x' of
+                      (h, _:fp) -> (fp2fn fp, File $ Hash Blob h) 
+                    
