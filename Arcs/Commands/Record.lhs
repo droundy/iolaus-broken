@@ -42,13 +42,22 @@ import Arcs.Arguments ( ArcsFlag( PromptLongComment, NoEditLongComment,
                         author, patchname_option,
                         rmlogfile, logfile )
 import Arcs.Utils ( askUser, promptYorn, edit_file )
-import Arcs.RepoPath ( FilePathLike )
+import Arcs.RepoPath ( FilePathLike, toFilePath )
+import Arcs.Patch ( apply_to_slurpy )
 import Arcs.Printer ( ($$), text, hPutDocLn, wrap_text, renderString )
+import Arcs.FileName ( fp2fn )
+import Arcs.Diff ( unsafeDiff )
+import Arcs.SelectChanges ( with_selected_changes_to_files )
+import Arcs.Ordered ( (:>)(..) )
+import Arcs.Progress ( debugMessage )
 
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( lsfiles, updateindex, writetree, headhash,
+                      catCommitTree, parseRev,
                       commitTree, updateref )
-import Git.Helpers ( testIndex )
+import Git.Helpers ( test, slurpTree, writeSlurpTree )
+
+#include "impossible.h"
 \end{code}
 \begin{code}
 record_description :: String
@@ -89,22 +98,26 @@ record = ArcsCommand {command_name = "record",
 record_cmd :: [ArcsFlag] -> [String] -> IO ()
 record_cmd opts args = do
     check_name_is_not_option opts
-    let putInfo = if Quiet `elem` opts then const (return ()) else putStrLn
     files <- sort `fmap` fixSubPaths opts args
-    let make_log = world_readable_temp "darcs-record"
-    handleJust only_successful_exits (\_ -> return ()) $
-        do (name, my_log, _) <- get_log opts Nothing make_log
-           commit (unlines $ name:my_log)
-
-commit :: String -> IO ()
-commit message =
-    do fs <- lsfiles
-       updateindex fs
-       testIndex
-       t <- writetree
-       par <- headhash
-       com <- commitTree t [par] message
-       updateref "refs/heads/master" com
+    handleJust only_successful_exits (\_ -> return ()) $ do
+    fs <- lsfiles
+    updateindex fs
+    new <- writetree >>= slurpTree (fp2fn ".")
+    old <- parseRev "HEAD" >>= catCommitTree >>= slurpTree (fp2fn ".")
+    newtree <-
+        with_selected_changes_to_files "record" opts old (map toFilePath files)
+                                   (unsafeDiff [] old new) $ \ (ch:>_) ->
+        do debugMessage "have finished selecting changes..."
+           case apply_to_slurpy ch old of
+             Just new' -> writeSlurpTree new'
+             Nothing -> impossible
+    test (testByDefault opts) newtree
+    par <- headhash
+    (name, my_log, _) <- get_log opts Nothing
+                         (world_readable_temp "darcs-record")
+    let message = (unlines $ name:my_log)
+    com <- commitTree newtree [par] message
+    updateref "refs/heads/master" com
 
  -- check that what we treat as the patch name is not accidentally a command
  -- line flag
@@ -261,34 +274,6 @@ get_log opts m_old make_log = gl opts
 
 eod :: String
 eod = "***END OF DESCRIPTION***"
-\end{code}
-
-\begin{options}
---ask-deps
-\end{options}
-
-Each patch may depend on any number of previous patches.  If you choose to
-make your patch depend on a previous patch, that patch is required to be
-applied before your patch can be applied to a repository.  This can be used, for
-example, if a piece of code requires a function to be defined, which was
-defined in an earlier patch.
-
-If you want to manually define any dependencies for your patch, you can use
-the \verb!--ask-deps! flag, and darcs will ask you for the patch's
-dependencies.
-
-It is possible to record a patch which has no actual changes but which
-has specific dependencies.  This type of patch can be thought of as a
-``partial tag''.  The \verb!darcs tag! command will record a patch
-with no actual changes but which depends on the entire current
-inventory of the repository.  The \verb!darcs record --ask-deps! with
-no selected changes will record a patch that depends on only those
-patches selected via the \verb!--ask-deps! operation, resulting in a
-patch which describes a set of patches; the presence of this primary
-patch in a repository implies the presence of (at least) the
-depended-upon patches.
-
-\begin{code}
 
 only_successful_exits :: Exception -> Maybe ()
 only_successful_exits (ExitException ExitSuccess) = Just ()
@@ -307,27 +292,6 @@ the record will be aborted.  This is a handy way to avoid making stupid
 mistakes like forgetting to `darcs add' a new file.  It also can be
 tediously slow, so there is an option (\verb!--no-test!) to skip the test.
 
-\begin{options}
---pipe
-\end{options}
-
-If you run record with the \verb!--pipe! option, you will be prompted for
-the patch date, author, and the long comment. The long comment will extend
-until the end of file or stdin is reached (ctrl-D on Unixy systems, ctrl-Z
-on systems running a Microsoft OS).
-
-This interface is intended for scripting darcs, in particular for writing
-repository conversion scripts.  The prompts are intended mostly as a useful
-guide (since scripts won't need them), to help you understand the format in
-which to provide the input. Here's an example of what the \verb!--pipe!
-prompts look like:
-
-\begin{verbatim}
- What is the date? Mon Nov 15 13:38:01 EST 2004
- Who is the author? David Roundy
- What is the log? One or more comment lines
-\end{verbatim}
-
 
 \begin{options}
 --interactive
@@ -336,32 +300,4 @@ prompts look like:
 By default, \verb!record! works interactively. Probably the only thing you need
 to know about using this is that you can press \verb!?! at the prompt to be
 shown a list of the rest of the options and what they do. The rest should be
-clear from there. Here's a
-``screenshot'' to demonstrate:
-
-\begin{verbatim}
-hunk ./hello.pl +2
-+#!/usr/bin/perl
-+print "Hello World!\n";
-Shall I record this patch? (2/2) [ynWsfqadjk], or ? for help: ?
-How to use record...
-y: record this patch
-n: don't record it
-w: wait and decide later, defaulting to no
-
-s: don't record the rest of the changes to this file
-f: record the rest of the changes to this file
-
-d: record selected patches
-a: record all the remaining patches
-q: cancel record
-
-j: skip to next patch
-k: back up to previous patch
-h or ?: show this help
-
-<Space>: accept the current default (which is capitalized)
-
-\end{verbatim}
-What you can't see in that ``screenshot'' is that \verb!darcs! will also try to use
-color in your terminal to make the output even easier to read.
+clear from there.

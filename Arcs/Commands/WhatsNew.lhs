@@ -28,9 +28,18 @@ module Arcs.Commands.WhatsNew ( whatsnew ) where
 import Arcs.Command ( ArcsCommand(..), nodefaults )
 import Arcs.Arguments ( ArcsFlag(Summary), working_repo_dir, summary )
 
+import Arcs.Diff ( unsafeDiff )
+import Arcs.Patch ( showContextPatch, summarize )
+import Arcs.Printer ( putDocLnWith )
+import Arcs.ColorPrinter ( fancyPrinters )
+import Arcs.FileName ( fp2fn )
+
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( lsfiles, diffFiles,
-                      DiffOption(Stat, DiffAll, DiffPatch) )
+import Git.Plumbing ( lsfiles, catCommitTree, parseRev,
+                      writetree, updateindex,
+                      --diffFiles, DiffOption(Stat, DiffAll, DiffPatch)
+                    )
+import Git.Helpers ( slurpTree )
 \end{code}
 
 \options{whatsnew}
@@ -71,9 +80,21 @@ whatsnew = ArcsCommand {command_name = "whatsnew",
 
 \begin{code}
 whatsnew_cmd :: [ArcsFlag] -> [String] -> IO ()
+whatsnew_cmd opts _ =
+    do fs <- lsfiles
+       updateindex fs
+       t <- writetree
+       new <- slurpTree (fp2fn ".") t
+       old <- parseRev "HEAD" >>= catCommitTree >>= slurpTree (fp2fn ".")
+       if Summary `elem` opts
+          then putDocLnWith fancyPrinters $ summarize $ unsafeDiff [] old new
+          else putDocLnWith fancyPrinters $
+               showContextPatch old $ unsafeDiff [] old new
+{-
 whatsnew_cmd opts fs = diffFiles flags fs >>= putStr
     where flags = (if null fs then [DiffAll] else []) ++
                   (if Summary `elem` opts then [Stat] else [DiffPatch])
+-}
 \end{code}
 
 If you give one or more file or directory names as an argument to

@@ -22,6 +22,7 @@
 -- trees.
 module Arcs.SlurpDirectoryInternal
                       ( Slurpy(..), SlurpyContents(..), ExecutableBit(..),
+                        get_filehash, get_dirhash,
                         slurpies_to_map, map_to_slurpies,
                         FileContents, empty_slurpy, filterSlurpyPaths,
                         slurp, slurp_unboring, co_slurp,
@@ -30,7 +31,7 @@ module Arcs.SlurpDirectoryInternal
                         slurp_removefile, slurp_removedir,
                         slurp_remove,
                         slurp_modfile, slurp_hasfile, slurp_hasdir,
-                        slurp_has_anycase, wait_a_moment,
+                        slurp_has_anycase,
                         slurp_has, list_slurpy, list_slurpy_files,
                         get_path_list,
                         list_slurpy_dirs,
@@ -47,13 +48,11 @@ import Arcs.Utils ( withCurrentDirectory, formatPath )
 import Arcs.RepoPath ( FilePathLike, toFilePath )
 import System.IO.Unsafe ( unsafeInterleaveIO )
 import Data.List ( isPrefixOf )
+import Data.Bits ( (.&.) )
 import Control.Monad ( when, guard )
 import Data.Char ( toLower )
-import System.Posix.Files
-        ( getSymbolicLinkStatus, fileMode, ownerExecuteMode,
-          isRegularFile, isDirectory, isSymbolicLink
-        )
-import System.Posix ( sleep )
+import System.Posix.Files ( getSymbolicLinkStatus, fileMode, ownerExecuteMode,
+                            isRegularFile, isDirectory, isSymbolicLink )
 import Data.Maybe ( catMaybes, isJust, maybeToList )
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -89,6 +88,14 @@ data ExecutableBit = IsExecutable | NotExecutable
 data SlurpyContents = SlurpDir (Maybe (Hash Tree)) (Map FileName SlurpyContents)
                     | SlurpFile !ExecutableBit (Maybe (Hash Blob)) FileContents
 type FileContents = B.ByteString
+
+get_filehash :: Slurpy -> Maybe (Hash Blob)
+get_filehash (Slurpy _ (SlurpFile _ x _)) = x
+get_filehash _ = Nothing
+
+get_dirhash :: Slurpy -> Maybe (Hash Tree)
+get_dirhash (Slurpy _ (SlurpDir x _)) = x
+get_dirhash _ = Nothing
 
 instance Show Slurpy where
     show (Slurpy fn (SlurpDir _ l)) =
@@ -256,9 +263,12 @@ smGetDirContents = mksm $ \s -> Right (s, map slurp_fn $ get_dircontents s)
 smWriteFilePS :: FileName -> B.ByteString -> SlurpMonad ()
 smWriteFilePS f ps = -- this implementation could be made rather more direct
                      -- and limited to a single pass down the Slurpy
-                     modifyFileSlurpy f (\_ -> sl)
+                     modifyFileSlurpy f modf
                      `catchMe` insertSlurpy f sl
     where sl = Slurpy (own_name f) (SlurpFile NotExecutable Nothing ps)
+          modf (Slurpy _ (SlurpFile e _ _)) =
+              Slurpy (own_name f) (SlurpFile e Nothing ps)
+          modf _ = impossible
 
 smCreateDirectory :: FileName -> SlurpMonad ()
 smCreateDirectory a = mksm sm
@@ -313,13 +323,6 @@ get_filecontents _ = bug "Can't get_filecontents on SlurpDir."
 get_dircontents (Slurpy _ (SlurpDir _ c)) = map_to_slurpies c
 get_dircontents _ = bug "Can't get_dircontents on SlurpFile."
 
-wait_a_moment :: IO ()
-wait_a_moment = do { sleep 1; return () }
-    -- HACKERY: In ghc 6.1, sleep has the type signature IO Int; it
-    -- returns an integer just like sleep(3) does. To stay compatible
-    -- with older versions, though, we just ignore sleep's return
-    -- value. Hackery, like I said.
-
 isFileReallySymlink :: FilePath -> IO Bool
 isFileReallySymlink f = do fs <- getSymbolicLinkStatus f
                            return (isSymbolicLink fs)
@@ -363,7 +366,10 @@ genslurp_helper nb formerdir fullpath dirname = do
     fs <- getSymbolicLinkStatus fulldirname
     if isRegularFile fs
      then do ls <- unsafeInterleaveIO $ B.readFile fulldirname
-             return $ Just $ Slurpy (fp2fn dirname) $ SlurpFile NotExecutable Nothing ls
+             let ex = if fileMode fs .&. ownerExecuteMode == 0
+                      then NotExecutable
+                      else IsExecutable
+             return $ Just $ Slurpy (fp2fn dirname) $ SlurpFile ex Nothing ls
      else if isDirectory fs || (isSymbolicLink fs && dirname == ".")
           then do sl <- unsafeInterleaveIO $
                         do fnames <- getDirectoryContents fulldirname
