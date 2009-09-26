@@ -393,9 +393,10 @@ not_hidden _ = True
 (\\\) d subdir = reverse subdir ++ "/" ++ d
 
 (///) :: FilePath -> FilePath -> FilePath
-(///) "" d = d
-(///) d "." = d
-(///) d subdir = d ++ "/" ++ subdir
+"" /// d = d
+"." /// d = d
+d /// "." = d
+d /// subdir = d ++ "/" ++ subdir
 
 co_slurp :: Slurpy -> FilePath -> IO Slurpy
 co_slurp guide dirname = do
