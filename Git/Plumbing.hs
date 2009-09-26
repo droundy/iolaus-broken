@@ -9,7 +9,7 @@ module Git.Plumbing ( Hash, Tree, Commit, Blob, Tag,
                       updateindex,
                       writetree, mkTree, readTree, checkoutIndex,
                       updateref,
-                      diffFiles, DiffOption(..),
+                      diffFiles, diffTrees, DiffOption(..),
                       headhash, commitTree ) where
 
 import System.IO ( Handle, hGetContents, hPutStr, hClose )
@@ -112,6 +112,20 @@ diffFiles opts fs =
        case ec of
          ExitSuccess -> return out
          ExitFailure _ -> fail "git-diff-files failed"
+
+diffTrees :: [DiffOption] -> Hash Tree -> Hash Tree -> [FilePath] -> IO String
+diffTrees opts t1 t2 fs =
+    do let flags = case opts of [] -> ["-p"]
+                                _ -> concatMap toFlags opts
+           allflags = flags++show t1:show t2:"--":fs
+       debugMessage ("calling git-diff-tree "++show allflags)
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-diff-tree" allflags) {std_out = CreatePipe}
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return out
+         ExitFailure _ -> fail "git-diff-tree failed"
 
 headhash :: IO (Hash Commit)
 headhash =

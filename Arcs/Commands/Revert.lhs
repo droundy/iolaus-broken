@@ -17,6 +17,9 @@
 
 \subsection{darcs revert}
 \begin{code}
+{-# LANGUAGE CPP #-}
+#include "gadts.h"
+
 module Arcs.Commands.Revert ( revert ) where
 import System.Exit ( ExitCode(..), exitWith )
 import Control.Monad ( when )
@@ -30,18 +33,19 @@ import Arcs.Arguments ( ArcsFlag( All ),
                         fixSubPaths, areFileArgs )
 import Arcs.Utils ( askUser )
 import Arcs.RepoPath ( toFilePath )
-import Arcs.Patch ( invert, apply )
+import Arcs.Patch ( Prim, invert, apply, apply_to_slurpy )
 import Arcs.Ordered ( FL(..), (:>)(..), lengthFL )
 import Arcs.SelectChanges ( with_selected_last_changes_to_files )
 --import Arcs.Commands.Unrevert ( write_unrevert )
+import Arcs.SlurpDirectory ( Slurpy )
 import Arcs.Diff ( unsafeDiff )
 import Arcs.FileName ( fp2fn )
 import Arcs.Progress ( debugMessage )
 
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( lsfiles, updateindex, writetree,
-                      catCommitTree, parseRev )
-import Git.Helpers ( slurpTree )
+                      catCommitTree, parseRev, diffTrees )
+import Git.Helpers ( slurpTree, writeSlurpTree )
 
 \end{code}
 \begin{code}
@@ -103,8 +107,15 @@ revert_cmd opts args =
                   case yorn of ('y':_) -> return ()
                                _ -> exitWith $ ExitSuccess
                   debugMessage "about to apply inverse patch!"
+                  write_unrevert new ch
                   apply (invert ch)
        with_selected_last_changes_to_files "revert" opts old
            (map toFilePath files) (unsafeDiff [] old new) unrevertchs
+
+write_unrevert :: Slurpy -> FL Prim C(x y) -> IO ()
+write_unrevert s p =
+    do new <- writeSlurpTree s
+       old <- apply_to_slurpy (invert p) s >>= writeSlurpTree
+       diffTrees [] old new [] >>= writeFile ".git/unrevert"
 \end{code}
 
