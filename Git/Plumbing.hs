@@ -4,7 +4,7 @@ module Git.Plumbing ( Hash, Tree, Commit, Blob, Tag,
                       catCommitTree, parseRev,
                       clone,
                       checkoutCopy,
-                      lsfiles, lsothers,
+                      lsfiles, lssomefiles, lsothers,
                       revList, revListHashes, RevListOption(..),
                       updateindex,
                       writetree, mkTree, readTree, checkoutIndex,
@@ -72,6 +72,19 @@ lsfiles =
     do debugMessage "calling git-ls-files"
        (Nothing, Just stdout, Nothing, pid) <-
            createProcess (proc "git-ls-files" []) { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ lines out
+         ExitFailure _ -> fail "git-ls-files failed"
+
+lssomefiles :: [String] -> IO [String]
+lssomefiles [] = return []
+lssomefiles fs =
+    do debugMessage "calling git-ls-files"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-ls-files" ("--":fs))
+                             { std_out = CreatePipe }
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
