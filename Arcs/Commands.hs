@@ -24,6 +24,8 @@ import Arcs.Commands.WhatsNew ( whatsnew )
 import Arcs.Commands.Changes ( changes )
 import Arcs.Commands.Get ( get )
 import Arcs.Commands.Show ( show_command )
+import Arcs.Commands.Revert ( revert )
+--import Arcs.Commands.Unrevert ( unrevert )
 import Arcs.Command ( CommandControl( Command_data, -- Hidden_command,
                                       Group_name) )
 
@@ -38,6 +40,8 @@ command_control_list =
      Command_data changes,
      Command_data unrecord,
      Command_data record,
+     Command_data revert,
+     --Command_data unrevert,
      Command_data show_command,
      Command_data get
     ]

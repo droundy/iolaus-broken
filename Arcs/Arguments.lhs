@@ -39,7 +39,7 @@ module Arcs.Arguments ( ArcsFlag( .. ), flagToString, optionFlags,
                          in_reply_to, get_in_reply_to,
                          target, cc, get_cc, output, output_auto_name,
                          recursive, inventory_choices, get_inventory_choices,
-                         askdeps, ignoretimes, lookforadds,
+                         askdeps, lookforadds,
                          ask_long_comment, sendmail_cmd,
                          sign, verify, edit_description,
                          reponame, creatorhash,
@@ -440,7 +440,7 @@ pipe_interactive, all_pipe_interactive, all_interactive, all_patches, interactiv
   output, output_auto_name, unidiff, repo_combinator,
   unified, summary, uncompress_nocompress, subject, in_reply_to,
   nocompress, match_several_or_range, match_several_or_last,
-  author, askdeps, lookforadds, ignoretimes, help, force_replace,
+  author, askdeps, lookforadds, help, force_replace,
   help_on_match, allow_unrelated_repos,
   match_one, match_range, match_several, fancy_move_add, sendmail_cmd,
   logfile, rmlogfile, from_opt, set_default, pristine_tree
@@ -688,24 +688,7 @@ tag_on_test = ArcsMultipleChoiceOption
 
 testByDefault :: [ArcsFlag] -> [ArcsFlag]
 testByDefault o = if NoTest `elem` o then o else Test:o
-\end{code}
 
-\begin{options}
---ignore-times
-\end{options}
-Arcs optimizes its operations by keeping track of the modification times
-of your files.  This dramatically speeds up commands such as
-\verb!whatsnew! and \verb!record! which would otherwise require reading
-every file in the repository and comparing it with a reference version.  However,
-there are times when this can cause problems, such as when running a series
-of darcs commands from a script, in which case often a file will be
-modified twice in the same second, which can lead to the second
-modification going unnoticed.  The solution to such predicaments is the
-\verb!--ignore-times! option, which instructs darcs not to trust the file
-modification times, but instead to check each file's contents explicitly.
-\begin{code}
-ignoretimes = ArcsNoArgOption [] ["ignore-times"] IgnoreTimes
-              "don't trust the file modification times"
 lookforadds =
     ArcsMultipleChoiceOption
     [ArcsNoArgOption ['l'] ["look-for-adds"] LookForAdds
