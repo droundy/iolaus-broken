@@ -9,7 +9,7 @@ module Git.Plumbing ( Hash, Tree, Commit, Blob, Tag,
                       updateindex,
                       writetree, mkTree, readTree, checkoutIndex,
                       updateref,
-                      diffFiles, diffTrees, DiffOption(..),
+                      diffFiles, diffTrees, DiffOption(..), gitApply,
                       headhash, commitTree ) where
 
 import System.IO ( Handle, hGetContents, hPutStr, hClose )
@@ -332,3 +332,12 @@ mkTree xs =
          ExitSuccess -> return $ mkHash Tree out
          ExitFailure _ -> fail "git-mk-tree failed"
     where putStuff i (f, te) = hPutStr i (show te++'\t':fn2fp f++"\n")
+
+gitApply :: FilePath -> IO ()
+gitApply p =
+    do debugMessage "calling git-apply"
+       (Nothing, Nothing, Nothing, pid) <- createProcess (proc "git-apply" [p])
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-apply failed"
