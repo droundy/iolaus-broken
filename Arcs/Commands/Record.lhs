@@ -25,7 +25,7 @@ import Control.Exception ( handleJust, Exception( ExitException ) )
 import Control.Monad ( when )
 import System.IO ( hGetContents, stdin )
 import Data.List ( sort, isPrefixOf )
-import System.Exit ( exitFailure, ExitCode(..) )
+import System.Exit ( exitWith, exitFailure, ExitCode(..) )
 import System.IO ( hPutStrLn )
 
 import Arcs.Lock ( readBinFile, writeBinFile, world_readable_temp,
@@ -48,7 +48,7 @@ import Arcs.Printer ( ($$), text, hPutDocLn, wrap_text, renderString )
 import Arcs.FileName ( fp2fn )
 import Arcs.Diff ( unsafeDiff )
 import Arcs.SelectChanges ( with_selected_changes_to_files )
-import Arcs.Ordered ( (:>)(..) )
+import Arcs.Ordered ( (:>)(..), FL(NilFL) )
 import Arcs.Progress ( debugMessage )
 
 import Git.LocateRepo ( amInRepository )
@@ -108,6 +108,10 @@ record_cmd opts args = do
         with_selected_changes_to_files "record" opts old (map toFilePath files)
                                    (unsafeDiff [] old new) $ \ (ch:>_) ->
         do debugMessage "have finished selecting changes..."
+           case ch of
+             NilFL -> do putStrLn "No changes selected!"
+                         exitWith ExitSuccess
+             _ -> return ()
            case apply_to_slurpy ch old of
              Just new' -> writeSlurpTree new'
              Nothing -> impossible
