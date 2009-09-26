@@ -7,3 +7,4 @@ main = build [] $
           withDirectory "etc" $ etc "bash_completion.d/arcs"
           withModule "System.Process.Redirects" $ define "HAVE_REDIRECTS"
           executable "arcs" "arcs.hs" []
+          enforceAllPrivacy

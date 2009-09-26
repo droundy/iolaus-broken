@@ -22,7 +22,7 @@
 --
 --  * countable nouns (plurality); and
 --  * lists of clauses (foo, bar and/or baz).
-module Arcs.Patch.English where
+module Arcs.English where
 
 import Data.List (isSuffixOf, intersperse)
 

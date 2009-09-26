@@ -25,7 +25,7 @@ import System.Exit ( ExitCode(..), exitWith )
 import Control.Monad ( when )
 import Data.List ( sort )
 
-import Arcs.Patch.English (englishNum, This(..), Noun(..))
+import Arcs.English (englishNum, This(..), Noun(..))
 import Arcs.Command ( ArcsCommand(..), nodefaults )
 import Arcs.Arguments ( ArcsFlag( All ),
                         working_repo_dir,

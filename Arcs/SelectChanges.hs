@@ -32,7 +32,7 @@ import Data.Char ( toUpper )
 import Control.Monad ( when )
 import System.Exit ( exitWith, ExitCode(ExitSuccess) )
 
-import Arcs.Patch.English ( Noun(..), englishNum  )
+import Arcs.English ( Noun(..), englishNum  )
 import Arcs.Patch ( Patchy, Prim, Effect, summary, invert, list_touched_files )
 import qualified Arcs.Patch ( thing, things )
 import Arcs.Ordered ( FL(..), RL(..), (:>)(..),

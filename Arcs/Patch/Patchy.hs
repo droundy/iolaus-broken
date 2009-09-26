@@ -1,4 +1,4 @@
--- Copyright (C) 2007 David Roundy
+-- Copyright (C) 2007,2009 David Roundy
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ import Arcs.Ordered
 import Arcs.Printer ( Doc, (<>), text )
 import Arcs.Lock ( writeDocBinFile )
 import Arcs.IO ( WriteableDirectory )
-import Arcs.Patch.English ( plural, Noun(Noun) )
+import Arcs.English ( plural, Noun(Noun) )
 
 --import Arcs.ColorPrinter ( traceDoc )
 --import Arcs.Printer ( greenText, ($$) )
