@@ -1,4 +1,4 @@
--- Copyright (C) 2002,2003,2005 David Roundy
+-- Copyright (C) 2002,2003,2005,2009 David Roundy
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -14,6 +14,7 @@
 -- along with this program; see the file COPYING.  If not, write to
 -- the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 -- Boston, MA 02110-1301, USA.
+{-# LANGUAGE CPP, PatternGuards #-}
 
 module Arcs.RunCommand ( run_the_command ) where
 
@@ -52,8 +53,43 @@ import Arcs.Progress ( setProgressMode, debugMessage )
 import Arcs.RepoPath ( getCurrentDirectory )
 import Arcs.Hooks ( run_posthook, run_prehook )
 import Arcs.Utils ( formatPath )
+#include "impossible.h"
 
 run_the_command :: String -> [String] -> IO ()
+run_the_command cmd args@(h:_)
+    | "--list-option":_ <- reverse args =
+     do setProgressMode False
+        cwd <- getCurrentDirectory
+        case disambiguate_commands command_control_list cmd args of
+          Left _ ->
+              case disambiguate_commands command_control_list cmd [h] of
+                Left _ -> putStr $ unlines ["hello world","problem with fooo"]
+                Right (CommandOnly c, _) ->
+                    do let (opts1, opts2) = command_options cwd c
+                       file_args <- command_get_arg_possibilities c
+                       putStrLn $ get_options_options (opts1++opts2)
+                                    ++ unlines file_args
+                Right (SuperCommandOnly c, _) ->
+                    do putStrLn "--help"
+                       mapM_ (putStrLn . command_name)
+                                 (extract_commands $ get_subcommands c)
+                Right (SuperCommandSub _ _, _) -> impossible
+          Right (CommandOnly c, _) ->
+              do let (opts1, opts2) = command_options cwd c
+                 file_args <- command_get_arg_possibilities c
+                 putStrLn $ get_options_options (opts1++opts2)
+                              ++ unlines file_args
+          Right (SuperCommandOnly c, _) ->
+              do putStrLn "--help"
+                 mapM_ (putStrLn . command_name)
+                       (extract_commands $ get_subcommands c)
+          Right (SuperCommandSub _ s, _)
+              | [command_name s] /= take 1 args -> putStrLn $ command_name s
+          Right (SuperCommandSub _ s, _) ->
+              do let (opts1, opts2) = command_options cwd s
+                 file_args <- command_get_arg_possibilities s
+                 putStrLn $ get_options_options (opts1++opts2)
+                              ++ unlines file_args
 run_the_command cmd args =
   either fail rtc $ disambiguate_commands command_control_list cmd args
  where
