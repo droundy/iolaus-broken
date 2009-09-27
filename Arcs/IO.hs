@@ -110,14 +110,7 @@ instance WriteableDirectory IO where
                           then fail $ "Cannot remove non-empty file "++fp
                           else removeFile fp
     mRemoveDirectory = removeDirectory . fn2fp
-    mRename a b = catchJust ioErrors
-                  (renameDirectory x y `catchMe` renameFile x y)
-                  -- We need to catch does not exist errors, since older
-                  -- versions of darcs allowed users to rename nonexistent
-                  -- files.  :(
-                  (\e -> if isDoesNotExistError e
-                                 then return ()
-                                 else ioError e)
+    mRename a b = renameDirectory x y `catchMe` renameFile x y
       where x = fn2fp a
             y = fn2fp b
 
