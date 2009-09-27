@@ -222,7 +222,7 @@ instance Show (Prim C(x y))  where
 -}
 
 formatFileName :: FileName -> Doc
-formatFileName = text . encode_white . toFilePath
+formatFileName = text . drop 2 . encode_white . toFilePath
 
 showPrim :: Prim C(a b) -> Doc
 showPrim (FP f AddFile) = showAddFile f
