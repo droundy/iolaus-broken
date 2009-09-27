@@ -26,11 +26,11 @@ module Arcs.Patch.Prim
        ( Prim(..), showPrim,
          DirPatchType(..), FilePatchType(..),
          CommuteFunction, Perhaps(..),
-         null_patch, nullP, is_null_patch,
+         nullP, is_null_patch,
          is_identity,
          formatFileName,
          adddir, addfile,
-         hunk, move, rmdir, rmfile,
+         hunk, move, rmdir, rmfile, chmod,
          is_addfile, is_hunk,
          is_similar, is_adddir, is_filepatch,
          canonize, try_to_shrink,
@@ -62,6 +62,7 @@ import Arcs.Patch.Lcs2 ( patientChanges )
 import Arcs.Printer ( Doc, vcat, Color(Cyan,Magenta), lineColor,
                       text, blueText,
                       ($$), (<+>), prefix, userchunkPS )
+import Arcs.IO ( ExecutableBit(IsExecutable, NotExecutable) )
 #include "impossible.h"
 
 #ifndef LAZY
@@ -72,6 +73,7 @@ data Prim C(x y) where
     Identity :: Prim C(x x)
 
 data FilePatchType C(x y) = RmFile | AddFile
+                          | Chmod ExecutableBit
                           | Hunk !Int [B.ByteString] [B.ByteString]
                             deriving (Eq,Ord)
 
@@ -84,7 +86,7 @@ data Prim C(x y) where
     FP :: FileName -> (FilePatchType C(x y)) -> Prim C(x y)
     Identity :: Prim C(x x)
 
-data FilePatchType C(x y) = RmFile | AddFile
+data FilePatchType C(x y) = RmFile | AddFile | Chmod IsExecutable
                           | Hunk Int [B.ByteString] [B.ByteString]
                             deriving (Eq,Ord)
 
@@ -97,9 +99,6 @@ instance MyEq FilePatchType where
 
 instance MyEq DirPatchType where
     unsafeCompare a b = a == unsafeCoerceP b
-
-null_patch :: Prim C(x x)
-null_patch = Identity
 
 is_null_patch :: Prim C(x y) -> Bool
 is_null_patch (FP _ (Hunk _ [] [])) = True
@@ -155,6 +154,9 @@ adddir d = DP (n_fn d) AddDir
 rmdir d = DP (n_fn d) RmDir
 move f f' = Move (n_fn f) (n_fn f')
 hunk f line old new = evalargs FP (n_fn f) (Hunk line old new)
+
+chmod :: FilePath -> ExecutableBit -> Prim C(x y)
+chmod f x = FP (n_fn f) (Chmod x)
 \end{code}
 
 \begin{code}
@@ -165,6 +167,8 @@ instance Invert Prim where
     invert Identity = Identity
     invert (FP f RmFile)  = FP f AddFile
     invert (FP f AddFile)  = FP f RmFile
+    invert (FP f (Chmod IsExecutable)) = FP f (Chmod NotExecutable)
+    invert (FP f (Chmod NotExecutable)) = FP f (Chmod IsExecutable)
     invert (FP f (Hunk line old new))  = FP f $ Hunk line new old
     invert (DP d RmDir) = DP d AddDir
     invert (DP d AddDir) = DP d RmDir
@@ -194,6 +198,8 @@ instance Show2 Prim where
 instance Show (FilePatchType C(x y)) where
     showsPrec _ RmFile = showString "RmFile"
     showsPrec _ AddFile = showString "AddFile"
+    showsPrec _ (Chmod IsExecutable) = showString "Chmod IsExecutable"
+    showsPrec _ (Chmod NotExecutable) = showString "Chmod NotExecutable"
     showsPrec d (Hunk line old new) | all ((==1) . B.length) old && all ((==1) . B.length) new
         = showParen (d > app_prec) $ showString "Hunk " .
                                       showsPrec (app_prec + 1) line . showString " " .
@@ -221,6 +227,7 @@ formatFileName = text . encode_white . toFilePath
 showPrim :: Prim C(a b) -> Doc
 showPrim (FP f AddFile) = showAddFile f
 showPrim (FP f RmFile)  = showRmFile f
+showPrim (FP f (Chmod x)) = showChmod f x
 showPrim (FP f (Hunk line old new))  = showHunk f line old new
 showPrim (DP d AddDir) = showAddDir d
 showPrim (DP d RmDir)  = showRmDir d
@@ -237,6 +244,16 @@ Add an empty file to the tree.
 \begin{code}
 showAddFile :: FileName -> Doc
 showAddFile f = blueText "addfile" <+> formatFileName f
+\end{code}
+
+
+\paragraph{Set executable bit}
+
+\verb!chmod +/-x filename!
+\begin{code}
+showChmod :: FileName -> ExecutableBit -> Doc
+showChmod f IsExecutable = blueText "chmod +x" <+> formatFileName f
+showChmod f NotExecutable = blueText "chmod -x" <+> formatFileName f
 \end{code}
 
 \paragraph{Remove file}
@@ -614,7 +631,7 @@ contents each time it is commuted.
 --   file A to file C.
 join :: (Prim :> Prim) C(x y) -> Maybe (Prim C(x y))
 join (FP f2 _ :> FP f1 _) | f1 /= f2 = Nothing
-join (p1 :> p2) | IsEq <- p2 =\/= invert p1 = Just null_patch
+join (p1 :> p2) | IsEq <- p2 =\/= invert p1 = Just Identity
 join (FP _ p2 :> FP f1 p1) = coalesceFilePrim f1 (p2 :> p1) -- f1 = f2
 join (Identity :> p) = Just p
 join (p :> Identity) = Just p
@@ -641,6 +658,9 @@ commute_filepatches _ = Unknown
 
 commuteFP :: FileName -> (FilePatchType :> FilePatchType) C(x y)
           -> Perhaps ((Prim :> Prim) C(x y))
+commuteFP _ (Chmod _ :> Chmod _) = Failed
+commuteFP f (Chmod e :> x) = Succeeded (FP f x :> FP f (Chmod e))
+commuteFP f (x :> Chmod e) = Succeeded (FP f (Chmod e) :> FP f x)
 commuteFP f (p2 :> Hunk line1 [] []) =
     seq f $ Succeeded (FP f (Hunk line1 [] []) :> FP f (unsafeCoerceP p2))
 commuteFP f (Hunk line1 [] [] :> p2) =

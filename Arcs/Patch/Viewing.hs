@@ -115,6 +115,7 @@ gen_summary p
     where themods = map summ $ combine $ sort $ concat $ mapFL s p
           s :: Prim C(x y) -> [(FileName, Int, Int, Int, Bool)]
           s (FP f (Hunk _ o n)) = [(f, length o, length n, 0, False)]
+          s (FP f (Chmod _)) = [(f, 0, 0, 0, False)]
           s (FP f AddFile) = [(f, -1, 0, 0, False)]
           s (FP f RmFile) = [(f, 0, -1, 0, False)]
           s (DP d AddDir) = [(d, -1, 0, 0, True)]

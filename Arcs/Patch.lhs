@@ -19,7 +19,7 @@
 {-# OPTIONS_GHC -cpp -fno-warn-orphans #-}
 #include "gadts.h"
 module Arcs.Patch ( Prim, Named, Patchy, apply,
-                    rmfile, addfile, rmdir, adddir, move,
+                    rmfile, addfile, chmod, rmdir, adddir, move,
                     hunk, description,
                     showContextPatch, showPatch, showNicely,
                     infopatch, thing, things,
@@ -55,7 +55,7 @@ import Arcs.Patch.Apply ( apply_to_slurpy )
 import Arcs.Patch.Prim ( Effect(effect),
                          Prim, canonize,
                          sort_coalesceFL,
-                         rmdir, rmfile, adddir, addfile,
+                         rmdir, rmfile, adddir, addfile, chmod,
                          hunk, move, 
                          is_adddir, is_addfile,
                          is_hunk, is_similar,

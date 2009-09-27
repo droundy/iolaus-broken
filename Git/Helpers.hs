@@ -15,9 +15,9 @@ import Git.Plumbing ( Hash, Tree, TreeEntry(..),
 import Arcs.Progress ( debugMessage )
 import Arcs.Flags ( ArcsFlag(Test) )
 import Arcs.FileName ( FileName, fp2fn )
-import Arcs.SlurpDirectoryInternal
-    ( Slurpy(..), SlurpyContents(..), ExecutableBit(..),
-      slurpies_to_map, map_to_slurpies )
+import Arcs.IO ( ExecutableBit(..) )
+import Arcs.SlurpDirectoryInternal ( Slurpy(..), SlurpyContents(..),
+                                     slurpies_to_map, map_to_slurpies )
 import Arcs.Lock ( removeFileMayNotExist )
 
 test :: [ArcsFlag] -> Hash Tree -> IO ()

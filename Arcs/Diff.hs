@@ -30,17 +30,17 @@ import qualified Data.ByteString as B (empty, ByteString)
 #endif
 
 import Arcs.SlurpDirectory ( Slurpy, slurp_name, is_dir, is_file,
-                             get_filehash, get_dirhash,
+                             get_filehash, get_dirhash, get_fileEbit,
                              get_dircontents, get_filecontents,
 #ifndef GADT_WITNESSES
                              FileContents
 #endif
                            )
+import Arcs.IO ( ExecutableBit(..) )
 import Arcs.Patch ( Prim
 #ifndef GADT_WITNESSES
                    , hunk, canonize, rmfile, rmdir
-                   , addfile, adddir
-                   , invert
+                   , addfile, adddir, chmod, invert
 #endif
                    )
 import Arcs.Flags ( ArcsFlag(..) )
@@ -56,12 +56,10 @@ import Arcs.Ordered ( FL(..)
 #ifndef GADT_WITNESSES
 diff :: Bool -> Slurpy -> Slurpy -> FL Prim
 diff summary s1 s2 = gendiff summary [] s1 s2 NilFL
+
 #endif
 
 -- The diff function takes a recursive diff of two slurped-up directory trees.
--- The code involved is actually pretty trivial.  \verb!paranoid_diff! runs a
--- diff in which we don't make the assumption that files with the same
--- modification time are identical.
 
 unsafeDiff :: [ArcsFlag]
            -> Slurpy -> Slurpy -> FL Prim C(x y)
@@ -115,12 +113,18 @@ recur_diff _ _ _ _ = impossible
 diff_regular_files :: FilePath -> Slurpy -> Slurpy -> (FL Prim -> FL Prim)
 diff_regular_files f s1 s2 = 
     if maybe_differ   
-        then diff_files f b1 b2                    
-        else id
+        then chm . diff_files f b1 b2
+        else chm . id
   where maybe_differ = get_filehash s1 /= get_filehash s2
                      || get_filehash s1 == Nothing
         b1 = get_filecontents s1
         b2 = get_filecontents s2
+        chm = case (get_fileEbit s1, get_fileEbit s2) of
+              (Just IsExecutable, Just NotExecutable) ->
+                  (chmod f NotExecutable :>:)
+              (Just NotExecutable, Just IsExecutable) ->
+                  (chmod f IsExecutable :>:)
+              _ -> id
 
 -- creates a diff for a file or directory which needs to be added to the
 -- repository

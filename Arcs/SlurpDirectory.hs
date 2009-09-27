@@ -17,7 +17,7 @@
 
 module Arcs.SlurpDirectory
  (Slurpy, empty_slurpy, slurp, filterSlurpyPaths,
-  get_filehash, get_dirhash,
+  get_filehash, get_dirhash, get_fileEbit,
   co_slurp, slurp_unboring,
   FileContents,
   doesFileReallyExist, doesDirectoryReallyExist, isFileReallySymlink,
@@ -34,7 +34,7 @@ module Arcs.SlurpDirectory
 
 import Arcs.SlurpDirectoryInternal
  (Slurpy, empty_slurpy, slurp,
-  get_filehash, get_dirhash,
+  get_filehash, get_dirhash, get_fileEbit,
   co_slurp, slurp_unboring, FileContents,
   doesFileReallyExist, doesDirectoryReallyExist, isFileReallySymlink,
   is_dir, is_file,

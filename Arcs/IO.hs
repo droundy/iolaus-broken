@@ -17,7 +17,7 @@
 
 {-# OPTIONS_GHC -fglasgow-exts #-}
 module Arcs.IO ( ReadableDirectory(..), WriteableDirectory(..), MonadCatchy(..),
-                  TolerantIO, runTolerantly, runSilently,
+                 ExecutableBit(..), TolerantIO, runTolerantly, runSilently,
                 ) where
 
 import Prelude hiding ( catch )
@@ -40,6 +40,9 @@ import Arcs.FileName ( FileName, fn2fp, fp2fn )
 import Arcs.Lock ( writeBinFile, readBinFile, writeAtomicFilePS )
 import Arcs.Workaround ( setExecutable )
 
+data ExecutableBit = IsExecutable | NotExecutable
+                   deriving ( Eq, Ord )
+
 class Monad m => MonadCatchy m where
     catchMe :: m a -> m a -> m a
 instance MonadCatchy IO where
@@ -58,7 +61,7 @@ class (Functor m, MonadCatchy m) => ReadableDirectory m where
 
 class ReadableDirectory m => WriteableDirectory m where
     mWithCurrentDirectory :: FileName -> m a -> m a
-    mSetFileExecutable :: FileName -> Bool -> m ()
+    mSetFileExecutable :: FileName -> ExecutableBit -> m ()
     mWriteBinFile :: FileName -> String -> m ()
     mWriteBinFile fn s = mWriteFilePS fn $ BC.pack s
     mWriteFilePS :: FileName -> B.ByteString -> m ()
@@ -91,7 +94,8 @@ instance ReadableDirectory IO where
 
 instance WriteableDirectory IO where
     mWithCurrentDirectory = mInCurrentDirectory
-    mSetFileExecutable = setExecutable . fn2fp
+    mSetFileExecutable f IsExecutable = setExecutable (fn2fp f) True
+    mSetFileExecutable f NotExecutable = setExecutable (fn2fp f) False
     mWriteBinFile = writeBinFile . fn2fp
     mWriteFilePS = writeAtomicFilePS . fn2fp
     mCreateDirectory = createDirectory . fn2fp

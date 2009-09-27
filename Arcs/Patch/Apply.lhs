@@ -26,13 +26,12 @@ module Arcs.Patch.Apply ( apply_to_slurpy, applyFL ) where
 
 import Prelude hiding ( catch, pi )
 
-import qualified Data.ByteString.Char8 as BC ( pack, singleton )
+import qualified Data.ByteString.Char8 as BC ( singleton )
+import qualified Data.ByteString as B ( ByteString, null, empty, concat )
 
-import qualified Data.ByteString as B (ByteString, null, empty, concat, isPrefixOf)
 import Arcs.ByteStringUtils ( unlinesPS,
                               break_after_nth_newline,
                               break_before_nth_newline )
-
 import Arcs.FileName ( fn2fp )
 import Data.List ( intersperse )
 import Arcs.Patch.Patchy ( Apply, apply )
@@ -110,6 +109,7 @@ instance Apply Prim where
     apply Identity = return ()
     apply (FP f RmFile) = mRemoveFile f
     apply (FP f AddFile) = mCreateFile f
+    apply (FP f (Chmod x)) = mSetFileExecutable f x
     apply p@(FP _ (Hunk _ _ _)) = applyFL (p :>: NilFL)
     apply (DP d AddDir) = mCreateDirectory d
     apply (DP d RmDir) = mRemoveDirectory d
@@ -122,9 +122,6 @@ applyFL ((FP f h@(Hunk _ _ _)):>:the_ps)
        (xs :> ps') ->
            do let foo = h :>: mapFL_FL (\(FP _ h') -> h') xs
               mModifyFilePS f $ hunkmod foo
-              case h of
-                (Hunk 1 _ (n:_)) | BC.pack "#!" `B.isPrefixOf` n -> mSetFileExecutable f True
-                _ -> return ()
               applyFL ps'
     where f_hunk (FP f' (Hunk _ _ _)) | f == f' = True
           f_hunk _ = False

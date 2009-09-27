@@ -21,8 +21,8 @@
 -- | SlurpDirectory is intended to give a nice lazy way of traversing directory
 -- trees.
 module Arcs.SlurpDirectoryInternal
-                      ( Slurpy(..), SlurpyContents(..), ExecutableBit(..),
-                        get_filehash, get_dirhash,
+                      ( Slurpy(..), SlurpyContents(..),
+                        get_filehash, get_dirhash, get_fileEbit,
                         slurpies_to_map, map_to_slurpies,
                         FileContents, empty_slurpy, filterSlurpyPaths,
                         slurp, slurp_unboring, co_slurp,
@@ -58,7 +58,8 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 
 import Arcs.SignalHandler ( tryNonSignal )
-import Arcs.IO ( ReadableDirectory(..), WriteableDirectory(..), MonadCatchy(..) )
+import Arcs.IO ( ReadableDirectory(..), WriteableDirectory(..),
+                 MonadCatchy(..), ExecutableBit(..) )
 
 import Arcs.ByteStringUtils
 import qualified Data.ByteString as B
@@ -84,7 +85,6 @@ slurpies_to_map = Map.fromList . map slurpy_to_pair
 map_to_slurpies :: Map FileName SlurpyContents -> [Slurpy]
 map_to_slurpies = map pair_to_slurpy . Map.toList
 
-data ExecutableBit = IsExecutable | NotExecutable
 data SlurpyContents = SlurpDir (Maybe (Hash Tree)) (Map FileName SlurpyContents)
                     | SlurpFile !ExecutableBit (Maybe (Hash Blob)) FileContents
 type FileContents = B.ByteString
@@ -96,6 +96,10 @@ get_filehash _ = Nothing
 get_dirhash :: Slurpy -> Maybe (Hash Tree)
 get_dirhash (Slurpy _ (SlurpDir x _)) = x
 get_dirhash _ = Nothing
+
+get_fileEbit :: Slurpy -> Maybe ExecutableBit
+get_fileEbit (Slurpy _ (SlurpFile e _ _)) = Just e
+get_fileEbit _ = Nothing
 
 instance Show Slurpy where
     show (Slurpy fn (SlurpDir _ l)) =
@@ -163,7 +167,7 @@ instance ReadableDirectory SlurpMonad where
 
 instance WriteableDirectory SlurpMonad where
     mWithCurrentDirectory = modifySubSlurpy
-    mSetFileExecutable _ _ = return ()
+    mSetFileExecutable = smSetFileExecutable
     mWriteFilePS = smWriteFilePS
     mCreateDirectory = smCreateDirectory
     mRename = smRename
@@ -268,6 +272,11 @@ smWriteFilePS f ps = -- this implementation could be made rather more direct
     where sl = Slurpy (own_name f) (SlurpFile NotExecutable Nothing ps)
           modf (Slurpy _ (SlurpFile e _ _)) =
               Slurpy (own_name f) (SlurpFile e Nothing ps)
+          modf _ = impossible
+
+smSetFileExecutable :: FileName -> ExecutableBit -> SlurpMonad ()
+smSetFileExecutable f e = modifyFileSlurpy f modf
+    where modf (Slurpy ff (SlurpFile _ x y)) = Slurpy ff (SlurpFile e x y)
           modf _ = impossible
 
 smCreateDirectory :: FileName -> SlurpMonad ()
