@@ -39,7 +39,6 @@ module Arcs.Arguments ( ArcsFlag( .. ), flagToString, optionFlags,
                          in_reply_to, get_in_reply_to,
                          target, cc, get_cc, output, output_auto_name,
                          recursive, inventory_choices, get_inventory_choices,
-                         askdeps, lookforadds,
                          ask_long_comment, sendmail_cmd,
                          sign, verify, edit_description,
                          reponame, creatorhash,
@@ -61,7 +60,7 @@ module Arcs.Arguments ( ArcsFlag( .. ), flagToString, optionFlags,
                          match_several_or_range,
                          match_several_or_last,
                          set_default,
-                         fancy_move_add, pristine_tree,
+                         pristine_tree,
                          sibling, flagsToSiblings, relink, nolinks,
                          files, directories, pending,
                          posthook_cmd, get_posthook_cmd,
@@ -440,9 +439,9 @@ pipe_interactive, all_pipe_interactive, all_interactive, all_patches, interactiv
   output, output_auto_name, unidiff, repo_combinator,
   unified, summary, uncompress_nocompress, subject, in_reply_to,
   nocompress, match_several_or_range, match_several_or_last,
-  author, askdeps, lookforadds, help, force_replace,
+  author, help, force_replace,
   help_on_match, allow_unrelated_repos,
-  match_one, match_range, match_several, fancy_move_add, sendmail_cmd,
+  match_one, match_range, match_several, sendmail_cmd,
   logfile, rmlogfile, from_opt, set_default, pristine_tree
 
       :: ArcsOption
@@ -689,36 +688,12 @@ tag_on_test = ArcsMultipleChoiceOption
 testByDefault :: [ArcsFlag] -> [ArcsFlag]
 testByDefault o = if NoTest `elem` o then o else Test:o
 
-lookforadds =
-    ArcsMultipleChoiceOption
-    [ArcsNoArgOption ['l'] ["look-for-adds"] LookForAdds
-     "look for (non-boring) files that could be added",
-     ArcsNoArgOption [] ["dont-look-for-adds"] NoLookForAdds
-     "don't look for any files that could be added [DEFAULT]"]
-
-fancy_move_add =
-    ArcsMultipleChoiceOption
-    [ArcsNoArgOption [] ["date-trick"] FancyMoveAdd
-     "add files with date appended to avoid conflict [EXPERIMENTAL] ",
-     ArcsNoArgOption [] ["no-date-trick"] NoFancyMoveAdd
-     "don't use experimental date appending trick [DEFAULT]"]
-
 pristine_tree =
     ArcsMultipleChoiceOption
     [ArcsNoArgOption [] ["plain-pristine-tree"] PristinePlain
      "use a plain pristine tree [DEFAULT]",
      ArcsNoArgOption [] ["no-pristine-tree"] PristineNone
      "use no pristine tree"]
-
-\end{code}
-
-\begin{code}
-askdeps =
-    ArcsMultipleChoiceOption
-    [ArcsNoArgOption [] ["ask-deps"] AskDeps
-     "ask for extra dependencies",
-     ArcsNoArgOption [] ["no-ask-deps"] NoAskDeps
-     "don't ask for extra dependencies"]
 
 ask_long_comment =
     ArcsMultipleChoiceOption

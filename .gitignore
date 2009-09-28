@@ -9,3 +9,4 @@ config.d
 *.depend
 arcs
 *.log
+.package.conf

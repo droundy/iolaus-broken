@@ -24,7 +24,6 @@ import Git.LocateRepo ( amInRepository )
 
 import Arcs.Command
 import Arcs.Arguments (noskip_boring, allow_problematic_filenames,
-                       fancy_move_add,
                        recursive, working_repo_dir,
                        ArcsFlag, fixSubPaths,
                       )
@@ -64,7 +63,6 @@ add = ArcsCommand {command_name = "add",
                     command_basic_options =
                     [noskip_boring, allow_problematic_filenames,
                      recursive "add contents of subdirectories",
-                     fancy_move_add,
                      working_repo_dir]}
 \end{code}
 

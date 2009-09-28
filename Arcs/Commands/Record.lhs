@@ -35,7 +35,7 @@ import Arcs.Arguments ( ArcsFlag( PromptLongComment, NoEditLongComment,
                                   Quiet, EditLongComment, RmLogFile,
                                   LogFile, Pipe,
                                   PatchName, All ),
-                        working_repo_dir, lookforadds,
+                        working_repo_dir,
                         fixSubPaths, testByDefault,
                         ask_long_comment,
                         all_pipe_interactive, notest,
@@ -92,7 +92,6 @@ record = ArcsCommand {command_name = "record",
                                                notest++[
                                                all_pipe_interactive,
                                                ask_long_comment,
-                                               lookforadds,
                                                working_repo_dir]}
 
 record_cmd :: [ArcsFlag] -> [String] -> IO ()
@@ -100,8 +99,7 @@ record_cmd opts args = do
     check_name_is_not_option opts
     files <- sort `fmap` fixSubPaths opts args
     handleJust only_successful_exits (\_ -> return ()) $ do
-    fs <- lsfiles
-    updateindex fs
+    lsfiles >>= updateindex
     new <- writetree >>= slurpTree (fp2fn ".")
     old <- parseRev "HEAD" >>= catCommitTree >>= slurpTree (fp2fn ".")
     newtree <-

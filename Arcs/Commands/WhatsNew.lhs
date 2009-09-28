@@ -81,8 +81,7 @@ whatsnew = ArcsCommand {command_name = "whatsnew",
 \begin{code}
 whatsnew_cmd :: [ArcsFlag] -> [String] -> IO ()
 whatsnew_cmd opts _ =
-    do fs <- lsfiles
-       updateindex fs
+    do lsfiles >>= updateindex
        t <- writetree
        new <- slurpTree (fp2fn ".") t
        old <- parseRev "HEAD" >>= catCommitTree >>= slurpTree (fp2fn ".")

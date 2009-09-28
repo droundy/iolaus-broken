@@ -71,7 +71,9 @@ lsfiles :: IO [String]
 lsfiles =
     do debugMessage "calling git-ls-files"
        (Nothing, Just stdout, Nothing, pid) <-
-           createProcess (proc "git-ls-files" []) { std_out = CreatePipe }
+           createProcess (proc "git-ls-files" ["--exclude-standard",
+                                               "--others","--cached"])
+                             { std_out = CreatePipe }
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
