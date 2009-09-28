@@ -120,6 +120,7 @@ record_cmd opts args = do
     let message = (unlines $ name:my_log)
     com <- commitTree newtree [par] message
     updateref "refs/heads/master" com
+    putStrLn ("Finished recording patch '"++ name ++"'")
 
  -- check that what we treat as the patch name is not accidentally a command
  -- line flag
