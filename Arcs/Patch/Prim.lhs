@@ -58,7 +58,7 @@ import Arcs.Ordered ( EqCheck(..), MyEq(..),
 import Arcs.Patch.Patchy ( Invert(..), Commute(..) )
 import Arcs.Patch.Permutations () -- for Invert instance of FL
 import Arcs.Show
-import Arcs.Patch.Lcs2 ( patientChanges )
+import Arcs.Lcs2 ( patientChanges )
 import Arcs.Printer ( Doc, vcat, Color(Cyan,Magenta), lineColor,
                       text, blueText,
                       ($$), (<+>), prefix, userchunkPS )

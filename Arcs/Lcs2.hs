@@ -17,7 +17,8 @@
 --  along with this program; if not, write to the Free Software Foundation,
 --  Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-module Arcs.Patch.Lcs2 ( getChanges, patientChanges, smartChanges ) where
+module Arcs.Lcs2 ( getChanges, patientChanges, smartChanges,
+                         patientLcs ) where
 
 import Data.List ( sort )
 import Data.Array.ST

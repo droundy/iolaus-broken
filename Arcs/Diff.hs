@@ -22,6 +22,8 @@
 
 module Arcs.Diff ( unsafeDiff ) where
 
+import Data.List ( partition, sort )
+import Arcs.Lcs2 ( patientLcs )
 #ifndef GADT_WITNESSES
 import Data.List ( intersperse )
 import Arcs.ByteStringUtils ( linesPS)
@@ -37,7 +39,7 @@ import Arcs.SlurpDirectory ( Slurpy, slurp_name, is_dir, is_file,
 #endif
                            )
 import Arcs.IO ( ExecutableBit(..) )
-import Arcs.Patch ( Prim
+import Arcs.Patch ( Prim, apply_to_slurpy, move
 #ifndef GADT_WITNESSES
                    , hunk, canonize, rmfile, rmdir
                    , addfile, adddir, chmod, invert
@@ -53,28 +55,51 @@ import Arcs.Ordered ( FL(..)
 #include "impossible.h"
 #endif
 
-#ifndef GADT_WITNESSES
-diff :: Bool -> Slurpy -> Slurpy -> FL Prim
-diff summary s1 s2 = gendiff summary [] s1 s2 NilFL
-
-#endif
-
--- The diff function takes a recursive diff of two slurped-up directory trees.
+-- | take a recursive diff of two slurped-up directory trees.
 
 unsafeDiff :: [ArcsFlag]
            -> Slurpy -> Slurpy -> FL Prim C(x y)
 #ifdef GADT_WITNESSES
 unsafeDiff = undefined
 #else
-unsafeDiff opts s1 s2 = diff summary s1 s2
-  where -- NoSummary/Summary both present gives False
-        -- Just Summary gives True
-        -- Just NoSummary gives False
-        -- Neither gives False
-        summary = Summary `elem` opts && NoSummary `notElem` opts
+unsafeDiff opts s1 s2 = find_mvs xs0
+  where summary = Summary `elem` opts && NoSummary `notElem` opts
+        (xs0,ys) = addedremoved s1 s2
+        find_mvs (x:xs) =
+            case filter (similar (snd x) . snd) ys of
+              y:_ -> case apply_to_slurpy p s1 of
+                     Just s1' -> p :>: unsafeDiff opts s1' s2
+                     Nothing ->
+                         case apply_to_slurpy (invert p) s2 of
+                         Just s2' -> unsafeDiff opts s1 s2' +>+ p :>: NilFL
+                         Nothing -> find_mvs xs -- yikes
+                  where p = move (fst x) (fst y)
+              [] -> find_mvs xs
+        find_mvs [] = gendiff summary [] s1 s2 NilFL
 
 mk_filepath :: [FilePath] -> FilePath
 mk_filepath fps = concat $ intersperse "/" $ reverse fps
+
+addedremoved :: Slurpy -> Slurpy -> ([(FilePath,Slurpy)],[(FilePath,Slurpy)])
+addedremoved o n
+    | get_dirhash o == get_dirhash n && get_dirhash o /= Nothing = ([],[])
+    | is_file o && is_file n = ([],[])
+    | is_dir o && is_dir n = addrm (get_dircontents o) (get_dircontents n)
+    | otherwise = ([],[])
+    where addrm [] xs = ([], map (\x -> (slurp_name x,x)) xs)
+          addrm xs [] = (map (\x -> (slurp_name x,x)) xs, [])
+          addrm (s:xs) ys =
+              case partition ((==slurp_name s).slurp_name) ys of
+                ([],_) -> case addrm xs ys of
+                            (a,b) -> ((slurp_name s,s):a, b)
+                ([s'],ys') ->
+                    case addedremoved s s' of
+                      (a, b) -> case addrm xs ys' of
+                                  (a',b') ->
+                                      (a' ++ map fixit a, b' ++ map fixit b)
+                          where fixit (f1,s1) =
+                                    (mk_filepath [f1,slurp_name s], s1)
+                _ -> impossible
 
 gendiff :: Bool -> [FilePath] -> Slurpy -> Slurpy
         -> (FL Prim -> FL Prim)
@@ -176,3 +201,20 @@ diff_removed fps s
     where n = slurp_name s
           f = mk_filepath (n:fps)
 #endif
+
+similar :: Slurpy -> Slurpy -> Bool
+similar aaa bbb
+    | afile /= bfile = False
+    | afile = length (patientLcs (get_text $ get_filecontents aaa)
+                                 (get_text $ get_filecontents bbb))
+              > 40
+    | otherwise = compared (sort $ get_dircontents aaa)
+                           (sort $ get_dircontents bbb)
+    where afile = is_file aaa
+          bfile = is_file bbb
+          compared (a:as) (b:bs)
+              | slurp_name a == slurp_name b = similar a b || compared as bs
+              | a < b = compared as (b:bs)
+              | otherwise = compared (a:as) bs
+          compared [] _ = False
+          compared _ [] = False
