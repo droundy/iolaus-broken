@@ -154,6 +154,7 @@ headhash =
          ExitFailure _ -> fail "git-show-ref failed"
 
 updateindex :: [String] -> IO ()
+updateindex [] = debugMessage "no need to call git-update-index"
 updateindex fs =
     do debugMessage "calling git-update-index"
        (Nothing, Nothing, Nothing, pid) <-
