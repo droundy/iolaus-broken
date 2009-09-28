@@ -18,9 +18,9 @@ import System.Exit ( ExitCode(..) )
 import System.Process.Redirects ( createProcess, waitForProcess, proc,
                                   CreateProcess(..), StdStream(..) )
 import qualified Data.ByteString as B
-import Arcs.FileName ( FileName, fp2fn, fn2fp )
-import Arcs.Progress ( debugMessage )
-import Arcs.Lock ( removeFileMayNotExist )
+import Grit.FileName ( FileName, fp2fn, fn2fp )
+import Grit.Progress ( debugMessage )
+import Grit.Lock ( removeFileMayNotExist )
 
 data Hash a = Hash !a !String
               deriving ( Eq )

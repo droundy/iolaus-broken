@@ -7,6 +7,6 @@
 *.hi
 config.d
 *.depend
-arcs
+grit
 *.log
 .package.conf

@@ -13,13 +13,13 @@ import Git.Plumbing ( Hash, Tree, TreeEntry(..),
                       readTree, checkoutIndex,
                       catTree, catBlob )
 
-import Arcs.Progress ( debugMessage )
-import Arcs.Flags ( ArcsFlag(Test) )
-import Arcs.FileName ( FileName, fp2fn )
-import Arcs.IO ( ExecutableBit(..) )
-import Arcs.SlurpDirectoryInternal ( Slurpy(..), SlurpyContents(..),
+import Grit.Progress ( debugMessage )
+import Grit.Flags ( GritFlag(Test) )
+import Grit.FileName ( FileName, fp2fn )
+import Grit.IO ( ExecutableBit(..) )
+import Grit.SlurpDirectoryInternal ( Slurpy(..), SlurpyContents(..),
                                      slurpies_to_map, map_to_slurpies )
-import Arcs.Lock ( removeFileMayNotExist )
+import Grit.Lock ( removeFileMayNotExist )
 
 touchedFiles :: IO [FilePath]
 touchedFiles =
@@ -27,7 +27,7 @@ touchedFiles =
        y <- diffFiles [NameOnly] []
        return (x++lines y)
 
-test :: [ArcsFlag] -> Hash Tree -> IO ()
+test :: [GritFlag] -> Hash Tree -> IO ()
 test opts t | Test `elem` opts =
     do system "rm -rf /tmp/testing"
        removeFileMayNotExist ".git/index.tmp"

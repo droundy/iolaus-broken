@@ -4,10 +4,10 @@ module Git.LocateRepo ( amInRepository, amInRepositoryDirectory,
 import System.Directory ( getCurrentDirectory, setCurrentDirectory,
                           doesDirectoryExist )
 
-import Arcs.Flags ( ArcsFlag(..) )
-import Arcs.RepoPath ( toFilePath, createDirectoryIfMissing )
+import Grit.Flags ( GritFlag(..) )
+import Grit.RepoPath ( toFilePath, createDirectoryIfMissing )
 
-amInRepository :: [ArcsFlag] -> IO (Either String ())
+amInRepository :: [GritFlag] -> IO (Either String ())
 amInRepository (WorkDir d:_) =
     do setCurrentDirectory d `catch` (const $ fail $ "can't set directory to "++d)
        air <- currentDirIsRepository
@@ -18,7 +18,7 @@ amInRepository (_:fs) = amInRepository fs
 amInRepository [] =
     seekRepo (Left "You need to be in a repository directory to run this command.")
 
-amInRepositoryDirectory :: [ArcsFlag] -> IO (Either String ())
+amInRepositoryDirectory :: [GritFlag] -> IO (Either String ())
 amInRepositoryDirectory opts =
     do here <- getCurrentDirectory
        x <- amInRepository opts
@@ -45,7 +45,7 @@ seekRepo onFail = getCurrentDirectory >>= helper where
                   else do setCurrentDirectory startpwd
                           return onFail
 
-amNotInRepository :: [ArcsFlag] -> IO (Either String ())
+amNotInRepository :: [GritFlag] -> IO (Either String ())
 amNotInRepository (WorkDir d:_) = do createDirectoryIfMissing False d
                                      -- note that the above could always fail
                                      setCurrentDirectory d
