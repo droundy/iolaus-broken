@@ -113,11 +113,11 @@ record_cmd opts args = do
            case apply_to_slurpy ch old of
              Just new' -> writeSlurpTree new'
              Nothing -> impossible
-    test (testByDefault opts) newtree
-    par <- headhash
     (name, my_log, _) <- get_log opts Nothing
                          (world_readable_temp "darcs-record")
     let message = (unlines $ name:my_log)
+    test (testByDefault opts) newtree
+    par <- headhash
     com <- commitTree newtree [par] message
     updateref "refs/heads/master" com
     putStrLn ("Finished recording patch '"++ name ++"'")
