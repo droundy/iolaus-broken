@@ -1,4 +1,4 @@
-module Git.Helpers ( test, slurpTree, writeSlurpTree ) where
+module Git.Helpers ( test, slurpTree, writeSlurpTree, touchedFiles ) where
 
 import System.Directory ( getCurrentDirectory, setCurrentDirectory )
 import System.Process.Redirects ( system )
@@ -8,7 +8,8 @@ import System.IO.Unsafe ( unsafeInterleaveIO )
 import Data.ByteString as B ( hPutStr )
 
 import Git.Plumbing ( Hash, Tree, TreeEntry(..),
-                      mkTree, hashObject,
+                      mkTree, hashObject, lsothers,
+                      diffFiles, DiffOption( NameOnly ),
                       readTree, checkoutIndex,
                       catTree, catBlob )
 
@@ -19,6 +20,12 @@ import Arcs.IO ( ExecutableBit(..) )
 import Arcs.SlurpDirectoryInternal ( Slurpy(..), SlurpyContents(..),
                                      slurpies_to_map, map_to_slurpies )
 import Arcs.Lock ( removeFileMayNotExist )
+
+touchedFiles :: IO [FilePath]
+touchedFiles =
+    do x <- lsothers
+       y <- diffFiles [NameOnly] []
+       return (x++lines y)
 
 test :: [ArcsFlag] -> Hash Tree -> IO ()
 test opts t | Test `elem` opts =

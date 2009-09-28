@@ -55,7 +55,7 @@ import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( lsfiles, updateindex, writetree, headhash,
                       catCommitTree, parseRev,
                       commitTree, updateref )
-import Git.Helpers ( test, slurpTree, writeSlurpTree )
+import Git.Helpers ( test, slurpTree, writeSlurpTree, touchedFiles )
 
 #include "impossible.h"
 \end{code}
@@ -99,7 +99,7 @@ record_cmd opts args = do
     check_name_is_not_option opts
     files <- sort `fmap` fixSubPaths opts args
     handleJust only_successful_exits (\_ -> return ()) $ do
-    lsfiles >>= updateindex
+    touchedFiles >>= updateindex
     new <- writetree >>= slurpTree (fp2fn ".")
     old <- parseRev "HEAD" >>= catCommitTree >>= slurpTree (fp2fn ".")
     newtree <-

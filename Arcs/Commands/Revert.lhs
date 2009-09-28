@@ -45,7 +45,7 @@ import Arcs.Progress ( debugMessage )
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( lsfiles, updateindex, writetree,
                       catCommitTree, parseRev, diffTrees )
-import Git.Helpers ( slurpTree, writeSlurpTree )
+import Git.Helpers ( slurpTree, writeSlurpTree, touchedFiles )
 
 \end{code}
 \begin{code}
@@ -92,8 +92,7 @@ revert_cmd opts args =
     do files <- sort `fmap` fixSubPaths opts args
        when (areFileArgs files) $
             putStrLn $ "Reverting changes in "++unwords (map show files)++"..\n"
-       fs <- lsfiles
-       updateindex fs
+       touchedFiles >>= updateindex
        new <- writetree >>= slurpTree (fp2fn ".")
        old <- parseRev "HEAD" >>= catCommitTree >>= slurpTree (fp2fn ".")
        let unrevertchs (_:>NilFL) = putStrLn "There are no changes to revert!"

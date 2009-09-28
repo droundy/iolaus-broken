@@ -39,7 +39,7 @@ import Git.Plumbing ( lsfiles, catCommitTree, parseRev,
                       writetree, updateindex,
                       --diffFiles, DiffOption(Stat, DiffAll, DiffPatch)
                     )
-import Git.Helpers ( slurpTree )
+import Git.Helpers ( slurpTree, touchedFiles )
 \end{code}
 
 \options{whatsnew}
@@ -81,7 +81,7 @@ whatsnew = ArcsCommand {command_name = "whatsnew",
 \begin{code}
 whatsnew_cmd :: [ArcsFlag] -> [String] -> IO ()
 whatsnew_cmd opts _ =
-    do lsfiles >>= updateindex
+    do touchedFiles >>= updateindex
        t <- writetree
        new <- slurpTree (fp2fn ".") t
        old <- parseRev "HEAD" >>= catCommitTree >>= slurpTree (fp2fn ".")

@@ -108,11 +108,12 @@ lsothers =
 class Flag a where
     toFlags :: a -> [String]
 
-data DiffOption = DiffAll | Stat | DiffPatch
+data DiffOption = DiffAll | Stat | DiffPatch | NameOnly
 instance Flag DiffOption where
     toFlags DiffAll = ["-a"]
     toFlags Stat = ["--stat"]
     toFlags DiffPatch = ["-p"]
+    toFlags NameOnly = ["--name-only"]
 
 diffFiles :: [DiffOption] -> [FilePath] -> IO String
 diffFiles opts fs =
