@@ -31,7 +31,7 @@ import Arcs.RepoPath ( parentDir, createDirectoryIfMissing,
 import Arcs.Workaround ( renameFile )
 
 import Git.LocateRepo ( amInRepositoryDirectory )
-import Git.Plumbing ( lsfiles, lssomefiles, updateindex )
+import Git.Plumbing ( lsfiles, lssomefiles )
 \end{code}
 
 \begin{code}
@@ -99,7 +99,6 @@ mvfile :: FilePath -> FilePath -> IO ()
 mvfile a b =
     do createDirectoryIfMissing True (parentDir b)
        renameFile a b
-       updateindex [a,b]
 \end{code}
 
 
