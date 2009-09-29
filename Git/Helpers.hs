@@ -1,6 +1,7 @@
 module Git.Helpers ( test, slurpTree, writeSlurpTree, touchedFiles ) where
 
-import System.Directory ( getCurrentDirectory, setCurrentDirectory )
+import System.Directory ( getCurrentDirectory, setCurrentDirectory,
+                          doesFileExist )
 import System.Process.Redirects ( system )
 import System.Exit ( ExitCode(..) )
 import System.IO.Unsafe ( unsafeInterleaveIO )
@@ -29,7 +30,11 @@ touchedFiles =
 
 test :: [GritFlag] -> Hash Tree -> IO ()
 test opts t | Test `elem` opts =
-    do system "rm -rf /tmp/testing"
+ do havet <- doesFileExist ".git-hooks/test"
+    if not havet
+     then return ()
+     else do
+       system "rm -rf /tmp/testing"
        removeFileMayNotExist ".git/index.tmp"
        readTree t "index.tmp"
        checkoutIndex "index.tmp" "/tmp/testing/"

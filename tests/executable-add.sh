@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -ev
 
-# test-fails because I can't yet record an initial patch!
-
 mkdir temp1
 cd temp1
 git init

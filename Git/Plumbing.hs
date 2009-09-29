@@ -1,7 +1,7 @@
 module Git.Plumbing ( Hash, Tree, Commit, Blob, Tag,
                       catBlob, hashObject,
                       catTree, TreeEntry(..),
-                      catCommitTree, parseRev,
+                      catCommitTree, parseRev, heads,
                       clone,
                       checkoutCopy,
                       lsfiles, lssomefiles, lsothers,
@@ -175,6 +175,18 @@ writetree =
        case ec of
          ExitSuccess -> return $ mkHash Tree out
          ExitFailure _ -> fail "git-write-tree failed"
+
+heads :: IO [Hash Commit]
+heads =
+    do debugMessage "calling git-rev-parse"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-rev-parse" ["--branches"])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ map (mkHash Commit) $ lines out
+         ExitFailure _ -> fail "parseRev failed"
 
 parseRev :: String -> IO (Hash Commit)
 parseRev s =

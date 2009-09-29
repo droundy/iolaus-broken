@@ -50,10 +50,11 @@ import Grit.Diff ( unsafeDiff )
 import Grit.SelectChanges ( with_selected_changes_to_files )
 import Grit.Ordered ( (:>)(..), FL(NilFL) )
 import Grit.Progress ( debugMessage )
+import Grit.SlurpDirectory ( empty_slurpy )
 
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( lsfiles, updateindex, writetree, headhash,
-                      catCommitTree, parseRev,
+import Git.Plumbing ( lsfiles, updateindex, writetree,
+                      catCommitTree, heads,
                       commitTree, updateref )
 import Git.Helpers ( test, slurpTree, writeSlurpTree, touchedFiles )
 
@@ -101,7 +102,12 @@ record_cmd opts args = do
     handleJust only_successful_exits (\_ -> return ()) $ do
     touchedFiles >>= updateindex
     new <- writetree >>= slurpTree (fp2fn ".")
-    old <- parseRev "HEAD" >>= catCommitTree >>= slurpTree (fp2fn ".")
+    debugMessage "about to rev-parse HEAD"
+    hs <- heads
+    old <- case hs of
+             [] -> return empty_slurpy -- no history!
+             [h] -> catCommitTree h >>= slurpTree (fp2fn ".")
+             _ -> fail "can't yet handle multiple-head case"
     newtree <-
         with_selected_changes_to_files "record" opts old (map toFilePath files)
                                    (unsafeDiff [] old new) $ \ (ch:>_) ->
@@ -117,8 +123,7 @@ record_cmd opts args = do
                          (world_readable_temp "darcs-record")
     let message = (unlines $ name:my_log)
     test (testByDefault opts) newtree
-    par <- headhash
-    com <- commitTree newtree [par] message
+    com <- commitTree newtree hs message
     updateref "refs/heads/master" com
     putStrLn ("Finished recording patch '"++ name ++"'")
 
