@@ -157,6 +157,9 @@ diff_added :: Bool -> [FilePath] -> Slurpy
            -> (FL Prim -> FL Prim)
 diff_added summary fps s
     | is_file s = (addfile f:>:) .
+                  (if get_fileEbit s == Just IsExecutable
+                   then (chmod f IsExecutable :>:)
+                   else id) .
                   (if summary then id
                               else diff_from_empty id f (get_filecontents s))
     | otherwise {- is_dir s -} =
