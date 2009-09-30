@@ -24,7 +24,7 @@ module Iolaus.SlurpDirectoryInternal
                       ( Slurpy(..), SlurpyContents(..),
                         get_filehash, get_dirhash, get_fileEbit,
                         slurpies_to_map, map_to_slurpies,
-                        FileContents, empty_slurpy, filterSlurpyPaths,
+                        empty_slurpy, filterSlurpyPaths,
                         slurp, slurp_unboring, co_slurp,
                         slurp_name, is_file, is_dir,
                         get_filecontents, get_dircontents, get_slurp,
@@ -86,8 +86,7 @@ map_to_slurpies :: Map FileName SlurpyContents -> [Slurpy]
 map_to_slurpies = map pair_to_slurpy . Map.toList
 
 data SlurpyContents = SlurpDir (Maybe (Hash Tree)) (Map FileName SlurpyContents)
-                    | SlurpFile !ExecutableBit (Maybe (Hash Blob)) FileContents
-type FileContents = B.ByteString
+                    | SlurpFile !ExecutableBit (Maybe (Hash Blob)) B.ByteString
 
 get_filehash :: Slurpy -> Maybe (Hash Blob)
 get_filehash (Slurpy _ (SlurpFile _ x _)) = x
@@ -121,7 +120,7 @@ slurp_name :: Slurpy -> FilePath
 is_file :: Slurpy -> Bool
 is_dir :: Slurpy -> Bool
 
-get_filecontents :: Slurpy -> FileContents
+get_filecontents :: Slurpy -> B.ByteString
 get_dircontents :: Slurpy -> [Slurpy]
 
 instance Eq Slurpy where
@@ -553,7 +552,7 @@ slurp_adddir f s =
   else Just $ addslurp f (Slurpy (own_name f) (SlurpDir Nothing Map.empty)) s
 
 -- |Code to modify a given file in a slurpy.
-slurp_modfile :: FileName -> (FileContents -> Maybe FileContents)
+slurp_modfile :: FileName -> (B.ByteString -> Maybe B.ByteString)
               -> Slurpy -> Maybe Slurpy
 slurp_modfile fname modify sl =
     case get_slurp_context fname sl of

@@ -39,7 +39,7 @@ import Iolaus.Patch.Commute ()
 import Iolaus.Patch.Core ( Named(..) )
 import Iolaus.Patch.Prim ( Prim(..),
                          DirPatchType(..), FilePatchType(..) )
-import Iolaus.SlurpDirectory ( FileContents, Slurpy, withSlurpy )
+import Iolaus.SlurpDirectory ( Slurpy, withSlurpy )
 import Iolaus.IO ( WriteableDirectory(..) )
 --import Iolaus.FilePathMonad ( withFilePaths, withSubPaths )
 #include "impossible.h"
@@ -161,7 +161,7 @@ applyHunks ((l, o, n):hs) ps
     where nl = BC.singleton '\n'
 
 applyHunkLines :: [(Int, [B.ByteString], [B.ByteString])]
-               -> FileContents -> Maybe FileContents
+               -> B.ByteString -> Maybe B.ByteString
 applyHunkLines [] c = Just c
 applyHunkLines [(1, [], n)] ps | B.null ps = Just $ unlinesPS (n++[B.empty])
 applyHunkLines hs@((l, o, n):hs') ps =
