@@ -8,6 +8,7 @@
 config.d
 *.depend
 grit
+iolaus
 *.log
 .package.conf
 .test*

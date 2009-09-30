@@ -5,13 +5,13 @@ import Data.List ( sort, partition, isPrefixOf, isSuffixOf )
 main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
        do hcFlags ["-Wall","-Iinclude"]
           ghcFlags ["-threaded"]
-          withDirectory "etc" $ etc "bash_completion.d/grit"
+          withDirectory "etc" $ etc "bash_completion.d/iolaus"
           withModule "System.Process.Redirects" $ define "HAVE_REDIRECTS"
-          executable "grit" "grit.hs" []
+          executable "iolaus" "iolaus.hs" []
           enforceAllPrivacy
-          gritTests
+          allTests
 
-gritTests =
+allTests =
    do here <- pwd
       rm_rf "tests/tmp"
       rm_rf "tests/network/tmp"

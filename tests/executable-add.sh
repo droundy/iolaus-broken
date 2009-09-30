@@ -11,9 +11,9 @@ cat > foo <<EOF
 echo good
 EOF
 chmod +x foo
-grit record -a -m 'add foo'
+iolaus record -a -m 'add foo'
 cd ..
 
-grit get temp1 temp2
+iolaus get temp1 temp2
 cd temp2
 ./foo

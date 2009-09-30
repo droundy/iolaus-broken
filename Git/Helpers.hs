@@ -14,13 +14,13 @@ import Git.Plumbing ( Hash, Tree, TreeEntry(..),
                       readTree, checkoutIndex,
                       catTree, catBlob )
 
-import Grit.Progress ( debugMessage )
-import Grit.Flags ( GritFlag(Test) )
-import Grit.FileName ( FileName, fp2fn )
-import Grit.IO ( ExecutableBit(..) )
-import Grit.SlurpDirectoryInternal ( Slurpy(..), SlurpyContents(..),
+import Iolaus.Progress ( debugMessage )
+import Iolaus.Flags ( IolausFlag(Test) )
+import Iolaus.FileName ( FileName, fp2fn )
+import Iolaus.IO ( ExecutableBit(..) )
+import Iolaus.SlurpDirectoryInternal ( Slurpy(..), SlurpyContents(..),
                                      slurpies_to_map, map_to_slurpies )
-import Grit.Lock ( removeFileMayNotExist )
+import Iolaus.Lock ( removeFileMayNotExist )
 
 touchedFiles :: IO [FilePath]
 touchedFiles =
@@ -28,7 +28,7 @@ touchedFiles =
        y <- diffFiles [NameOnly] []
        return (x++lines y)
 
-test :: [GritFlag] -> Hash Tree -> IO ()
+test :: [IolausFlag] -> Hash Tree -> IO ()
 test opts t | Test `elem` opts =
  do havet <- doesFileExist ".git-hooks/test"
     if not havet
