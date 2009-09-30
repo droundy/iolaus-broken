@@ -24,6 +24,7 @@ import Iolaus.Commands.Mv ( mv )
 import Iolaus.Commands.WhatsNew ( whatsnew )
 import Iolaus.Commands.Changes ( changes )
 import Iolaus.Commands.Get ( get )
+import Iolaus.Commands.Init ( initialize )
 import Iolaus.Commands.Show ( show_command )
 import Iolaus.Commands.Revert ( revert )
 import Iolaus.Commands.Unrevert ( unrevert )
@@ -45,5 +46,6 @@ command_control_list =
      Command_data revert,
      Command_data unrevert,
      Command_data show_command,
+     Command_data initialize,
      Command_data get
     ]

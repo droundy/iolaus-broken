@@ -2,7 +2,7 @@ module Git.Plumbing ( Hash, Tree, Commit, Blob, Tag,
                       catBlob, hashObject,
                       catTree, TreeEntry(..),
                       catCommitTree, parseRev, heads,
-                      clone,
+                      clone, gitInit,
                       checkoutCopy,
                       lsfiles, lssomefiles, lsothers,
                       revList, revListHashes, RevListOption(..),
@@ -267,6 +267,18 @@ clone args =
        case ec of
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-clone failed"
+
+-- | FIXME: I believe that init is porcelain...
+
+gitInit :: [String] -> IO ()
+gitInit args =
+    do debugMessage "calling git-init"
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-init" args)
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-init failed"
 
 catBlob :: Hash Blob -> IO B.ByteString
 catBlob (Hash Blob h) =

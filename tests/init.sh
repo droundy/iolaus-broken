@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 set -ev
 
-# test-fails because I haven't yet created init command
-
 mkdir temp1
 cd temp1
-iolaus init
+iolaus initialize
 test -d .git
 iolaus init && exit 1
 cd ..
