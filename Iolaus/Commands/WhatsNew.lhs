@@ -28,18 +28,15 @@ module Iolaus.Commands.WhatsNew ( whatsnew ) where
 import Iolaus.Command ( IolausCommand(..), nodefaults )
 import Iolaus.Arguments ( IolausFlag(Summary), working_repo_dir, summary )
 
-import Iolaus.Diff ( unsafeDiff )
 import Iolaus.Patch ( showContextPatch, summarize )
 import Iolaus.Printer ( putDocLnWith )
 import Iolaus.ColorPrinter ( fancyPrinters )
-import Iolaus.FileName ( fp2fn )
+import Iolaus.Repository ( get_unrecorded_changes, slurp_recorded )
 
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( lsfiles, catCommitTree, parseRev,
-                      writetree, updateindex,
+import Git.Plumbing ( lsfiles,
                       --diffFiles, DiffOption(Stat, DiffAll, DiffPatch)
                     )
-import Git.Helpers ( slurpTree, touchedFiles )
 \end{code}
 
 \options{whatsnew}
@@ -81,14 +78,11 @@ whatsnew = IolausCommand {command_name = "whatsnew",
 \begin{code}
 whatsnew_cmd :: [IolausFlag] -> [String] -> IO ()
 whatsnew_cmd opts _ =
-    do touchedFiles >>= updateindex
-       t <- writetree
-       new <- slurpTree (fp2fn ".") t
-       old <- parseRev "HEAD" >>= catCommitTree >>= slurpTree (fp2fn ".")
+    do old <- slurp_recorded
+       chs <- get_unrecorded_changes
        if Summary `elem` opts
-          then putDocLnWith fancyPrinters $ summarize $ unsafeDiff [] old new
-          else putDocLnWith fancyPrinters $
-               showContextPatch old $ unsafeDiff [] old new
+          then putDocLnWith fancyPrinters $ summarize chs
+          else putDocLnWith fancyPrinters $ showContextPatch old chs
 {-
 whatsnew_cmd opts fs = diffFiles flags fs >>= putStr
     where flags = (if null fs then [DiffAll] else []) ++

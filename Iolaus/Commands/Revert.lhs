@@ -38,14 +38,13 @@ import Iolaus.Ordered ( FL(..), (:>)(..), lengthFL )
 import Iolaus.SelectChanges ( with_selected_last_changes_to_files )
 --import Iolaus.Commands.Unrevert ( write_unrevert )
 import Iolaus.SlurpDirectory ( Slurpy )
-import Iolaus.Diff ( unsafeDiff )
-import Iolaus.FileName ( fp2fn )
 import Iolaus.Progress ( debugMessage )
+import Iolaus.Repository ( get_unrecorded_changes,
+                           slurp_recorded, slurp_working )
 
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( lsfiles, updateindex, writetree,
-                      catCommitTree, parseRev, diffTrees )
-import Git.Helpers ( slurpTree, writeSlurpTree, touchedFiles )
+import Git.Plumbing ( lsfiles, diffTrees )
+import Git.Helpers ( writeSlurpTree )
 
 \end{code}
 \begin{code}
@@ -92,9 +91,9 @@ revert_cmd opts args =
     do files <- sort `fmap` fixSubPaths opts args
        when (areFileArgs files) $
             putStrLn $ "Reverting changes in "++unwords (map show files)++"..\n"
-       touchedFiles >>= updateindex
-       new <- writetree >>= slurpTree (fp2fn ".")
-       old <- parseRev "HEAD" >>= catCommitTree >>= slurpTree (fp2fn ".")
+       old <- slurp_recorded
+       new <- slurp_working
+       chs <- get_unrecorded_changes
        let unrevertchs (_:>NilFL) = putStrLn "There are no changes to revert!"
            unrevertchs (_:>ch) =
                do let theseChanges = englishNum (lengthFL ch) $
@@ -109,7 +108,7 @@ revert_cmd opts args =
                   write_unrevert new ch
                   apply (invert ch)
        with_selected_last_changes_to_files "revert" opts old
-           (map toFilePath files) (unsafeDiff [] old new) unrevertchs
+           (map toFilePath files) chs unrevertchs
 
 write_unrevert :: Slurpy -> FL Prim C(x y) -> IO ()
 write_unrevert s p =

@@ -51,6 +51,7 @@ import Iolaus.SelectChanges ( with_selected_changes_to_files )
 import Iolaus.Ordered ( (:>)(..), FL(NilFL) )
 import Iolaus.Progress ( debugMessage )
 import Iolaus.SlurpDirectory ( empty_slurpy )
+import Iolaus.Repository ( get_unrecorded_changes, slurp_recorded )
 
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( lsfiles, updateindex, writetree,
@@ -100,17 +101,11 @@ record_cmd opts args = do
     check_name_is_not_option opts
     files <- sort `fmap` fixSubPaths opts args
     handleJust only_successful_exits (\_ -> return ()) $ do
-    touchedFiles >>= updateindex
-    new <- writetree >>= slurpTree (fp2fn ".")
-    debugMessage "about to rev-parse HEAD"
-    hs <- heads
-    old <- case hs of
-             [] -> return empty_slurpy -- no history!
-             [h] -> catCommitTree h >>= slurpTree (fp2fn ".")
-             _ -> fail "can't yet handle multiple-head case"
+    old <- slurp_recorded
+    allchs <- get_unrecorded_changes
     newtree <-
         with_selected_changes_to_files "record" opts old (map toFilePath files)
-                                   (unsafeDiff [] old new) $ \ (ch:>_) ->
+                                   allchs $ \ (ch:>_) ->
         do debugMessage "have finished selecting changes..."
            case ch of
              NilFL -> do putStrLn "No changes selected!"
@@ -123,6 +118,7 @@ record_cmd opts args = do
                          (world_readable_temp "iolaus-record")
     let message = (unlines $ name:my_log)
     test (testByDefault opts) newtree
+    hs <- heads
     com <- commitTree newtree hs message
     updateref "refs/heads/master" com
     putStrLn ("Finished recording patch '"++ name ++"'")
