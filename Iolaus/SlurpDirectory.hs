@@ -19,7 +19,6 @@ module Iolaus.SlurpDirectory
  (Slurpy, empty_slurpy, slurp, filterSlurpyPaths,
   get_filehash, get_dirhash, get_fileEbit,
   co_slurp, slurp_unboring,
-  FileContents,
   doesFileReallyExist, doesDirectoryReallyExist, isFileReallySymlink,
   is_dir, is_file,
   get_slurp, slurp_name,
@@ -35,7 +34,7 @@ module Iolaus.SlurpDirectory
 import Iolaus.SlurpDirectoryInternal
  (Slurpy, empty_slurpy, slurp,
   get_filehash, get_dirhash, get_fileEbit,
-  co_slurp, slurp_unboring, FileContents,
+  co_slurp, slurp_unboring,
   doesFileReallyExist, doesDirectoryReallyExist, isFileReallySymlink,
   is_dir, is_file,
   get_slurp, slurp_name, slurp_has_anycase,

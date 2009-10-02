@@ -33,11 +33,7 @@ import qualified Data.ByteString as B (empty, ByteString)
 
 import Iolaus.SlurpDirectory ( Slurpy, slurp_name, is_dir, is_file,
                              get_filehash, get_dirhash, get_fileEbit,
-                             get_dircontents, get_filecontents,
-#ifndef GADT_WITNESSES
-                             FileContents
-#endif
-                           )
+                             get_dircontents, get_filecontents )
 import Iolaus.IO ( ExecutableBit(..) )
 import Iolaus.Patch ( Prim, apply_to_slurpy, move
 #ifndef GADT_WITNESSES
@@ -168,22 +164,16 @@ diff_added summary fps s
     where n = slurp_name s
           f = mk_filepath (n:fps)
 
-get_text :: FileContents -> [B.ByteString]
-get_text = linesPS
-
-empt :: FileContents
-empt = B.empty
-
-diff_files :: FilePath -> FileContents -> FileContents
+diff_files :: FilePath -> B.ByteString -> B.ByteString
            -> (FL Prim -> FL Prim)
-diff_files f o n | get_text o == [B.empty] && get_text n == [B.empty] = id
-                 | get_text o == [B.empty] = diff_from_empty id f n
-                 | get_text n == [B.empty] = diff_from_empty invert f o
+diff_files f o n | linesPS o == [B.empty] && linesPS n == [B.empty] = id
+                 | linesPS o == [B.empty] = diff_from_empty id f n
+                 | linesPS n == [B.empty] = diff_from_empty invert f o
 diff_files f o n = if o == n
                    then id
                    else (canonize (hunk f 1 (linesPS o) (linesPS n)) +>+)
 
-diff_from_empty :: (Prim -> Prim) -> FilePath -> FileContents
+diff_from_empty :: (Prim -> Prim) -> FilePath -> B.ByteString
                 -> (FL Prim -> FL Prim)
 diff_from_empty inv f b =
     if b == B.empty
@@ -197,7 +187,7 @@ diff_from_empty inv f b =
 #ifndef GADT_WITNESSES
 diff_removed :: [FilePath] -> Slurpy -> (FL Prim -> FL Prim)
 diff_removed fps s
-    | is_file s = diff_files f (get_filecontents s) empt . (rmfile f:>:)
+    | is_file s = diff_files f (get_filecontents s) B.empty . (rmfile f:>:)
     | otherwise {- is_dir s -}
         = foldr (.) (rmdir f:>:)
         $ map (diff_removed (n:fps)) (get_dircontents s)
@@ -208,8 +198,8 @@ diff_removed fps s
 similar :: Slurpy -> Slurpy -> Bool
 similar aaa bbb
     | afile /= bfile = False
-    | afile = length (patientLcs (get_text $ get_filecontents aaa)
-                                 (get_text $ get_filecontents bbb))
+    | afile = length (patientLcs (linesPS $ get_filecontents aaa)
+                                 (linesPS $ get_filecontents bbb))
               > 40
     | otherwise = compared (sort $ get_dircontents aaa)
                            (sort $ get_dircontents bbb)

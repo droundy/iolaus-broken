@@ -31,7 +31,6 @@ module Iolaus.ByteStringUtils (
         breakLastPS,
         substrPS,
         readIntPS,
-        betweenLinesPS,
         break_after_nth_newline,
         break_before_nth_newline,
         intercalate
@@ -274,24 +273,6 @@ unlinesPSOld ss = BC.concat $ intersperse_newlines ss
     where intersperse_newlines (a:b:s) = a : newline : intersperse_newlines (b:s)
           intersperse_newlines s = s
           newline = BC.pack "\n" -}
-
--- -------------------------------------------------------------------------
--- betweenLinesPS
-
--- | betweenLinesPS returns the B.ByteString between the two lines given,
--- or Nothing if they do not appear.
-
-betweenLinesPS :: B.ByteString -> B.ByteString -> B.ByteString
-               -> Maybe (B.ByteString)
-betweenLinesPS start end ps
- = case break (start ==) (linesPS ps) of
-       (_, _:rest@(bs1:_)) ->
-           case BI.toForeignPtr bs1 of
-            (ps1,s1,_) ->
-             case break (end ==) rest of
-               (_, bs2:_) -> case BI.toForeignPtr bs2 of (_,s2,_) -> Just $ fromForeignPtr ps1 s1 (s2 - s1)
-               _ -> Nothing
-       _ -> Nothing
 
 -- -------------------------------------------------------------------------
 -- break_after_nth_newline
