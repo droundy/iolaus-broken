@@ -45,19 +45,15 @@ import Iolaus.Utils ( askUser, promptYorn, edit_file )
 import Iolaus.RepoPath ( FilePathLike, toFilePath )
 import Iolaus.Patch ( apply_to_slurpy )
 import Iolaus.Printer ( ($$), text, hPutDocLn, wrap_text, renderString )
-import Iolaus.FileName ( fp2fn )
-import Iolaus.Diff ( unsafeDiff )
 import Iolaus.SelectChanges ( with_selected_changes_to_files )
 import Iolaus.Ordered ( (:>)(..), FL(NilFL) )
 import Iolaus.Progress ( debugMessage )
-import Iolaus.SlurpDirectory ( empty_slurpy )
 import Iolaus.Repository ( get_unrecorded_changes, slurp_recorded )
 
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( lsfiles, updateindex, writetree,
-                      catCommitTree, heads,
+import Git.Plumbing ( lsfiles, heads,
                       commitTree, updateref )
-import Git.Helpers ( test, slurpTree, writeSlurpTree, touchedFiles )
+import Git.Helpers ( test, writeSlurpTree )
 
 #include "impossible.h"
 \end{code}
