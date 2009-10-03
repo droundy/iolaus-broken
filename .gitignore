@@ -9,7 +9,7 @@ config.d
 *.depend
 grit
 iolaus
-git-iolaus-merge-one-file
+git-imof
 *.log
 .package.conf
 .test*

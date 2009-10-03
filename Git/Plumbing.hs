@@ -65,8 +65,7 @@ mergeIndex :: String -> IO (Hash Tree)
 mergeIndex i =
     do debugMessage ("calling git-merge-index")
        (Nothing, Nothing, Nothing, pid) <-
-           createProcess (proc "git-merge-index" ["git-iolaus-merge-one-file",
-                                                  "-a"])
+           createProcess (proc "git-merge-index" ["git-imof", "-a"])
                          { env = Just [("GIT_INDEX_FILE",".git/"++i)] }
        ec <- waitForProcess pid
        case ec of
