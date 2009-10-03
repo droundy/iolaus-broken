@@ -69,6 +69,9 @@ slurpTree rootdir t =
           sl (n, Executable h) =
               do x <- unsafeInterleaveIO $ catBlob h
                  return $ Slurpy n $ SlurpFile IsExecutable (Just h) x
+          sl (n, Symlink h) =
+              do x <- unsafeInterleaveIO $ catBlob h
+                 return $ Slurpy n $ SlurpSymlink x
 
 writeSlurpTree :: Slurpy -> IO (Hash Tree)
 writeSlurpTree (Slurpy _ (SlurpDir (Just t) _)) = return t
@@ -86,6 +89,9 @@ writeSlurpTree (Slurpy _ (SlurpDir Nothing ccc)) =
           writeSubsl (Slurpy fn (SlurpFile NotExecutable Nothing c)) =
               do h <- hashObject (`B.hPutStr` c)
                  return (fn, File h)
+          writeSubsl (Slurpy fn (SlurpSymlink x)) =
+              do h <- hashObject (`B.hPutStr` x)
+                 return (fn, Symlink h)
           writeSubsl (Slurpy fn (SlurpDir (Just h) _)) =
               return (fn, Subtree h)
           writeSubsl d@(Slurpy fn (SlurpDir Nothing _)) =

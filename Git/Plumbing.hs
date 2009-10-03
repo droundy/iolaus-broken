@@ -313,10 +313,12 @@ catBlob (Hash Blob h) =
 data TreeEntry = Subtree (Hash Tree)
                | File (Hash Blob)
                | Executable (Hash Blob)
+               | Symlink (Hash Blob)
 instance Show TreeEntry where
     show (Subtree (Hash Tree h)) = "040000 tree "++h
     show (File (Hash Blob h)) = "100644 blob "++h
     show (Executable (Hash Blob h)) = "100755 blob "++h
+    show (Symlink (Hash Blob h)) = "120000 blob "++h
 
 catTree :: Hash Tree -> IO [(FileName, TreeEntry)]
 catTree (Hash Tree h) =
@@ -343,6 +345,10 @@ catTree (Hash Tree h) =
                     case splitAt 40 x' of
                       (z, _:fp) -> return (fp2fn fp, File $ Hash Blob z)
                       (_,[]) -> fail "error blob"
+                ("120000 blob ",x') ->
+                    case splitAt 40 x' of
+                      (z, _:fp) -> return (fp2fn fp, Symlink $ Hash Blob z)
+                      (_,[]) -> fail "error blob exec"
                 _ -> fail "weird line in tree"
 
 catCommitTree :: Hash Commit -> IO (Hash Tree)

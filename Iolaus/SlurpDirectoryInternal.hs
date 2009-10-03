@@ -87,6 +87,7 @@ map_to_slurpies = map pair_to_slurpy . Map.toList
 
 data SlurpyContents = SlurpDir (Maybe (Hash Tree)) (Map FileName SlurpyContents)
                     | SlurpFile !ExecutableBit (Maybe (Hash Blob)) B.ByteString
+                    | SlurpSymlink B.ByteString
 
 get_filehash :: Slurpy -> Maybe (Hash Blob)
 get_filehash (Slurpy _ (SlurpFile _ x _)) = x
@@ -105,12 +106,14 @@ instance Show Slurpy where
         "Dir " ++ (fn2fp fn) ++ "\n" ++
               concat (map show $ map_to_slurpies l) ++ "End Dir " ++ (fn2fp fn) ++ "\n"
     show (Slurpy fn (SlurpFile _ _ _)) = "File " ++ (fn2fp fn) ++ "\n"
+    show (Slurpy fn (SlurpSymlink _)) = "Symlink " ++ (fn2fp fn) ++ "\n"
 
 mapSlurpyNames :: (FileName -> FileName) -> Slurpy -> Slurpy
 mapSlurpyNames f = onSlurpy
   where onSlurpy (Slurpy fn sc) = Slurpy (f fn) (onSlurpyContents sc)
-        onSlurpyContents sf@(SlurpFile _ _ _) = sf
-        onSlurpyContents (SlurpDir x sm) = SlurpDir x . slurpies_to_map . map onSlurpy . map_to_slurpies $ sm
+        onSlurpyContents (SlurpDir x sm) =
+            SlurpDir x . slurpies_to_map . map onSlurpy . map_to_slurpies $ sm
+        onSlurpyContents sf = sf
 
 slurp :: FilePathLike p => p -> IO Slurpy
 slurp_unboring :: (FilePath->Bool) -> FilePath -> IO Slurpy
@@ -319,11 +322,11 @@ slurp_fn (Slurpy n _) = n
 slurp_setname :: FileName -> Slurpy -> Slurpy
 slurp_setname f (Slurpy _ s) = Slurpy f s
 
-is_file (Slurpy _ (SlurpDir _ _)) = False
 is_file (Slurpy _ (SlurpFile _ _ _)) = True
+is_file (Slurpy _ _) = False
 
 is_dir (Slurpy _ (SlurpDir _ _)) = True
-is_dir (Slurpy _ (SlurpFile _ _ _)) = False
+is_dir (Slurpy _ _) = False
 
 get_filecontents (Slurpy _ (SlurpFile _ _ c)) = c
 get_filecontents _ = bug "Can't get_filecontents on SlurpDir."
@@ -429,7 +432,7 @@ co_slurp_helper former_dir (Slurpy d (SlurpDir _ c)) = unsafeInterleaveIO $ do
                    $ unsafeInterleaveMapIO (co_slurp_helper fn') (map_to_slurpies c)
                return $ Just $ Slurpy d $ SlurpDir Nothing $ slurpies_to_map $ catMaybes sl
         _ -> return Nothing
-co_slurp_helper former_dir (Slurpy f (SlurpFile _ _ _)) = unsafeInterleaveIO $ do
+co_slurp_helper former_dir (Slurpy f _) = unsafeInterleaveIO $ do
    let fn' = former_dir\\\fn2fp f
        fn = reverse fn'
    efs <- tryNonSignal $ getSymbolicLinkStatus fn
@@ -447,9 +450,6 @@ get_slurp_context_generic h1 h2 fn0 s0 =
         then Just (id, s0)
         else slurp_context_private norm_fn0 id s0
   where
-    slurp_context_private f ctx s@(Slurpy f' (SlurpFile _ _ _)) =
-        if f == f' then Just (ctx, s)
-        else Nothing
     slurp_context_private f ctx s@(Slurpy d (SlurpDir _ c))
       | f == d = Just (ctx, s)
       | d == dot =
@@ -474,6 +474,8 @@ get_slurp_context_generic h1 h2 fn0 s0 =
                                    (ctx . h1 . Slurpy d . SlurpDir Nothing . foldr (uncurry Map.insert) (Map.delete (slurp_fn this) c) . map slurpy_to_pair . h2)
                                    this
 
+    slurp_context_private f ctx s@(Slurpy f' _) = if f == f' then Just (ctx, s)
+                                                             else Nothing
     dot = fp2fn "."
     empty = fp2fn ""
 
@@ -597,7 +599,6 @@ slurp_hasdir f (Slurpy _ (SlurpDir _ c)) =
 slurp_hasdir _ _ = False
 
 slurp_hasdir_private :: FileName -> Slurpy -> Bool
-slurp_hasdir_private _ (Slurpy _ (SlurpFile _ _ _)) = False
 slurp_hasdir_private f (Slurpy d (SlurpDir _ c))
   | f == d = True
   | otherwise =
@@ -609,6 +610,7 @@ slurp_hasdir_private f (Slurpy d (SlurpDir _ c))
                    Nothing -> False
            else False
        _ -> False
+slurp_hasdir_private _ (Slurpy _ _) = False
 
 get_path_list :: Slurpy -> FilePath -> [FilePath]
 get_path_list s fp = get_path_list' s ("./" ++ fp)
@@ -626,24 +628,25 @@ get_path_list' (Slurpy d (SlurpDir _ ss)) fp
 get_path_list' _ _ = []
 
 list_slurpy :: Slurpy -> [FilePath]
-list_slurpy (Slurpy f (SlurpFile _ _ _)) = [fn2fp f]
 list_slurpy (Slurpy dd (SlurpDir _ ss)) = d : map (d ///) (concatMap list_slurpy (map_to_slurpies ss))
     where d = fn2fp dd
+list_slurpy (Slurpy f _) = [fn2fp f]
 
 list_slurpy_files :: Slurpy -> [FilePath]
-list_slurpy_files (Slurpy f (SlurpFile _ _ _)) = [fn2fp f]
 list_slurpy_files (Slurpy dd (SlurpDir _ ss)) =
     map ((fn2fp dd) ///) (concatMap list_slurpy_files (map_to_slurpies ss))
+list_slurpy_files (Slurpy f _) = [fn2fp f]
 
 list_slurpy_dirs :: Slurpy -> [FilePath]
-list_slurpy_dirs (Slurpy _ (SlurpFile _ _ _)) = []
 list_slurpy_dirs (Slurpy dd (SlurpDir _ ss)) =
     d : map (d ///) (concatMap list_slurpy_dirs (map_to_slurpies ss))
     where d = fn2fp dd
+list_slurpy_dirs _ = []
 
 filterSlurpyPaths :: [FileName] -> Slurpy -> Slurpy
 filterSlurpyPaths [] s = s
 filterSlurpyPaths _ s@(Slurpy _ (SlurpFile _ _ _)) = s
+filterSlurpyPaths _ s@(Slurpy _ (SlurpSymlink _)) = s
 filterSlurpyPaths f (Slurpy d (SlurpDir _ c)) = Slurpy d (SlurpDir Nothing c')
     where c' = updateAll f c
 
