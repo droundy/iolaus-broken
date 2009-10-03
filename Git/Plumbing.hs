@@ -1,11 +1,12 @@
 module Git.Plumbing ( Hash, Tree, Commit, Blob, Tag,
                       catBlob, hashObject,
                       catTree, TreeEntry(..),
+                      catCommit, CommitEntry(..),
                       catCommitTree, parseRev, heads,
                       clone, gitInit,
                       checkoutCopy,
                       lsfiles, lssomefiles, lsothers,
-                      revList, revListHashes, RevListOption(..),
+                      revList, revListHashes, RevListOption(..), nameRevs,
                       updateindex,
                       writetree, mkTree, readTree, checkoutIndex,
                       updateref,
@@ -239,6 +240,23 @@ instance Flag RevListOption where
     toFlags RelativeDate = ["--date=relative"]
     toFlags (MaxCount n) = ["--max-count="++show n]
 
+nameRevs :: IO [String]
+nameRevs =
+    do debugMessage "calling git-name-rev"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-name-rev" ["--all"])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ concatMap pretty $ lines out
+         ExitFailure _ -> fail "git-rev-list failed"
+    where pretty s = case words s of
+                       [_,"undefined"] -> []
+                       [sha,n] | '~' `elem` n -> [sha]
+                               | otherwise -> [sha,n]
+                       _ -> error "bad stuff in nameRevs"
+
 revList :: [RevListOption] -> IO String
 revList opts =
     do let flags = concatMap toFlags opts
@@ -328,20 +346,51 @@ catTree (Hash Tree h) =
                 _ -> fail "weird line in tree"
 
 catCommitTree :: Hash Commit -> IO (Hash Tree)
-catCommitTree (Hash Commit h) =
+catCommitTree c = myTree `fmap` catCommit c
+
+data CommitEntry = CommitEntry { myParents :: [Hash Commit],
+                                 myTree :: Hash Tree,
+                                 myAuthor :: String,
+                                 myCommitter :: String,
+                                 myMessage :: String }
+
+instance Show CommitEntry where
+    show c = unlines $ ("tree "++show (myTree c)) :
+             map (\p -> "parent "++show p) (myParents c)
+             ++ ["author "++myAuthor c, "committer "++myCommitter c,
+                 "", myMessage c]
+
+catCommit :: Hash Commit -> IO CommitEntry
+catCommit (Hash Commit h0) =
     do debugMessage "calling git-cat-file"
        (Nothing, Just stdout, Nothing, pid) <-
-           createProcess (proc "git-cat-file" ["commit",h])
+           createProcess (proc "git-cat-file" ["commit",h0])
                              { std_out = CreatePipe }
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> parseit out
+         ExitSuccess -> parseit $ lines out
          ExitFailure _ -> fail "git-cat-file blob failed"
-    where parseit x =
-              case splitAt 5 x of
-                ("tree ",x') -> return $ mkHash Tree $ take 40 x'
-                _ -> fail "weird stuff in commitTree"
+    where parseit (x:xs) =
+              case words x of
+              [] -> return $ CommitEntry { myParents = [],
+                                           myAuthor = "",
+                                           myCommitter = "",
+                                           myTree = error "xx234",
+                                           myMessage = unlines xs }
+              ["tree",h] -> do c <- parseit xs
+                               return $ c { myTree = mkHash Tree h }
+              ["parent",h] ->
+                  do c <- parseit xs
+                     return $ c { myParents = mkHash Commit h : myParents c }
+              "author":_ ->
+                  do c <- parseit xs
+                     return $ c { myAuthor = drop 7 x }
+              "committer":_ ->
+                  do c <- parseit xs
+                     return $ c { myCommitter = drop 10 x }
+              _ -> fail "weird stuff in commitTree"
+          parseit [] = fail "empty commit in commitTree?"
 
 hashObject :: (Handle -> IO ()) -> IO (Hash Blob)
 hashObject wr =

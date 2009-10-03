@@ -1,4 +1,5 @@
-module Git.Helpers ( test, slurpTree, writeSlurpTree, touchedFiles ) where
+module Git.Helpers ( test, slurpTree, writeSlurpTree, touchedFiles,
+                     diffCommit, mergeCommits, Strategy(..) ) where
 
 import System.Directory ( getCurrentDirectory, setCurrentDirectory,
                           doesFileExist )
@@ -8,19 +9,24 @@ import System.IO.Unsafe ( unsafeInterleaveIO )
 
 import Data.ByteString as B ( hPutStr )
 
-import Git.Plumbing ( Hash, Tree, TreeEntry(..),
+import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
+                      catCommit, CommitEntry(..),
                       mkTree, hashObject, lsothers,
                       diffFiles, DiffOption( NameOnly ),
                       readTree, checkoutIndex,
-                      catTree, catBlob )
+                      catTree, catBlob, catCommitTree )
 
 import Iolaus.Progress ( debugMessage )
 import Iolaus.Flags ( IolausFlag(Test) )
 import Iolaus.FileName ( FileName, fp2fn )
 import Iolaus.IO ( ExecutableBit(..) )
-import Iolaus.SlurpDirectoryInternal ( Slurpy(..), SlurpyContents(..),
-                                     slurpies_to_map, map_to_slurpies )
+import Iolaus.SlurpDirectoryInternal
+    ( Slurpy(..), SlurpyContents(..), empty_slurpy,
+      slurpies_to_map, map_to_slurpies )
 import Iolaus.Lock ( removeFileMayNotExist )
+import Iolaus.Diff ( unsafeDiff )
+import Iolaus.Patch ( Prim )
+import Iolaus.Ordered ( FL )
 
 touchedFiles :: IO [FilePath]
 touchedFiles =
@@ -87,3 +93,18 @@ writeSlurpTree (Slurpy _ (SlurpDir Nothing ccc)) =
                  return (fn, Subtree h)
 writeSlurpTree x = writeSlurpTree (Slurpy (fp2fn ".")
                                     (SlurpDir Nothing $ slurpies_to_map [x]))
+
+data Strategy = FirstParent | Merge
+
+mergeCommits :: Strategy -> [Hash Commit] -> IO (Hash Tree)
+mergeCommits _ [] = writeSlurpTree empty_slurpy
+mergeCommits _ [h] = catCommitTree h
+mergeCommits FirstParent (h:_) = catCommitTree h
+mergeCommits Merge _ = undefined
+
+diffCommit :: Strategy -> Hash Commit -> IO (FL Prim)
+diffCommit strat c0 =
+    do c <- catCommit c0
+       new <- slurpTree (fp2fn ".") $ myTree c
+       old <- mergeCommits strat (myParents c) >>= slurpTree (fp2fn ".")
+       return $ unsafeDiff [] old new

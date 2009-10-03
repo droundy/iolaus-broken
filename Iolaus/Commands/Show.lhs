@@ -1,4 +1,4 @@
-%  Copyright (C) 2002-2004 David Roundy
+%  Copyright (C) 2002-2004,2009 David Roundy
 %
 %  This program is free software; you can redistribute it and/or modify
 %  it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@ module Iolaus.Commands.Show ( show_command ) where
 
 import Iolaus.Command ( IolausCommand(..), CommandControl(Command_data) )
 import Iolaus.Commands.ShowAuthors ( show_authors )
+import Iolaus.Commands.ShowCommit ( show_commit )
 import Iolaus.Commands.ShowContents ( show_contents )
 import Iolaus.Commands.ShowFiles ( show_files, show_manifest )
 import Iolaus.Commands.ShowTags ( show_tags )
@@ -43,6 +44,7 @@ show_command = SuperCommand {
                                          Command_data show_files,
                                          Command_data show_manifest,
                                          Command_data show_authors,
+                                         Command_data show_commit,
                                          Command_data show_tags]
                }
 \end{code}
