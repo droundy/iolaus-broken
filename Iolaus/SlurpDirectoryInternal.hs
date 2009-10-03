@@ -59,7 +59,7 @@ import qualified Data.Map as Map
 
 import Iolaus.SignalHandler ( tryNonSignal )
 import Iolaus.IO ( ReadableDirectory(..), WriteableDirectory(..),
-                 MonadCatchy(..), ExecutableBit(..) )
+                   MonadCatchy(..), ExecutableBit(..) )
 
 import Iolaus.ByteStringUtils
 import qualified Data.ByteString as B

@@ -29,7 +29,7 @@ import Iolaus.FileName ( fp2fn )
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( parseRev, nameRevs, catCommit, CommitEntry(myParents) )
 import Git.Helpers ( slurpTree,
-                     mergeCommits, diffCommit, Strategy( FirstParent ) )
+                     mergeCommits, diffCommit, Strategy( BuiltinRecursive ) )
 \end{code}
 
 \options{show commit}
@@ -65,12 +65,13 @@ show_commit = IolausCommand {
 commit_cmd :: [IolausFlag] -> [String] -> IO ()
 commit_cmd opts cs = mapM_ showc cs
     where showc c =
-              do x <- parseRev c
+              do let mystrategy = BuiltinRecursive
+                 x <- parseRev c
                  commit <- catCommit x
                  putStr $ show commit
-                 old <- mergeCommits FirstParent (myParents commit) >>=
+                 old <- mergeCommits mystrategy (myParents commit) >>=
                         slurpTree (fp2fn ".")
-                 ch <- diffCommit FirstParent x
+                 ch <- diffCommit mystrategy x
                  if Summary `elem` opts
                    then putDocLnWith fancyPrinters $ summarize ch
                    else putDocLnWith fancyPrinters $ showContextPatch old ch

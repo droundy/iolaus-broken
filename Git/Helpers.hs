@@ -14,6 +14,7 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       mkTree, hashObject, lsothers,
                       diffFiles, DiffOption( NameOnly ),
                       readTree, checkoutIndex,
+                      mergeBase, mergeIndex, readTreeMerge,
                       catTree, catBlob, catCommitTree )
 
 import Iolaus.Progress ( debugMessage )
@@ -100,13 +101,18 @@ writeSlurpTree (Slurpy _ (SlurpDir Nothing ccc)) =
 writeSlurpTree x = writeSlurpTree (Slurpy (fp2fn ".")
                                     (SlurpDir Nothing $ slurpies_to_map [x]))
 
-data Strategy = FirstParent | Merge
+data Strategy = FirstParent | BuiltinRecursive
 
 mergeCommits :: Strategy -> [Hash Commit] -> IO (Hash Tree)
 mergeCommits _ [] = writeSlurpTree empty_slurpy
 mergeCommits _ [h] = catCommitTree h
 mergeCommits FirstParent (h:_) = catCommitTree h
-mergeCommits Merge _ = undefined
+mergeCommits BuiltinRecursive [p1,p2] =
+    do ancestor <- mergeBase p1 p2
+       [ta,t1,t2] <- mapM catCommitTree [ancestor,p1,p2]
+       readTreeMerge ta t1 t2 "merging"
+       mergeIndex "merging"
+mergeCommits BuiltinRecursive _ = fail "BuiltinRecursive can't do octopi"
 
 diffCommit :: Strategy -> Hash Commit -> IO (FL Prim)
 diffCommit strat c0 =

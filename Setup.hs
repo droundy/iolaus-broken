@@ -8,6 +8,8 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
           withDirectory "etc" $ etc "bash_completion.d/iolaus"
           withModule "System.Process.Redirects" $ define "HAVE_REDIRECTS"
           executable "iolaus" "iolaus.hs" []
+          executable "git-iolaus-merge-one-file"
+                     "git-iolaus-merge-one-file.hs" []
           enforceAllPrivacy
           allTests
 

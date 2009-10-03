@@ -9,7 +9,9 @@ config.d
 *.depend
 grit
 iolaus
+git-iolaus-merge-one-file
 *.log
 .package.conf
 .test*
 tmp
+.merge*

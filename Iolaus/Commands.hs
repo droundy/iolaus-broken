@@ -28,8 +28,8 @@ import Iolaus.Commands.Init ( initialize )
 import Iolaus.Commands.Show ( show_command )
 import Iolaus.Commands.Revert ( revert )
 import Iolaus.Commands.Unrevert ( unrevert )
-import Iolaus.Command ( CommandControl( Command_data, -- Hidden_command,
-                                      Group_name) )
+import Iolaus.Command ( CommandControl( Command_data, Hidden_command,
+                                        Group_name) )
 
 -- | The commands that arcs knows about (e.g. whatsnew, record),
 --   organized into thematic groups.  Note that hidden commands

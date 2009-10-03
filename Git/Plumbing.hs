@@ -1,4 +1,4 @@
-module Git.Plumbing ( Hash, Tree, Commit, Blob, Tag,
+module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag,
                       catBlob, hashObject,
                       catTree, TreeEntry(..),
                       catCommit, CommitEntry(..),
@@ -7,10 +7,12 @@ module Git.Plumbing ( Hash, Tree, Commit, Blob, Tag,
                       checkoutCopy,
                       lsfiles, lssomefiles, lsothers,
                       revList, revListHashes, RevListOption(..), nameRevs,
-                      updateindex,
-                      writetree, mkTree, readTree, checkoutIndex,
+                      updateindex, updateIndexForceRemove, updateIndexCacheInfo,
+                      writetree, mkTree, readTree, readTreeMerge, checkoutIndex,
                       updateref,
                       diffFiles, diffTrees, DiffOption(..), gitApply,
+                      mergeBase, mergeIndex,
+                      mergeFile, unpackFile,
                       headhash, commitTree ) where
 
 import System.IO ( Handle, hGetContents, hPutStr, hClose )
@@ -46,6 +48,54 @@ readTree t i =
        case ec of
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-read-tree failed"
+
+mergeBase :: Hash Commit -> Hash Commit -> IO (Hash Commit)
+mergeBase a b =
+    do debugMessage "calling git-merge-base"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-merge-base" [show a, show b])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ mkHash Commit out
+         ExitFailure _ -> fail "git-merge-base failed"
+
+mergeIndex :: String -> IO (Hash Tree)
+mergeIndex i =
+    do debugMessage ("calling git-merge-index")
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-merge-index" ["git-iolaus-merge-one-file",
+                                                  "-a"])
+                         { env = Just [("GIT_INDEX_FILE",".git/"++i)] }
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-checkout-index failed"
+       debugMessage "calling git-write-tree"
+       (Nothing, Just stdout, Nothing, pid2) <-
+           createProcess (proc "git-write-tree" [])
+                             { std_out = CreatePipe,
+                               env = Just [("GIT_INDEX_FILE",".git/"++i)] }
+       out <- hGetContents stdout
+       ec2 <- length out `seq` waitForProcess pid2
+       case ec2 of
+         ExitSuccess -> return $ mkHash Tree out
+         ExitFailure _ -> fail "git-write-tree failed in mergeIndex"
+
+readTreeMerge :: Hash Tree -> Hash Tree -> Hash Tree -> String -> IO ()
+readTreeMerge o a b i =
+    do removeFileMayNotExist (".git/"++i)
+       let args = ["--index-output=.git/"++i, "-m","-i",
+                   show o, show a, show b]
+       debugMessage ("calling git-read-tree "++unwords args)
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-read-tree" args)
+                         { env = Just [("GIT_INDEX_FILE",".git/"++i)] }
+       ec2 <- waitForProcess pid
+       case ec2 of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-read-tree -m failed"
 
 checkoutIndex :: FilePath -> FilePath -> IO ()
 checkoutIndex i pfx =
@@ -154,6 +204,53 @@ headhash =
        case ec of
          ExitSuccess -> return $ mkHash Commit out
          ExitFailure _ -> fail "git-show-ref failed"
+
+updateIndexForceRemove :: FilePath -> IO ()
+updateIndexForceRemove fp =
+    do debugMessage "calling git-update-index --force-remove"
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-update-index" ["--force-remove","--",fp])
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-update-index failed"
+
+updateIndexCacheInfo :: String -> Hash Blob -> FilePath -> IO ()
+updateIndexCacheInfo mode sha fp =
+    do debugMessage "calling git-update-index"
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-update-index"
+                                   ["--cacheinfo",mode,show sha,fp])
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-update-index failed"
+
+mergeFile :: FilePath -> FilePath -> FilePath -> IO (Hash Blob)
+mergeFile s1 a s2 =
+    do debugMessage "calling git-merge-file"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-merge-file" ["-L","mine","-L","ancestor",
+                                                 "-L","yours","--stdout",
+                                                 s1,a,s2])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitFailure e | e < 0 -> fail "git-merge-file failed"
+         _ -> hashObject (`hPutStr` out)
+
+unpackFile :: Hash Blob -> IO FilePath
+unpackFile sha =
+    do debugMessage "calling git-unpack-file"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-unpack-file" [show sha])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ init out
+         ExitFailure _ -> fail "git-unpack-file failed"
 
 updateindex :: [String] -> IO ()
 updateindex [] = debugMessage "no need to call git-update-index"
