@@ -29,7 +29,7 @@ import Iolaus.FileName ( fp2fn )
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( parseRev, nameRevs, catCommit, CommitEntry(myParents) )
 import Git.Helpers ( slurpTree,
-                     mergeCommits, diffCommit, Strategy( BuiltinRecursive ) )
+                     mergeCommits, diffCommit, Strategy( Builtin ) )
 \end{code}
 
 \options{show commit}
@@ -65,7 +65,7 @@ show_commit = IolausCommand {
 commit_cmd :: [IolausFlag] -> [String] -> IO ()
 commit_cmd opts cs = mapM_ showc cs
     where showc c =
-              do let mystrategy = BuiltinRecursive
+              do let mystrategy = Builtin
                  x <- parseRev c
                  commit <- catCommit x
                  putStr $ show commit
