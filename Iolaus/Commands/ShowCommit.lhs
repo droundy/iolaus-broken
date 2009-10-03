@@ -19,10 +19,11 @@
 \begin{code}
 module Iolaus.Commands.ShowCommit ( show_commit ) where
 
-import Iolaus.Arguments ( IolausFlag(..), working_repo_dir )
+import Iolaus.Arguments ( IolausFlag(..), summary, working_repo_dir )
 import Iolaus.Command ( IolausCommand(..), nodefaults )
-import Iolaus.Printer ( putDocLn )
-import Iolaus.Patch ( showContextPatch )
+import Iolaus.Printer ( putDocLnWith )
+import Iolaus.ColorPrinter ( fancyPrinters )
+import Iolaus.Patch ( showContextPatch, summarize )
 import Iolaus.FileName ( fp2fn )
 
 import Git.LocateRepo ( amInRepository )
@@ -59,15 +60,18 @@ show_commit = IolausCommand {
   command_get_arg_possibilities = nameRevs,
   command_argdefaults = nodefaults,
   command_advanced_options = [],
-  command_basic_options = [working_repo_dir] }
+  command_basic_options = [summary, working_repo_dir] }
 
 commit_cmd :: [IolausFlag] -> [String] -> IO ()
-commit_cmd _ cs = mapM_ showc cs
-    where showc c = do x <- parseRev c
-                       commit <- catCommit x
-                       putStr $ show commit
-                       old <- mergeCommits FirstParent (myParents commit) >>=
-                              slurpTree (fp2fn ".")
-                       ch <- diffCommit FirstParent x
-                       putDocLn $ showContextPatch old ch
+commit_cmd opts cs = mapM_ showc cs
+    where showc c =
+              do x <- parseRev c
+                 commit <- catCommit x
+                 putStr $ show commit
+                 old <- mergeCommits FirstParent (myParents commit) >>=
+                        slurpTree (fp2fn ".")
+                 ch <- diffCommit FirstParent x
+                 if Summary `elem` opts
+                   then putDocLnWith fancyPrinters $ summarize ch
+                   else putDocLnWith fancyPrinters $ showContextPatch old ch
 \end{code}

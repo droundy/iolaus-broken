@@ -16,3 +16,6 @@ grep 'add foo date' h
 diff h m
 diff m s
 grep 'hello world' h
+
+iolaus show commit -s master > sum
+grep A sum
