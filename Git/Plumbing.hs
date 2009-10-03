@@ -26,7 +26,7 @@ import Iolaus.Progress ( debugMessage )
 import Iolaus.Lock ( removeFileMayNotExist )
 
 data Hash a = Hash !a !String
-              deriving ( Eq )
+              deriving ( Eq, Ord )
 instance Show (Hash a) where
     show (Hash _ s) = s
 mkHash :: a -> String -> Hash a

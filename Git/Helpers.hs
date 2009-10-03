@@ -9,12 +9,14 @@ import System.IO.Unsafe ( unsafeInterleaveIO )
 
 import Data.ByteString as B ( hPutStr )
 
+import Git.Dag ( mergeBases )
 import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       catCommit, CommitEntry(..),
                       mkTree, hashObject, lsothers,
                       diffFiles, DiffOption( NameOnly ),
                       readTree, checkoutIndex,
-                      mergeBase, mergeIndex, readTreeMerge,
+                      -- mergeBase,
+                      mergeIndex, readTreeMerge,
                       catTree, catBlob, catCommitTree )
 
 import Iolaus.Progress ( debugMessage )
@@ -108,7 +110,8 @@ mergeCommits _ [] = writeSlurpTree empty_slurpy
 mergeCommits _ [h] = catCommitTree h
 mergeCommits FirstParent (h:_) = catCommitTree h
 mergeCommits Builtin [p1,p2] =
-    do ancestor <- mergeBase p1 p2
+    do -- ancestor <- mergeBase p1 p2
+       let ancestor:_ = mergeBases [p1,p2]
        [ta,t1,t2] <- mapM catCommitTree [ancestor,p1,p2]
        readTreeMerge ta t1 t2 "merging"
        mergeIndex "merging"
