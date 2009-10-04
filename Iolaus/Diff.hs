@@ -25,8 +25,7 @@ module Iolaus.Diff ( diff ) where
 import Iolaus.SlurpDirectory ( Slurpy )
 import Iolaus.Patch ( Prim )
 import Iolaus.Flags ( IolausFlag(..) )
-import Iolaus.Ordered ( FL(..) )
-#ifndef GADT_WITNESSES
+import Iolaus.Ordered ( FL(..), unsafeCoerceP, unsafeCoerceS )
 import Data.List ( partition, sort )
 import Data.List ( intersperse )
 import qualified Data.ByteString.Char8 as BC (last)
@@ -43,16 +42,16 @@ import Iolaus.Patch ( apply_to_slurpy, move, hunk, canonize, rmfile, rmdir,
                       addfile, adddir, chmod, invert )
 
 #include "impossible.h"
-#endif
 
 -- | take a recursive diff of two slurped-up directory trees.
 
 diff :: [IolausFlag]
            -> Slurpy C(x) -> Slurpy C(y) -> FL Prim C(x y)
-#ifdef GADT_WITNESSES
-diff = undefined
-#else
-diff opts s1 s2 = find_mvs xs0
+diff fs a b = unsafeCoerceP (diffHelper fs a (unsafeCoerceS b))
+
+diffHelper :: [IolausFlag]
+           -> Slurpy C(x) -> Slurpy C(x) -> FL Prim C(x x)
+diffHelper opts s1 s2 = find_mvs xs0
   where summary = Summary `elem` opts && NoSummary `notElem` opts
         (xs0,ys) = addedremoved s1 s2
         find_mvs (x:xs) =
@@ -70,8 +69,8 @@ diff opts s1 s2 = find_mvs xs0
 mk_filepath :: [FilePath] -> FilePath
 mk_filepath fps = concat $ intersperse "/" $ reverse fps
 
-addedremoved :: Slurpy C(x) -> Slurpy C(y)
-             -> ([(FilePath,Slurpy)],[(FilePath,Slurpy)])
+addedremoved :: Slurpy C(x) -> Slurpy C(x)
+             -> ([(FilePath,Slurpy C(x))],[(FilePath,Slurpy C(x))])
 addedremoved o n
     | get_dirhash o == get_dirhash n && get_dirhash o /= Nothing = ([],[])
     | is_file o && is_file n = ([],[])
@@ -92,8 +91,8 @@ addedremoved o n
                                     (mk_filepath [f1,slurp_name s], s1)
                 _ -> impossible
 
-gendiff :: Bool -> [FilePath] -> Slurpy -> Slurpy
-        -> (FL Prim -> FL Prim)
+gendiff :: Bool -> [FilePath] -> Slurpy C(x) -> Slurpy C(x)
+        -> (FL Prim C(x x) -> FL Prim C(x x))
 gendiff summary fps s1 s2
     | get_dirhash s1 == get_dirhash s2 && get_dirhash s1 /= Nothing = id
     | is_file s1 && is_file s2 = diff_regular_files f s1 s2
@@ -109,8 +108,8 @@ gendiff summary fps s1 s2
 -- recur_diff or recursive diff
 -- First parameter is Summary?
 recur_diff :: Bool
-           -> [FilePath] -> [Slurpy] -> [Slurpy]
-           -> (FL Prim -> FL Prim)
+           -> [FilePath] -> [Slurpy C(x)] -> [Slurpy C(x)]
+           -> (FL Prim C(x x) -> FL Prim C(x x))
 recur_diff _ _ [] [] = id
 recur_diff summary fps (s:ss) (s':ss')
     -- this is the case if a file has been removed in the working directory
@@ -126,7 +125,8 @@ recur_diff summary fps [] (s':ss') =
 recur_diff _ _ _ _ = impossible
 
 -- diff, taking into account paranoidness and file type, two regular files
-diff_regular_files :: FilePath -> Slurpy -> Slurpy -> (FL Prim -> FL Prim)
+diff_regular_files :: FilePath -> Slurpy C(x) -> Slurpy C(x)
+                   -> (FL Prim C(x x) -> FL Prim C(x x))
 diff_regular_files f s1 s2 = 
     if maybe_differ   
         then chm . diff_files f b1 b2
@@ -144,8 +144,8 @@ diff_regular_files f s1 s2 =
 
 -- creates a diff for a file or directory which needs to be added to the
 -- repository
-diff_added :: Bool -> [FilePath] -> Slurpy
-           -> (FL Prim -> FL Prim)
+diff_added :: Bool -> [FilePath] -> Slurpy C(x)
+           -> (FL Prim C(x x) -> FL Prim C(x x))
 diff_added summary fps s
     | is_file s = (addfile f:>:) .
                   (if get_fileEbit s == Just IsExecutable
@@ -160,7 +160,7 @@ diff_added summary fps s
           f = mk_filepath (n:fps)
 
 diff_files :: FilePath -> B.ByteString -> B.ByteString
-           -> (FL Prim -> FL Prim)
+           -> (FL Prim C(x x) -> FL Prim C(x x))
 diff_files f o n | linesPS o == [B.empty] && linesPS n == [B.empty] = id
                  | linesPS o == [B.empty] = diff_from_empty id f n
                  | linesPS n == [B.empty] = diff_from_empty invert f o
@@ -168,8 +168,8 @@ diff_files f o n = if o == n
                    then id
                    else (canonize (hunk f 1 (linesPS o) (linesPS n)) +>+)
 
-diff_from_empty :: (Prim -> Prim) -> FilePath -> B.ByteString
-                -> (FL Prim -> FL Prim)
+diff_from_empty :: (Prim C(x x) -> Prim C(x x)) -> FilePath -> B.ByteString
+                -> (FL Prim C(x x) -> FL Prim C(x x))
 diff_from_empty inv f b =
     if b == B.empty
     then id
@@ -177,10 +177,9 @@ diff_from_empty inv f b =
                  then hunk f 1 [] $ init $ linesPS b
                  else hunk f 1 [B.empty] $ linesPS b
          in (inv p:>:)
-#endif
 
-#ifndef GADT_WITNESSES
-diff_removed :: [FilePath] -> Slurpy -> (FL Prim -> FL Prim)
+diff_removed :: [FilePath] -> Slurpy C(x)
+             -> (FL Prim C(x x) -> FL Prim C(x x))
 diff_removed fps s
     | is_file s = diff_files f (get_filecontents s) B.empty . (rmfile f:>:)
     | otherwise {- is_dir s -}
@@ -189,7 +188,7 @@ diff_removed fps s
     where n = slurp_name s
           f = mk_filepath (n:fps)
 
-similar :: Slurpy -> Slurpy -> Bool
+similar :: Slurpy C(x) -> Slurpy C(x) -> Bool
 similar aaa bbb
     | afile /= bfile = False
     | afile = length (patientLcs (linesPS $ get_filecontents aaa)
@@ -205,4 +204,3 @@ similar aaa bbb
               | otherwise = compared (a:as) bs
           compared [] _ = False
           compared _ [] = False
-#endif
