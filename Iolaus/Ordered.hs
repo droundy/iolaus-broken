@@ -23,19 +23,16 @@
 
 module Iolaus.Ordered ( EqCheck(..), isEq, (:>)(..), (:\/:)(..), (:/\:)(..),
                        FL(..), RL(..),Proof(..), (:>>)(..),
-#ifndef GADT_WITNESSES
-                             unsafeUnFL, unsafeFL, unsafeRL, unsafeUnRL,
-#endif
-                             lengthFL, mapFL, mapFL_FL, spanFL, foldlFL, allFL,
-                             splitAtFL, bunchFL, foldlRL,
-                             lengthRL, isShorterThanRL, mapRL, mapRL_RL, zipWithFL,
-                             filterE, filterFL,
-                             reverseFL, reverseRL, (+>+), (+<+),
-                             nullFL, concatFL, concatRL, concatReverseFL,
-                             MyEq, unsafeCompare, (=\/=), (=/\=),
-                             consRLSealed, nullRL,
-                             unsafeCoerceS, unsafeCoerceP, unsafeCoerceP2
-                           ) where
+                       lengthFL, mapFL, mapFL_FL, spanFL, foldlFL, allFL,
+                       splitAtFL, bunchFL, foldlRL,
+                       lengthRL, isShorterThanRL, mapRL, mapRL_RL, zipWithFL,
+                       filterE, filterFL,
+                       reverseFL, reverseRL, (+>+), (+<+),
+                       nullFL, concatFL, concatRL, concatReverseFL,
+                       MyEq, unsafeCompare, (=\/=), (=/\=),
+                       consRLSealed, nullRL,
+                       unsafeCoerceS, unsafeCoerceP, unsafeCoerceP2
+                      ) where
 
 import GHC.Base (unsafeCoerce#)
 import Iolaus.Show
@@ -250,23 +247,3 @@ concatReverseFL = concatRL . reverseFL
 
 consRLSealed :: a C(y z) -> FlippedSeal (RL a) C(y) -> FlippedSeal (RL a) C(z)
 consRLSealed a (FlippedSeal as) = flipSeal $ a :<: as
-
-#ifndef GADT_WITNESSES
--- These are useful for interfacing with modules outside of
--- patch theory, such as Show.lhs
-unsafeUnFL :: FL a -> [a]
-unsafeUnFL NilFL = []
-unsafeUnFL (a:>:as) = a : unsafeUnFL as
-
-unsafeUnRL :: RL a -> [a]
-unsafeUnRL NilRL = []
-unsafeUnRL (a:<:as) = a : unsafeUnRL as
-
-unsafeFL :: [a] -> FL a
-unsafeFL [] = NilFL
-unsafeFL (a:as) = a :>: unsafeFL as
-
-unsafeRL :: [a] -> RL a
-unsafeRL [] = NilRL
-unsafeRL (a:as) = a :<: unsafeRL as
-#endif

@@ -22,13 +22,10 @@
 #include "gadts.h"
 
 module Iolaus.Sealed ( Sealed(..), seal, unseal, mapSeal, mapSealM,
-#ifndef GADT_WITNESSES
-                      unsafeUnseal, unsafeUnflippedseal, unsafeUnseal2,
-#endif
-                      Sealed2(..), seal2, unseal2, mapSeal2,
-                      FlippedSeal(..), flipSeal, unsealFlipped, mapFlipped,
-                      unsealM, liftSM
-                    ) where
+                       Sealed2(..), seal2, unseal2, mapSeal2,
+                       FlippedSeal(..), flipSeal, unsealFlipped, mapFlipped,
+                       unsealM, liftSM
+                     ) where
 
 import GHC.Base ( unsafeCoerce# )
 import Iolaus.Show
@@ -50,17 +47,6 @@ data FlippedSeal a C(y) where
 
 flipSeal :: a C(x y) -> FlippedSeal a C(y)
 flipSeal = FlippedSeal
-
-#ifndef GADT_WITNESSES
-unsafeUnseal :: Sealed a -> a
-unsafeUnseal (Sealed a) = a
-
-unsafeUnflippedseal :: FlippedSeal a -> a
-unsafeUnflippedseal (FlippedSeal a) = a
-
-unsafeUnseal2 :: Sealed2 a -> a
-unsafeUnseal2 (Sealed2 a) = a
-#endif
 
 seriouslyUnsafeUnseal :: Sealed a -> a C(())
 seriouslyUnsafeUnseal (Sealed a) = unsafeCoerce# a
