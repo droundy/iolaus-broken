@@ -20,54 +20,48 @@
 
 #include "gadts.h"
 
-module Iolaus.Diff ( unsafeDiff ) where
+module Iolaus.Diff ( diff ) where
 
-import Data.List ( partition, sort )
-import Iolaus.Lcs2 ( patientLcs )
+import Iolaus.SlurpDirectory ( Slurpy )
+import Iolaus.Patch ( Prim )
+import Iolaus.Flags ( IolausFlag(..) )
+import Iolaus.Ordered ( FL(..) )
 #ifndef GADT_WITNESSES
+import Data.List ( partition, sort )
 import Data.List ( intersperse )
-import Iolaus.ByteStringUtils ( linesPS)
 import qualified Data.ByteString.Char8 as BC (last)
 import qualified Data.ByteString as B (empty, ByteString)
-#endif
 
-import Iolaus.SlurpDirectory ( Slurpy, slurp_name, is_dir, is_file,
-                             get_filehash, get_dirhash, get_fileEbit,
-                             get_dircontents, get_filecontents )
+import Iolaus.Ordered ( (+>+) )
+import Iolaus.Lcs2 ( patientLcs )
+import Iolaus.ByteStringUtils ( linesPS )
 import Iolaus.IO ( ExecutableBit(..) )
-import Iolaus.Patch ( Prim, apply_to_slurpy, move
-#ifndef GADT_WITNESSES
-                   , hunk, canonize, rmfile, rmdir
-                   , addfile, adddir, chmod, invert
-#endif
-                   )
-import Iolaus.Flags ( IolausFlag(..) )
-import Iolaus.Ordered ( FL(..)
-#ifndef GADT_WITNESSES
-                           , (+>+)
-#endif
-                           )
-#ifndef GADT_WITNESSES
+import Iolaus.SlurpDirectory ( slurp_name, is_dir, is_file,
+                               get_filehash, get_dirhash, get_fileEbit,
+                               get_dircontents, get_filecontents )
+import Iolaus.Patch ( apply_to_slurpy, move, hunk, canonize, rmfile, rmdir,
+                      addfile, adddir, chmod, invert )
+
 #include "impossible.h"
 #endif
 
 -- | take a recursive diff of two slurped-up directory trees.
 
-unsafeDiff :: [IolausFlag]
-           -> Slurpy -> Slurpy -> FL Prim C(x y)
+diff :: [IolausFlag]
+           -> Slurpy C(x) -> Slurpy C(y) -> FL Prim C(x y)
 #ifdef GADT_WITNESSES
-unsafeDiff = undefined
+diff = undefined
 #else
-unsafeDiff opts s1 s2 = find_mvs xs0
+diff opts s1 s2 = find_mvs xs0
   where summary = Summary `elem` opts && NoSummary `notElem` opts
         (xs0,ys) = addedremoved s1 s2
         find_mvs (x:xs) =
             case filter (similar (snd x) . snd) ys of
               y:_ -> case apply_to_slurpy p s1 of
-                     Just s1' -> p :>: unsafeDiff opts s1' s2
+                     Just s1' -> p :>: diff opts s1' s2
                      Nothing ->
                          case apply_to_slurpy (invert p) s2 of
-                         Just s2' -> unsafeDiff opts s1 s2' +>+ p :>: NilFL
+                         Just s2' -> diff opts s1 s2' +>+ p :>: NilFL
                          Nothing -> find_mvs xs -- yikes
                   where p = move (fst x) (fst y)
               [] -> find_mvs xs
@@ -76,7 +70,8 @@ unsafeDiff opts s1 s2 = find_mvs xs0
 mk_filepath :: [FilePath] -> FilePath
 mk_filepath fps = concat $ intersperse "/" $ reverse fps
 
-addedremoved :: Slurpy -> Slurpy -> ([(FilePath,Slurpy)],[(FilePath,Slurpy)])
+addedremoved :: Slurpy C(x) -> Slurpy C(y)
+             -> ([(FilePath,Slurpy)],[(FilePath,Slurpy)])
 addedremoved o n
     | get_dirhash o == get_dirhash n && get_dirhash o /= Nothing = ([],[])
     | is_file o && is_file n = ([],[])
@@ -193,7 +188,6 @@ diff_removed fps s
         $ map (diff_removed (n:fps)) (get_dircontents s)
     where n = slurp_name s
           f = mk_filepath (n:fps)
-#endif
 
 similar :: Slurpy -> Slurpy -> Bool
 similar aaa bbb
@@ -211,3 +205,4 @@ similar aaa bbb
               | otherwise = compared (a:as) bs
           compared [] _ = False
           compared _ [] = False
+#endif

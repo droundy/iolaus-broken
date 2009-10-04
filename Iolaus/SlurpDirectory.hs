@@ -14,6 +14,8 @@
 -- along with this program; see the file COPYING.  If not, write to
 -- the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 -- Boston, MA 02110-1301, USA.
+{-# LANGUAGE CPP #-}
+#include "gadts.h"
 
 module Iolaus.SlurpDirectory
  (Slurpy, empty_slurpy, slurp, filterSlurpyPaths,
@@ -47,23 +49,23 @@ import qualified Iolaus.SlurpDirectoryInternal as SDI
 import Iolaus.FileName ( fp2fn )
 import Iolaus.RepoPath ( FilePathLike( toFilePath ) )
 
-slurp_has :: FilePathLike p => p -> Slurpy -> Bool
+slurp_has :: FilePathLike p => p -> Slurpy C(x) -> Bool
 slurp_has f s = SDI.slurp_has (fp2fn $ toFilePath f) s
 
-slurp_hasfile :: FilePathLike p => p -> Slurpy -> Bool
+slurp_hasfile :: FilePathLike p => p -> Slurpy C(x) -> Bool
 slurp_hasfile f s = SDI.slurp_hasfile (fp2fn $ toFilePath f) s
 
-slurp_hasdir :: FilePathLike p => p -> Slurpy -> Bool
+slurp_hasdir :: FilePathLike p => p -> Slurpy C(x) -> Bool
 slurp_hasdir f s = SDI.slurp_hasdir (fp2fn $ toFilePath f) s
 
-slurp_remove :: FilePathLike p => p -> Slurpy -> Maybe Slurpy
+slurp_remove :: FilePathLike p => p -> Slurpy C(x) -> Maybe (Slurpy C(x))
 slurp_remove f s = SDI.slurp_remove (fp2fn $ toFilePath f) s
 
-slurp_removedir :: FilePathLike p => p -> Slurpy -> Maybe Slurpy
+slurp_removedir :: FilePathLike p => p -> Slurpy C(x) -> Maybe (Slurpy C(x))
 slurp_removedir f s = SDI.slurp_removedir (fp2fn $ toFilePath f) s
 
-slurp_removefile :: FilePathLike p => p -> Slurpy -> Maybe Slurpy
+slurp_removefile :: FilePathLike p => p -> Slurpy C(x) -> Maybe (Slurpy C(x))
 slurp_removefile f s = SDI.slurp_removefile (fp2fn $ toFilePath f) s
 
-filterSlurpyPaths :: FilePathLike p => [p] -> Slurpy -> Slurpy
+filterSlurpyPaths :: FilePathLike p => [p] -> Slurpy C(x) -> Slurpy C(x)
 filterSlurpyPaths f = SDI.filterSlurpyPaths (map (fp2fn . toFilePath) f)

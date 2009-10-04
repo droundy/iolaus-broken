@@ -1,3 +1,6 @@
+{-# LANGUAGE CPP #-}
+#include "gadts.h"
+
 module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag,
                       catBlob, hashObject,
                       catTree, TreeEntry(..),
@@ -24,20 +27,30 @@ import qualified Data.ByteString as B
 import Iolaus.FileName ( FileName, fp2fn, fn2fp )
 import Iolaus.Progress ( debugMessage )
 import Iolaus.Lock ( removeFileMayNotExist )
+import Iolaus.Sealed ( Sealed(Sealed) )
+import Iolaus.Show ( Show1(..), Eq1(..), Ord1(..) )
 
-data Hash a = Hash !a !String
-              deriving ( Eq, Ord )
-instance Show (Hash a) where
-    show (Hash _ s) = s
-mkHash :: a -> String -> Hash a
+data Hash a C(x) = Hash !a !String
+                   deriving ( Eq, Ord )
+instance Show1 (Hash a) where show1 (Hash _ s) = s
+instance Show (Hash a C(x)) where show = show1
+instance Eq1 (Hash a) where
+    eq1 (Hash _ x) (Hash _ y) = x == y
+instance Ord1 (Hash a) where
+    compare1 (Hash _ x) (Hash _ y) = compare x y
+
+mkHash :: a -> String -> Hash a C(x)
 mkHash a s = Hash a (cleanhash s)
+
+mkSHash :: a -> String -> Sealed (Hash a)
+mkSHash a s = Sealed $ Hash a (cleanhash s)
 
 data Tag = Tag deriving ( Show, Eq, Ord )
 data Blob = Blob deriving ( Show, Eq, Ord )
 data Tree = Tree deriving ( Show, Eq, Ord )
 data Commit = Commit deriving ( Show, Eq, Ord )
 
-readTree :: Hash Tree -> String -> IO ()
+readTree :: Hash Tree C(x) -> String -> IO ()
 readTree t i =
     do removeFileMayNotExist (".git/"++i)
        debugMessage "calling git-read-tree --index-output=..."
@@ -49,7 +62,7 @@ readTree t i =
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-read-tree failed"
 
-mergeBase :: Hash Commit -> Hash Commit -> IO (Hash Commit)
+mergeBase :: Hash Commit C(x) -> Hash Commit C(y) -> IO (Sealed (Hash Commit))
 mergeBase a b =
     do debugMessage "calling git-merge-base"
        (Nothing, Just stdout, Nothing, pid) <-
@@ -58,10 +71,10 @@ mergeBase a b =
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> return $ mkHash Commit out
+         ExitSuccess -> return $ mkSHash Commit out
          ExitFailure _ -> fail "git-merge-base failed"
 
-mergeIndex :: String -> IO (Hash Tree)
+mergeIndex :: String -> IO (Sealed (Hash Tree))
 mergeIndex i =
     do debugMessage ("calling git-merge-index")
        (Nothing, Nothing, Nothing, pid) <-
@@ -79,10 +92,11 @@ mergeIndex i =
        out <- hGetContents stdout
        ec2 <- length out `seq` waitForProcess pid2
        case ec2 of
-         ExitSuccess -> return $ mkHash Tree out
+         ExitSuccess -> return $ mkSHash Tree out
          ExitFailure _ -> fail "git-write-tree failed in mergeIndex"
 
-readTreeMerge :: Hash Tree -> Hash Tree -> Hash Tree -> String -> IO ()
+readTreeMerge :: Hash Tree C(x) -> Hash Tree C(y) -> Hash Tree C(z)
+              -> String -> IO ()
 readTreeMerge o a b i =
     do removeFileMayNotExist (".git/"++i)
        let args = ["--index-output=.git/"++i, "-m","-i",
@@ -179,7 +193,8 @@ diffFiles opts fs =
          ExitSuccess -> return out
          ExitFailure _ -> fail "git-diff-files failed"
 
-diffTrees :: [DiffOption] -> Hash Tree -> Hash Tree -> [FilePath] -> IO String
+diffTrees :: [DiffOption] -> Hash Tree C(x) -> Hash Tree C(y)
+          -> [FilePath] -> IO String
 diffTrees opts t1 t2 fs =
     do let flags = case opts of [] -> ["-p"]
                                 _ -> concatMap toFlags opts
@@ -193,7 +208,7 @@ diffTrees opts t1 t2 fs =
          ExitSuccess -> return out
          ExitFailure _ -> fail "git-diff-tree failed"
 
-headhash :: IO (Hash Commit)
+headhash :: IO (Sealed (Hash Commit))
 headhash =
     do debugMessage "calling git-show-ref -h"
        (Nothing, Just stdout, Nothing, pid) <-
@@ -201,7 +216,7 @@ headhash =
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> return $ mkHash Commit out
+         ExitSuccess -> return $ mkSHash Commit out
          ExitFailure _ -> fail "git-show-ref failed"
 
 updateIndexForceRemove :: FilePath -> IO ()
@@ -214,7 +229,7 @@ updateIndexForceRemove fp =
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-update-index failed"
 
-updateIndexCacheInfo :: String -> Hash Blob -> FilePath -> IO ()
+updateIndexCacheInfo :: String -> Hash Blob C(x) -> FilePath -> IO ()
 updateIndexCacheInfo mode sha fp =
     do debugMessage "calling git-update-index"
        (Nothing, Nothing, Nothing, pid) <-
@@ -225,7 +240,7 @@ updateIndexCacheInfo mode sha fp =
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-update-index failed"
 
-mergeFile :: FilePath -> FilePath -> FilePath -> IO (Hash Blob)
+mergeFile :: FilePath -> FilePath -> FilePath -> IO (Hash Blob C(x))
 mergeFile s1 a s2 =
     do debugMessage "calling git-merge-file"
        (Nothing, Just stdout, Nothing, pid) <-
@@ -239,7 +254,7 @@ mergeFile s1 a s2 =
          ExitFailure e | e < 0 -> fail "git-merge-file failed"
          _ -> hashObject (`hPutStr` out)
 
-unpackFile :: Hash Blob -> IO FilePath
+unpackFile :: Hash Blob C(x) -> IO FilePath
 unpackFile sha =
     do debugMessage "calling git-unpack-file"
        (Nothing, Just stdout, Nothing, pid) <-
@@ -262,7 +277,7 @@ updateindex fs =
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-update-index failed"
 
-writetree :: IO (Hash Tree)
+writetree :: IO (Sealed (Hash Tree))
 writetree = 
     do debugMessage "calling git-write-tree"
        (Nothing, Just stdout, Nothing, pid) <-
@@ -270,10 +285,10 @@ writetree =
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> return $ mkHash Tree out
+         ExitSuccess -> return $ mkSHash Tree out
          ExitFailure _ -> fail "git-write-tree failed"
 
-heads :: IO [Hash Commit]
+heads :: IO [Sealed (Hash Commit)]
 heads =
     do debugMessage "calling git-rev-parse"
        (Nothing, Just stdout, Nothing, pid) <-
@@ -282,10 +297,10 @@ heads =
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> return $ map (mkHash Commit) $ lines out
+         ExitSuccess -> return $ map (mkSHash Commit) $ lines out
          ExitFailure _ -> fail "parseRev failed"
 
-parseRev :: String -> IO (Hash Commit)
+parseRev :: String -> IO (Sealed (Hash Commit))
 parseRev s =
     do debugMessage "calling git-rev-parse"
        (Nothing, Just stdout, Nothing, pid) <-
@@ -294,10 +309,10 @@ parseRev s =
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> return $ mkHash Commit out
+         ExitSuccess -> return $ mkSHash Commit out
          ExitFailure _ -> fail "parseRev failed"
 
-updateref :: String -> Hash Commit -> IO ()
+updateref :: String -> Hash Commit C(x) -> IO ()
 updateref r h =
     do debugMessage "calling git-update-ref"
        (Nothing, Nothing, Nothing, pid) <-
@@ -307,7 +322,8 @@ updateref r h =
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-update-ref failed"
 
-commitTree :: Hash Tree -> [Hash Commit] -> String -> IO (Hash Commit)
+commitTree :: Hash Tree C(x) -> [Sealed (Hash Commit)] -> String
+           -> IO (Hash Commit C(x))
 commitTree t pars m =
     do let pflags = concatMap (\p -> ["-p",show p]) pars
        debugMessage "calling git-commit-tree"
@@ -366,9 +382,9 @@ revList opts =
          ExitSuccess -> return out
          ExitFailure _ -> fail "git-rev-list failed"
 
-revListHashes :: IO [Hash Commit]
+revListHashes :: IO [Sealed (Hash Commit)]
 revListHashes = do x <- revList []
-                   return $ map (mkHash Commit) $ words x
+                   return $ map (mkSHash Commit) $ words x
 
 -- | FIXME: I believe that clone is porcelain...
 
@@ -394,7 +410,7 @@ gitInit args =
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-init failed"
 
-catBlob :: Hash Blob -> IO B.ByteString
+catBlob :: Hash Blob C(x) -> IO B.ByteString
 catBlob (Hash Blob h) =
     do debugMessage "calling git-cat-file blob"
        (Nothing, Just stdout, Nothing, pid) <-
@@ -406,17 +422,18 @@ catBlob (Hash Blob h) =
          ExitSuccess -> return out
          ExitFailure _ -> fail "git-cat-file blob failed"
 
-data TreeEntry = Subtree (Hash Tree)
-               | File (Hash Blob)
-               | Executable (Hash Blob)
-               | Symlink (Hash Blob)
-instance Show TreeEntry where
-    show (Subtree (Hash Tree h)) = "040000 tree "++h
-    show (File (Hash Blob h)) = "100644 blob "++h
-    show (Executable (Hash Blob h)) = "100755 blob "++h
-    show (Symlink (Hash Blob h)) = "120000 blob "++h
+data TreeEntry C(x) = Subtree (Hash Tree C(x))
+                    | File (Hash Blob C(x))
+                    | Executable (Hash Blob C(x))
+                    | Symlink (Hash Blob C(x))
+instance Show1 TreeEntry where
+    show1 (Subtree (Hash Tree h)) = "040000 tree "++h
+    show1 (File (Hash Blob h)) = "100644 blob "++h
+    show1 (Executable (Hash Blob h)) = "100755 blob "++h
+    show1 (Symlink (Hash Blob h)) = "120000 blob "++h
+instance Show (TreeEntry C(x)) where show = show1
 
-catTree :: Hash Tree -> IO [(FileName, TreeEntry)]
+catTree :: Hash Tree C(x) -> IO [(FileName, TreeEntry C(x))]
 catTree (Hash Tree h) =
     do debugMessage "calling git-cat-file tree"
        (Nothing, Just stdout, Nothing, pid) <-
@@ -447,22 +464,22 @@ catTree (Hash Tree h) =
                       (_,[]) -> fail "error blob exec"
                 _ -> fail "weird line in tree"
 
-catCommitTree :: Hash Commit -> IO (Hash Tree)
+catCommitTree :: Hash Commit C(x) -> IO (Hash Tree C(x))
 catCommitTree c = myTree `fmap` catCommit c
 
-data CommitEntry = CommitEntry { myParents :: [Hash Commit],
-                                 myTree :: Hash Tree,
-                                 myAuthor :: String,
-                                 myCommitter :: String,
-                                 myMessage :: String }
+data CommitEntry C(x) = CommitEntry { myParents :: [Sealed (Hash Commit)],
+                                      myTree :: Hash Tree C(x),
+                                      myAuthor :: String,
+                                      myCommitter :: String,
+                                      myMessage :: String }
 
-instance Show CommitEntry where
+instance Show (CommitEntry C(x)) where
     show c = unlines $ ("tree "++show (myTree c)) :
              map (\p -> "parent "++show p) (myParents c)
              ++ ["author "++myAuthor c, "committer "++myCommitter c,
                  "", myMessage c]
 
-catCommit :: Hash Commit -> IO CommitEntry
+catCommit :: Hash Commit C(x) -> IO (CommitEntry C(x))
 catCommit (Hash Commit h0) =
     do debugMessage "calling git-cat-file"
        (Nothing, Just stdout, Nothing, pid) <-
@@ -484,7 +501,7 @@ catCommit (Hash Commit h0) =
                                return $ c { myTree = mkHash Tree h }
               ["parent",h] ->
                   do c <- parseit xs
-                     return $ c { myParents = mkHash Commit h : myParents c }
+                     return $ c { myParents = mkSHash Commit h : myParents c }
               "author":_ ->
                   do c <- parseit xs
                      return $ c { myAuthor = drop 7 x }
@@ -494,7 +511,7 @@ catCommit (Hash Commit h0) =
               _ -> fail "weird stuff in commitTree"
           parseit [] = fail "empty commit in commitTree?"
 
-hashObject :: (Handle -> IO ()) -> IO (Hash Blob)
+hashObject :: (Handle -> IO ()) -> IO (Hash Blob C(x))
 hashObject wr =
     do debugMessage "calling git-hash-object"
        (Just i, Just o, Nothing, pid) <-
@@ -509,7 +526,7 @@ hashObject wr =
          ExitSuccess -> return $ mkHash Blob out
          ExitFailure _ -> fail ("git-hash-object failed\n"++out)
 
-mkTree :: [(FileName, TreeEntry)] -> IO (Hash Tree)
+mkTree :: [(FileName, TreeEntry C(x))] -> IO (Hash Tree C(x))
 mkTree xs =
     do debugMessage "calling git-mk-tree"
        (Just i, Just o, Nothing, pid) <-

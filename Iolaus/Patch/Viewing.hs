@@ -54,9 +54,11 @@ instance ShowPatch Prim where
 summarize :: Effect e => e C(x y) -> Doc
 summarize = gen_summary . effect
 
-showContextSeries :: (Apply p, ShowPatch p, Effect p) => Slurpy -> FL p C(x y) -> Doc
+showContextSeries :: (Apply p, ShowPatch p, Effect p) =>
+                     Slurpy C(x) -> FL p C(x y) -> Doc
 showContextSeries slur patches = scs slur identity patches
-    where scs :: (Apply p, ShowPatch p, Effect p) => Slurpy -> Prim C(w x) -> FL p C(x y) -> Doc
+    where scs :: (Apply p, ShowPatch p, Effect p) =>
+                 Slurpy C(x) -> Prim C(w x) -> FL p C(x y) -> Doc
           scs s pold (p:>:ps) =
               case isHunk p of
               Nothing -> showContextPatch s p $$ scs s' identity ps
@@ -72,12 +74,13 @@ showContextSeries slur patches = scs slur identity patches
                         fromJust $ apply_to_slurpy p s
           scs _ _ NilFL = empty
 
-showContextHunk :: (Apply p, ShowPatch p, Effect p) => Slurpy -> p C(x y) -> Doc
+showContextHunk :: (Apply p, ShowPatch p, Effect p) =>
+                   Slurpy C(x) -> p C(x y) -> Doc
 showContextHunk s p = case isHunk p of
                         Just h -> coolContextHunk s identity h identity
                         Nothing -> showPatch p
 
-coolContextHunk :: Slurpy -> Prim C(a b) -> Prim C(b c)
+coolContextHunk :: Slurpy C(b) -> Prim C(a b) -> Prim C(b c)
                 -> Prim C(c d) -> Doc
 coolContextHunk s prev p@(FP f (Hunk l o n)) next =
     case (linesPS . get_filecontents) `liftM` get_slurp f s of

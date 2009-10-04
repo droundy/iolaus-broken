@@ -24,17 +24,19 @@ import System.Environment ( getArgs )
 import Git.Plumbing ( updateIndexForceRemove, updateIndexCacheInfo,
                       Blob(Blob), Hash, mkHash,
                       unpackFile, mergeFile )
+#include "gadts.h"
 #include "impossible.h"
 
 main :: IO ()
 main = do [sa,s1,s2,fp,ma,m1,m2] <- getArgs
           mergeit (hashit sa) (hashit s1) (hashit s2) fp ma m1 m2
 
-hashit :: String -> Maybe (Hash Blob)
+hashit :: String -> Maybe (Hash Blob C(x))
 hashit "" = Nothing
 hashit x = Just $ mkHash Blob x
 
-mergeit :: Maybe (Hash Blob) -> Maybe (Hash Blob) -> Maybe (Hash Blob)
+mergeit :: Maybe (Hash Blob C(x)) -> Maybe (Hash Blob C(x))
+        -> Maybe (Hash Blob C(x))
         -> FilePath
         -> String -> String -> String -> IO ()
 mergeit sa s1 s2 fp _ _ _ -- deleted in one or both

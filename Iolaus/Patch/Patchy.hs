@@ -57,7 +57,7 @@ class Commute p => ShowPatch p where
     showPatch :: p C(x y) -> Doc
     showNicely :: p C(x y) -> Doc
     showNicely = showPatch
-    showContextPatch :: Slurpy -> p C(x y) -> Doc
+    showContextPatch :: Slurpy C(x) -> p C(x y) -> Doc
     showContextPatch _ p = showPatch p
     description :: p C(x y) -> Doc
     description = showPatch

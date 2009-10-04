@@ -2,7 +2,11 @@
 import Distribution.Franchise.V1
 import Data.List ( sort, partition, isPrefixOf, isSuffixOf )
 
-main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
+main = build [configurableProgram "shell" "bash" ["shsh","sh"],
+              flag "with-type-witnesses" "for gadt type witnesses"
+                (do putS "compiling with type witnesses enabled"
+                    define "GADT_WITNESSES"
+                    ghcFlags ["-fglasgow-exts"])] $
        do hcFlags ["-Wall","-Iinclude"]
           ghcFlags ["-threaded"]
           withDirectory "etc" $ etc "bash_completion.d/iolaus"
@@ -11,6 +15,7 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"]] $
           executable "git-imof" "git-imof.hs" []
           enforceAllPrivacy
           allTests
+          addDependencies "witnesses" ["Git/Helpers.hi","git-imof"]
 
 allTests =
    do here <- pwd

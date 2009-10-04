@@ -14,9 +14,8 @@
 -- along with this program; see the file COPYING.  If not, write to
 -- the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 -- Boston, MA 02110-1301, USA.
-
-{-# OPTIONS_GHC -cpp #-}
 {-# LANGUAGE CPP #-}
+#include "gadts.h"
 
 -- | SlurpDirectory is intended to give a nice lazy way of traversing directory
 -- trees.
@@ -60,7 +59,7 @@ import qualified Data.Map as Map
 import Iolaus.SignalHandler ( tryNonSignal )
 import Iolaus.IO ( ReadableDirectory(..), WriteableDirectory(..),
                    MonadCatchy(..), ExecutableBit(..) )
-
+import Iolaus.Show ( Ord1(..), Eq1(..), Show1(..) )
 import Iolaus.ByteStringUtils
 import qualified Data.ByteString as B
 
@@ -71,76 +70,82 @@ import Iolaus.FileName ( FileName, fn2fp, fp2fn, norm_path, break_on_dir,
 
 #include "impossible.h"
 
-data Slurpy = Slurpy !FileName !SlurpyContents
+data Slurpy C(x) = Slurpy !FileName !(SlurpyContents C(x))
 
-slurpy_to_pair :: Slurpy -> (FileName, SlurpyContents)
+slurpy_to_pair :: Slurpy C(x) -> (FileName, SlurpyContents C(x))
 slurpy_to_pair (Slurpy fn sc) = (fn, sc)
 
-pair_to_slurpy :: (FileName, SlurpyContents) -> Slurpy
+pair_to_slurpy :: (FileName, SlurpyContents C(x)) -> Slurpy C(x)
 pair_to_slurpy = uncurry Slurpy
 
-slurpies_to_map :: [Slurpy] -> Map FileName SlurpyContents
+slurpies_to_map :: [Slurpy C(x)] -> Map FileName (SlurpyContents C(x)) 
 slurpies_to_map = Map.fromList . map slurpy_to_pair
 
-map_to_slurpies :: Map FileName SlurpyContents -> [Slurpy]
+map_to_slurpies :: Map FileName (SlurpyContents C(x)) -> [Slurpy C(x)]
 map_to_slurpies = map pair_to_slurpy . Map.toList
 
-data SlurpyContents = SlurpDir (Maybe (Hash Tree)) (Map FileName SlurpyContents)
-                    | SlurpFile !ExecutableBit (Maybe (Hash Blob)) B.ByteString
-                    | SlurpSymlink B.ByteString
+data SlurpyContents C(x) = SlurpDir (Maybe (Hash Tree C(x)))
+                                    (Map FileName (SlurpyContents C(x)))
+                         | SlurpFile !ExecutableBit
+                           (Maybe (Hash Blob C(x))) B.ByteString
+                         | SlurpSymlink B.ByteString
 
-get_filehash :: Slurpy -> Maybe (Hash Blob)
+get_filehash :: Slurpy C(x) -> Maybe (Hash Blob C(x))
 get_filehash (Slurpy _ (SlurpFile _ x _)) = x
 get_filehash _ = Nothing
 
-get_dirhash :: Slurpy -> Maybe (Hash Tree)
+get_dirhash :: Slurpy C(x) -> Maybe (Hash Tree C(x))
 get_dirhash (Slurpy _ (SlurpDir x _)) = x
 get_dirhash _ = Nothing
 
-get_fileEbit :: Slurpy -> Maybe ExecutableBit
+get_fileEbit :: Slurpy C(x) -> Maybe ExecutableBit
 get_fileEbit (Slurpy _ (SlurpFile e _ _)) = Just e
 get_fileEbit _ = Nothing
 
-instance Show Slurpy where
-    show (Slurpy fn (SlurpDir _ l)) =
+instance Show1 Slurpy where
+    show1 (Slurpy fn (SlurpDir _ l)) =
         "Dir " ++ (fn2fp fn) ++ "\n" ++
-              concat (map show $ map_to_slurpies l) ++ "End Dir " ++ (fn2fp fn) ++ "\n"
-    show (Slurpy fn (SlurpFile _ _ _)) = "File " ++ (fn2fp fn) ++ "\n"
-    show (Slurpy fn (SlurpSymlink _)) = "Symlink " ++ (fn2fp fn) ++ "\n"
+              concat (map show1 $ map_to_slurpies l) ++ "End Dir " ++ (fn2fp fn) ++ "\n"
+    show1 (Slurpy fn (SlurpFile _ _ _)) = "File " ++ (fn2fp fn) ++ "\n"
+    show1 (Slurpy fn (SlurpSymlink _)) = "Symlink " ++ (fn2fp fn) ++ "\n"
+instance Show (Slurpy C(x)) where show = show1
 
-mapSlurpyNames :: (FileName -> FileName) -> Slurpy -> Slurpy
+mapSlurpyNames :: (FileName -> FileName) -> Slurpy C(x) -> Slurpy C(x)
 mapSlurpyNames f = onSlurpy
   where onSlurpy (Slurpy fn sc) = Slurpy (f fn) (onSlurpyContents sc)
         onSlurpyContents (SlurpDir x sm) =
             SlurpDir x . slurpies_to_map . map onSlurpy . map_to_slurpies $ sm
         onSlurpyContents sf = sf
 
-slurp :: FilePathLike p => p -> IO Slurpy
-slurp_unboring :: (FilePath->Bool) -> FilePath -> IO Slurpy
-empty_slurpy :: Slurpy
+slurp :: FilePathLike p => p -> IO (Slurpy C(x))
+slurp_unboring :: (FilePath->Bool) -> FilePath -> IO (Slurpy C(x))
+empty_slurpy :: Slurpy C(x)
 empty_slurpy = Slurpy (fp2fn ".") (SlurpDir Nothing Map.empty)
-slurp_name :: Slurpy -> FilePath
-is_file :: Slurpy -> Bool
-is_dir :: Slurpy -> Bool
+slurp_name :: Slurpy C(x) -> FilePath
+is_file :: Slurpy C(x) -> Bool
+is_dir :: Slurpy C(x) -> Bool
 
-get_filecontents :: Slurpy -> B.ByteString
-get_dircontents :: Slurpy -> [Slurpy]
+get_filecontents :: Slurpy C(x) -> B.ByteString
+get_dircontents :: Slurpy C(x) -> [Slurpy C(x)]
 
-instance Eq Slurpy where
-    s1 == s2 = (slurp_name s1) == (slurp_name s2)
-instance Ord Slurpy where
-    s1 <= s2 = (slurp_name s1) <= (slurp_name s2)
+instance Eq1 Slurpy where
+    eq1 s1 s2 = (slurp_name s1) == (slurp_name s2)
+instance Eq (Slurpy C(x)) where (==) = eq1
+instance Ord1 Slurpy where
+    compare1 s1 s2 = compare (slurp_name s1) (slurp_name s2)
+instance Ord (Slurpy C(x)) where compare = compare1
 
-data SlurpMonad a = SM ((Either String Slurpy)
-                        -> Either String (Slurpy, a))
-mksm :: (Slurpy -> Either String (Slurpy, a)) -> SlurpMonad a
+data SlurpMonad C(x y) a = SM (Either String (Slurpy C(x))
+                               -> Either String (Slurpy C(y), a))
+mksm :: (Slurpy C(x) -> Either String (Slurpy C(y), a))
+     -> SlurpMonad C(x y) a
 mksm x = SM sm where sm (Left e) = Left e
                      sm (Right s) = x s
 
-instance Functor SlurpMonad where
+instance Functor (SlurpMonad C(x x)) where
     fmap f m = m >>= return . f
 
-instance Monad SlurpMonad where
+instance Monad (SlurpMonad C(x x)) where
     (SM p) >>= k  =  SM sm
         where sm e = case p e of
                      Left er -> Left er
@@ -153,13 +158,13 @@ instance Monad SlurpMonad where
                         Left x -> Left x
                         _ -> Left e )
 
-instance MonadCatchy SlurpMonad where
+instance MonadCatchy (SlurpMonad C(x x)) where
     SM p `catchMe` SM q = SM sm
         where sm e = case p e of
                      Left _ -> q e
                      okay -> okay
 
-instance ReadableDirectory SlurpMonad where
+instance ReadableDirectory (SlurpMonad C(x x)) where
     mDoesDirectoryExist d = smDoesDirectoryExist d
     mDoesFileExist f = smDoesFileExist f
     mInCurrentDirectory = smInSlurpy
@@ -167,7 +172,7 @@ instance ReadableDirectory SlurpMonad where
     mReadFilePS = smReadFilePS
     mReadFilePSs = smReadFilePSs
 
-instance WriteableDirectory SlurpMonad where
+instance WriteableDirectory (SlurpMonad C(x x)) where
     mWithCurrentDirectory = modifySubSlurpy
     mSetFileExecutable = smSetFileExecutable
     mWriteFilePS = smWriteFilePS
@@ -176,14 +181,14 @@ instance WriteableDirectory SlurpMonad where
     mRemoveDirectory = smRemoveDirectory
     mRemoveFile = smRemoveFile
 
-write_file :: Slurpy -> FileName -> IO ()
+write_file :: Slurpy C(x) -> FileName -> IO ()
 write_file s fn = case withSlurpy s $ smReadFilePS fn of
                      Left err -> fail err
                      Right (_, c) -> do
                        ensureDirectories (super_name fn)
                        mWriteFilePS fn c
                        
-try_write_file :: Slurpy -> FilePath -> IO ()
+try_write_file :: Slurpy C(x) -> FilePath -> IO ()
 try_write_file s fp = let fn = fp2fn fp in
   if slurp_hasfile fn s
       then write_file s fn
@@ -198,27 +203,28 @@ ensureDirectories d = do
             then return ()
             else ensureDirectories (super_name d) >> (mCreateDirectory d)
 
-write_files ::  Slurpy -> [FilePath] -> IO ()
+write_files ::  Slurpy C(x) -> [FilePath] -> IO ()
 write_files s fps = mapM_ (try_write_file s) fps
 
 -- don't overwrite non-empty directories unless explicitly asked by
 -- being passed "." (which always exists)
-writeSlurpy :: Slurpy -> FilePath -> IO ()
+writeSlurpy :: Slurpy C(x) -> FilePath -> IO ()
 writeSlurpy s d = do
   when (d /= ".") $ createDirectory d
   withCurrentDirectory d $ write_files s (list_slurpy s)
 
-withSlurpy :: Slurpy -> SlurpMonad a -> Either String (Slurpy, a)
+withSlurpy :: Slurpy C(x) -> SlurpMonad C(x x) a
+           -> Either String (Slurpy C(x), a)
 withSlurpy s (SM f) = f (Right s)
 
-smDoesDirectoryExist :: FileName -> SlurpMonad Bool
+smDoesDirectoryExist :: FileName -> SlurpMonad C(x x) Bool
 smDoesDirectoryExist d = mksm $ \s -> (Right (s, slurp_hasdir d s))
 
-smDoesFileExist :: FileName -> SlurpMonad Bool
+smDoesFileExist :: FileName -> SlurpMonad C(x x) Bool
 smDoesFileExist f = mksm $ \s -> (Right (s, slurp_hasfile f s))
 
 -- smInSlurpy doesn't make any changes to the subdirectory.
-smInSlurpy :: FileName -> SlurpMonad a -> SlurpMonad a
+smInSlurpy :: FileName -> SlurpMonad C(x x) a -> SlurpMonad C(x x) a
 smInSlurpy d job = mksm sm
     where sm s = case get_slurp d s of
                  Just s' | is_dir s' -> case withSlurpy s' job of
@@ -227,14 +233,14 @@ smInSlurpy d job = mksm sm
                  _ -> Left $ "smInSlurpy:  Couldn't find directory " ++
                              formatPath (fn2fp d)
 
-fromSlurpFile :: FileName -> (Slurpy -> a) -> SlurpMonad a
+fromSlurpFile :: FileName -> (Slurpy C(x) -> a) -> SlurpMonad C(x x) a
 fromSlurpFile f job = mksm sm
     where sm s = case get_slurp f s of
                  Just s' | is_file s' -> Right (s, job s')
                  _ -> Left $ "fromSlurpFile:  Couldn't find file " ++
                              formatPath (fn2fp f)
 
-modifySubSlurpy :: FileName -> SlurpMonad a -> SlurpMonad a
+modifySubSlurpy :: FileName -> SlurpMonad C(x x) a -> SlurpMonad C(x x) a
 modifySubSlurpy d job = mksm sm
     where sm s = case get_slurp_context d s of
                  Just (ctx, sub@(Slurpy _ (SlurpDir _ _))) ->
@@ -244,29 +250,30 @@ modifySubSlurpy d job = mksm sm
                  _ -> Left $ "modifySubSlurpy:  Couldn't find directory " ++
                              formatPath (fn2fp d)
 
-modifyFileSlurpy :: FileName -> (Slurpy -> Slurpy) -> SlurpMonad ()
+modifyFileSlurpy :: FileName -> (Slurpy C(x) -> Slurpy C(x))
+                 -> SlurpMonad C(x x) ()
 modifyFileSlurpy f job = mksm sm
     where sm s = case get_slurp_context f s of
                  Just (ctx, sf@(Slurpy _ (SlurpFile _ _ _))) -> Right (ctx $ job sf, ())
                  _ -> Left $ "modifyFileSlurpy:  Couldn't find file " ++
                              formatPath (fn2fp f)
 
-insertSlurpy :: FileName -> Slurpy -> SlurpMonad ()
+insertSlurpy :: FileName -> Slurpy C(x) -> SlurpMonad C(x x) ()
 insertSlurpy f news = mksm $ \s ->
                       if slurp_hasfile f s || slurp_hasdir f s || not (slurp_hasdir (super_name f) s)
                       then Left $ "Error creating file "++fn2fp f
                       else Right (addslurp f news s, ())
 
-smReadFilePS :: FileName -> SlurpMonad B.ByteString
+smReadFilePS :: FileName -> SlurpMonad C(x x) B.ByteString
 smReadFilePS f = fromSlurpFile f get_filecontents
 
-smReadFilePSs :: FileName -> SlurpMonad [B.ByteString]
+smReadFilePSs :: FileName -> SlurpMonad C(x x) [B.ByteString]
 smReadFilePSs f = fromSlurpFile f (linesPS . get_filecontents)
 
-smGetDirContents :: SlurpMonad [FileName]
+smGetDirContents :: SlurpMonad C(x x) [FileName]
 smGetDirContents = mksm $ \s -> Right (s, map slurp_fn $ get_dircontents s)
 
-smWriteFilePS :: FileName -> B.ByteString -> SlurpMonad ()
+smWriteFilePS :: FileName -> B.ByteString -> SlurpMonad C(x x) ()
 smWriteFilePS f ps = -- this implementation could be made rather more direct
                      -- and limited to a single pass down the Slurpy
                      modifyFileSlurpy f modf
@@ -276,18 +283,18 @@ smWriteFilePS f ps = -- this implementation could be made rather more direct
               Slurpy (own_name f) (SlurpFile e Nothing ps)
           modf _ = impossible
 
-smSetFileExecutable :: FileName -> ExecutableBit -> SlurpMonad ()
+smSetFileExecutable :: FileName -> ExecutableBit -> SlurpMonad C(x x) ()
 smSetFileExecutable f e = modifyFileSlurpy f modf
     where modf (Slurpy ff (SlurpFile _ x y)) = Slurpy ff (SlurpFile e x y)
           modf _ = impossible
 
-smCreateDirectory :: FileName -> SlurpMonad ()
+smCreateDirectory :: FileName -> SlurpMonad C(x x) ()
 smCreateDirectory a = mksm sm
     where sm s = case slurp_adddir a s of
                  Just s' -> Right (s', ())
                  Nothing -> Left $ "Error creating directory "++fn2fp a
 
-smRename :: FileName -> FileName -> SlurpMonad ()
+smRename :: FileName -> FileName -> SlurpMonad C(x x) ()
 smRename a b = mksm sm
     where sm s = case slurp_move a b s of
                  Just s' -> Right (s', ())
@@ -297,19 +304,19 @@ smRename a b = mksm sm
                          then Left $ "Error moving "++fn2fp a++" to "++fn2fp b
                          else Right (s, ())
 
-smRemove :: FileName -> SlurpMonad ()
+smRemove :: FileName -> SlurpMonad C(x x) ()
 smRemove f = mksm sm
     where sm s = case slurp_remove f s of
                  Nothing -> Left $ fn2fp f++" does not exist."
                  Just s' -> Right (s', ())
 
-smRemoveFile :: FileName -> SlurpMonad ()
+smRemoveFile :: FileName -> SlurpMonad C(x x) ()
 smRemoveFile f =
     do exists <- mDoesFileExist f
        if exists then smRemove f
                  else fail $ "File "++fn2fp f++" does not exist."
 
-smRemoveDirectory :: FileName -> SlurpMonad ()
+smRemoveDirectory :: FileName -> SlurpMonad C(x x) ()
 smRemoveDirectory f =
     do exists <- mDoesDirectoryExist f
        if exists then smRemove f
@@ -317,9 +324,9 @@ smRemoveDirectory f =
 
 -- | Here are a few access functions.
 slurp_name (Slurpy n _) = fn2fp n
-slurp_fn :: Slurpy -> FileName
+slurp_fn :: Slurpy C(x) -> FileName
 slurp_fn (Slurpy n _) = n
-slurp_setname :: FileName -> Slurpy -> Slurpy
+slurp_setname :: FileName -> Slurpy C(x) -> Slurpy C(x)
 slurp_setname f (Slurpy _ s) = Slurpy f s
 
 is_file (Slurpy _ (SlurpFile _ _ _)) = True
@@ -350,7 +357,7 @@ doesDirectoryReallyExist f = do fs <- getSymbolicLinkStatus f
 slurp = slurp_unboring (\_->True) . toFilePath
 slurp_unboring = genslurp
 genslurp :: (FilePath -> Bool)
-         -> FilePath -> IO Slurpy
+         -> FilePath -> IO (Slurpy C(x))
 genslurp nb dirname = do
     isdir <- doesDirectoryExist dirname
     ms <- if isdir
@@ -372,7 +379,7 @@ unsafeInterleaveMapIO f (x:xs)
       return (x':xs')
 
 genslurp_helper :: (FilePath -> Bool)
-                -> FilePath -> String -> String -> IO (Maybe Slurpy)
+                -> FilePath -> String -> String -> IO (Maybe (Slurpy C(x)))
 genslurp_helper nb formerdir fullpath dirname = do
     fs <- getSymbolicLinkStatus fulldirname
     if isRegularFile fs
@@ -409,7 +416,7 @@ not_hidden _ = True
 d /// "." = d
 d /// subdir = d ++ "/" ++ subdir
 
-co_slurp :: Slurpy -> FilePath -> IO Slurpy
+co_slurp :: Slurpy C(x) -> FilePath -> IO (Slurpy C(y))
 co_slurp guide dirname = do
     isdir <- doesDirectoryExist dirname
     if isdir
@@ -419,7 +426,7 @@ co_slurp guide dirname = do
               return slurpy
        else error "Error coslurping!!! Please report this."
 
-co_slurp_helper :: FilePath -> Slurpy -> IO (Maybe Slurpy)
+co_slurp_helper :: FilePath -> Slurpy C(x) -> IO (Maybe (Slurpy C(y)))
 co_slurp_helper former_dir (Slurpy d (SlurpDir _ c)) = unsafeInterleaveIO $ do
     let d' = fn2fp d
         fn' = former_dir\\\d'
@@ -443,7 +450,10 @@ co_slurp_helper former_dir (Slurpy f _) = unsafeInterleaveIO $ do
               return $ Just $ Slurpy f $ SlurpFile NotExecutable Nothing ls
        _ -> return Nothing
 
-get_slurp_context_generic :: (Slurpy -> a) -> (a -> [Slurpy]) -> FileName -> Slurpy -> Maybe (a -> a, Slurpy)
+get_slurp_context_generic :: (Slurpy C(x) -> a)
+                          -> (a -> [Slurpy C(x)])
+                          -> FileName -> Slurpy C(x)
+                          -> Maybe (a -> a, Slurpy C(x))
 get_slurp_context_generic h1 h2 fn0 s0 =
     let norm_fn0 = norm_path fn0 in
     if norm_fn0 == empty
@@ -482,7 +492,8 @@ get_slurp_context_generic h1 h2 fn0 s0 =
 -- |get_slurp_context navigates to a specified filename in the given slurpy,
 -- and returns the child slurpy at that point together with a update function that can be used
 -- to reconstruct the original slurpy from a replacement value for the child slurpy.
-get_slurp_context :: FileName -> Slurpy -> Maybe (Slurpy -> Slurpy, Slurpy)
+get_slurp_context :: FileName -> Slurpy C(x)
+                  -> Maybe (Slurpy C(x) -> Slurpy C(x), Slurpy C(x))
 get_slurp_context = get_slurp_context_generic id return
 
 -- |A variant of 'get_slurp_context' that allows for removing the child slurpy
@@ -490,25 +501,27 @@ get_slurp_context = get_slurp_context_generic id return
 -- If the child slurpy happened to be at the top level and 'Nothing' was passed in,
 -- then the result of the update function will also be 'Nothing', otherwise it will always
 -- be a 'Just' value.
-get_slurp_context_maybe :: FileName -> Slurpy -> Maybe (Maybe Slurpy -> Maybe Slurpy, Slurpy)
+get_slurp_context_maybe :: FileName -> Slurpy C(x)
+                        -> Maybe (Maybe (Slurpy C(x))
+                                      -> Maybe (Slurpy C(x)), Slurpy C(x))
 get_slurp_context_maybe = get_slurp_context_generic Just maybeToList
 
 -- |A variant of 'get_slurp_context' that allows for replacing the child slurpy by
 -- a list of slurpies. The result of the update function will always be a singleton
 -- list unless the child slurpy was at the top level.
 -- Currently unused.
--- get_slurp_context_list :: FileName -> Slurpy -> Maybe ([Slurpy] -> [Slurpy], Slurpy)
+-- get_slurp_context_list :: FileName -> Slurpy C(x) -> Maybe ([Slurpy] -> [Slurpy], Slurpy)
 -- get_slurp_context_list = get_slurp_context_generic return id
 
 -- | It is important to be able to readily modify a slurpy.
-slurp_remove :: FileName -> Slurpy -> Maybe Slurpy
+slurp_remove :: FileName -> Slurpy C(x) -> Maybe (Slurpy C(x))
 slurp_remove fname s@(Slurpy _ (SlurpDir _ _)) =
     case get_slurp_context_maybe fname s of
         Just (ctx, _) -> ctx Nothing
         Nothing -> Nothing
 slurp_remove _ _ = bug "slurp_remove only acts on SlurpDirs"
 
-slurp_removefile :: FileName -> Slurpy -> Maybe Slurpy
+slurp_removefile :: FileName -> Slurpy C(x) -> Maybe (Slurpy C(x))
 slurp_removefile f s =
   if slurp_hasfile f s
   then case slurp_remove f s of
@@ -516,7 +529,7 @@ slurp_removefile f s =
        _ -> impossible
   else Nothing
 
-slurp_move :: FileName -> FileName -> Slurpy -> Maybe Slurpy
+slurp_move :: FileName -> FileName -> Slurpy C(x) -> Maybe (Slurpy C(x))
 slurp_move f f' s =
     if not (slurp_has f' s) && slurp_hasdir (super_name f') s
     then case get_slurp f s of
@@ -529,16 +542,18 @@ slurp_move f f' s =
              _ -> impossible
     else Nothing
 
-addslurp :: FileName -> Slurpy -> Slurpy -> Slurpy
+addslurp :: FileName -> Slurpy C(x) -> Slurpy C(x) -> Slurpy C(x)
 addslurp fname s s' =
     case get_slurp_context (super_name fname) s' of
-        Just (ctx, Slurpy d (SlurpDir _ c)) -> ctx (Slurpy d (SlurpDir Nothing (uncurry Map.insert (slurpy_to_pair s) c)))
+        Just (ctx, Slurpy d (SlurpDir _ c)) ->
+            ctx (Slurpy d (SlurpDir Nothing (uncurry Map.insert
+                                                         (slurpy_to_pair s) c)))
         _ -> s'
 
-get_slurp :: FileName -> Slurpy -> Maybe Slurpy
+get_slurp :: FileName -> Slurpy C(x) -> Maybe (Slurpy C(x))
 get_slurp f s = fmap snd (get_slurp_context f s)
 
-slurp_removedir :: FileName -> Slurpy -> Maybe Slurpy
+slurp_removedir :: FileName -> Slurpy C(x) -> Maybe (Slurpy C(x))
 slurp_removedir f s =
     case get_slurp f s of
     Just (Slurpy _ (SlurpDir _ l)) | Map.null l ->
@@ -547,7 +562,7 @@ slurp_removedir f s =
         _ -> impossible
     _ -> Nothing
 
-slurp_adddir :: FileName -> Slurpy -> Maybe Slurpy
+slurp_adddir :: FileName -> Slurpy C(x) -> Maybe (Slurpy C(x))
 slurp_adddir f s =
   if slurp_hasfile f s || slurp_hasdir f s || not (slurp_hasdir (super_name f) s)
   then Nothing
@@ -555,7 +570,7 @@ slurp_adddir f s =
 
 -- |Code to modify a given file in a slurpy.
 slurp_modfile :: FileName -> (B.ByteString -> Maybe B.ByteString)
-              -> Slurpy -> Maybe Slurpy
+              -> Slurpy C(x) -> Maybe (Slurpy C(x))
 slurp_modfile fname modify sl =
     case get_slurp_context fname sl of
         Just (ctx, Slurpy ff (SlurpFile _ _ c)) ->
@@ -565,16 +580,16 @@ slurp_modfile fname modify sl =
         _ -> 
             Nothing
 
-slurp_hasfile :: FileName -> Slurpy -> Bool
+slurp_hasfile :: FileName -> Slurpy C(x) -> Bool
 slurp_hasfile f s =
     case get_slurp f s of
         Just s' | is_file s' -> True
         _ -> False
 
-slurp_has :: FileName -> Slurpy -> Bool
+slurp_has :: FileName -> Slurpy C(x) -> Bool
 slurp_has f s = isJust (get_slurp f s)
 
-slurp_has_anycase :: FilePath -> Slurpy -> Bool
+slurp_has_anycase :: FilePath -> Slurpy C(x) -> Bool
 slurp_has_anycase fname s =
   seq normed_name $ isJust $ get_slurp normed_name $ mapSlurpyNames tolower s
   where normed_name = norm_path $ fp2fn $ map toLower fname
@@ -582,14 +597,15 @@ slurp_has_anycase fname s =
 tolower :: FileName -> FileName
 tolower = fp2fn . (map toLower) . fn2fp
 
-findSubSlurpy :: FileName -> Map FileName SlurpyContents -> Maybe Slurpy
+findSubSlurpy :: FileName -> Map FileName (SlurpyContents C(x))
+              -> Maybe (Slurpy C(x))
 findSubSlurpy fn sm =
   let topname = case break_on_dir fn of
                    Just (dn, _) -> dn
                    Nothing -> fn
   in fmap (Slurpy topname) (Map.lookup topname sm)
 
-slurp_hasdir :: FileName -> Slurpy -> Bool
+slurp_hasdir :: FileName -> Slurpy C(x) -> Bool
 slurp_hasdir d _ | norm_path d == fp2fn "" = True
 slurp_hasdir f (Slurpy _ (SlurpDir _ c)) =
     seq f $ let f' = norm_path f
@@ -598,7 +614,7 @@ slurp_hasdir f (Slurpy _ (SlurpDir _ c)) =
                 Nothing -> False
 slurp_hasdir _ _ = False
 
-slurp_hasdir_private :: FileName -> Slurpy -> Bool
+slurp_hasdir_private :: FileName -> Slurpy C(x) -> Bool
 slurp_hasdir_private f (Slurpy d (SlurpDir _ c))
   | f == d = True
   | otherwise =
@@ -612,10 +628,11 @@ slurp_hasdir_private f (Slurpy d (SlurpDir _ c))
        _ -> False
 slurp_hasdir_private _ (Slurpy _ _) = False
 
-get_path_list :: Slurpy -> FilePath -> [FilePath]
+get_path_list :: Slurpy C(x) -> FilePath -> [FilePath]
 get_path_list s fp = get_path_list' s ("./" ++ fp)
 
-get_path_list' :: Slurpy -> FilePath -> [FilePath]
+get_path_list'
+    :: Slurpy C(x) -> FilePath -> [FilePath]
 get_path_list' s "" = list_slurpy s
 get_path_list' (Slurpy f (SlurpFile _ _ _)) fp
  | f' == fp = [f']
@@ -627,30 +644,31 @@ get_path_list' (Slurpy d (SlurpDir _ ss)) fp
     where d' = fn2fp d
 get_path_list' _ _ = []
 
-list_slurpy :: Slurpy -> [FilePath]
+list_slurpy :: Slurpy C(x) -> [FilePath]
 list_slurpy (Slurpy dd (SlurpDir _ ss)) = d : map (d ///) (concatMap list_slurpy (map_to_slurpies ss))
     where d = fn2fp dd
 list_slurpy (Slurpy f _) = [fn2fp f]
 
-list_slurpy_files :: Slurpy -> [FilePath]
+list_slurpy_files :: Slurpy C(x) -> [FilePath]
 list_slurpy_files (Slurpy dd (SlurpDir _ ss)) =
     map ((fn2fp dd) ///) (concatMap list_slurpy_files (map_to_slurpies ss))
 list_slurpy_files (Slurpy f _) = [fn2fp f]
 
-list_slurpy_dirs :: Slurpy -> [FilePath]
+list_slurpy_dirs :: Slurpy C(x) -> [FilePath]
 list_slurpy_dirs (Slurpy dd (SlurpDir _ ss)) =
     d : map (d ///) (concatMap list_slurpy_dirs (map_to_slurpies ss))
     where d = fn2fp dd
 list_slurpy_dirs _ = []
 
-filterSlurpyPaths :: [FileName] -> Slurpy -> Slurpy
+filterSlurpyPaths :: [FileName] -> Slurpy C(x) -> Slurpy C(x)
 filterSlurpyPaths [] s = s
 filterSlurpyPaths _ s@(Slurpy _ (SlurpFile _ _ _)) = s
 filterSlurpyPaths _ s@(Slurpy _ (SlurpSymlink _)) = s
 filterSlurpyPaths f (Slurpy d (SlurpDir _ c)) = Slurpy d (SlurpDir Nothing c')
     where c' = updateAll f c
 
-filterSlurpyPaths' :: [FileName] -> Slurpy -> Maybe Slurpy
+filterSlurpyPaths'
+    :: [FileName] -> Slurpy C(x) -> Maybe (Slurpy C(x))
 filterSlurpyPaths' [] _ = Nothing
 filterSlurpyPaths' f s@(Slurpy fn _) | fn `elem` f = Just s
 filterSlurpyPaths' f (Slurpy d (SlurpDir _ c)) = do guard $ not $ null f'
@@ -659,7 +677,7 @@ filterSlurpyPaths' f (Slurpy d (SlurpDir _ c)) = do guard $ not $ null f'
           f' = map snd $ filter ((==d).fst) $ catMaybes (map break_on_dir f)
 filterSlurpyPaths' _ _ = Nothing
 
-updateAll :: [FileName] -> Map FileName SlurpyContents
-          -> Map FileName SlurpyContents
+updateAll :: [FileName] -> Map FileName (SlurpyContents C(x))
+          -> Map FileName (SlurpyContents C(x))
 updateAll f m = Map.map (\ (Just (Slurpy _ s)) -> s) $ Map.filter isJust $
                 Map.mapWithKey (\k x -> filterSlurpyPaths' f $ Slurpy k x) m

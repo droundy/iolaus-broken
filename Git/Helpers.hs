@@ -1,3 +1,6 @@
+{-# LANGUAGE CPP #-}
+#include "gadts.h"
+
 module Git.Helpers ( test, slurpTree, writeSlurpTree, touchedFiles,
                      diffCommit, mergeCommits, Strategy(..) ) where
 
@@ -27,9 +30,10 @@ import Iolaus.SlurpDirectoryInternal
     ( Slurpy(..), SlurpyContents(..), empty_slurpy,
       slurpies_to_map, map_to_slurpies )
 import Iolaus.Lock ( removeFileMayNotExist )
-import Iolaus.Diff ( unsafeDiff )
+import Iolaus.Diff ( diff )
 import Iolaus.Patch ( Prim )
 import Iolaus.Ordered ( FL )
+import Iolaus.Sealed ( Sealed(..), FlippedSeal(..) )
 
 touchedFiles :: IO [FilePath]
 touchedFiles =
@@ -37,7 +41,7 @@ touchedFiles =
        y <- diffFiles [NameOnly] []
        return (x++lines y)
 
-test :: [IolausFlag] -> Hash Tree -> IO ()
+test :: [IolausFlag] -> Hash Tree C(x) -> IO ()
 test opts t | Test `elem` opts =
  do havet <- doesFileExist ".git-hooks/test"
     if not havet
@@ -59,7 +63,7 @@ test opts t | Test `elem` opts =
        return ()
 test _ _ = return ()
 
-slurpTree :: FileName -> Hash Tree -> IO Slurpy
+slurpTree :: FileName -> Hash Tree C(x) -> IO (Slurpy C(x))
 slurpTree rootdir t =
     do xs <- catTree t
        unsafeInterleaveIO $
@@ -76,7 +80,7 @@ slurpTree rootdir t =
               do x <- unsafeInterleaveIO $ catBlob h
                  return $ Slurpy n $ SlurpSymlink x
 
-writeSlurpTree :: Slurpy -> IO (Hash Tree)
+writeSlurpTree :: Slurpy C(x) -> IO (Hash Tree C(x))
 writeSlurpTree (Slurpy _ (SlurpDir (Just t) _)) = return t
 writeSlurpTree (Slurpy _ (SlurpDir Nothing ccc)) =
     do debugMessage "starting writeSlurpTree"
@@ -105,21 +109,24 @@ writeSlurpTree x = writeSlurpTree (Slurpy (fp2fn ".")
 
 data Strategy = FirstParent | Builtin
 
-mergeCommits :: Strategy -> [Hash Commit] -> IO (Hash Tree)
-mergeCommits _ [] = writeSlurpTree empty_slurpy
-mergeCommits _ [h] = catCommitTree h
-mergeCommits FirstParent (h:_) = catCommitTree h
+mergeCommits :: Strategy -> [Sealed (Hash Commit)] -> IO (Sealed (Hash Tree))
+mergeCommits _ [] = Sealed `fmap` writeSlurpTree empty_slurpy
+mergeCommits _ [Sealed h] = Sealed `fmap` catCommitTree h
+mergeCommits FirstParent (Sealed h:_) = Sealed `fmap` catCommitTree h
 mergeCommits Builtin [p1,p2] =
     do -- ancestor <- mergeBase p1 p2
        let ancestor:_ = mergeBases [p1,p2]
-       [ta,t1,t2] <- mapM catCommitTree [ancestor,p1,p2]
+       [Sealed ta,Sealed t1,Sealed t2] <-
+           mapM (\(Sealed x) -> Sealed `fmap` catCommitTree x)
+                     [ancestor,p1,p2]
        readTreeMerge ta t1 t2 "merging"
        mergeIndex "merging"
 mergeCommits Builtin _ = fail "Builtin can't do octopi"
 
-diffCommit :: Strategy -> Hash Commit -> IO (FL Prim)
+diffCommit :: Strategy -> Hash Commit C(x) -> IO (FlippedSeal (FL Prim) C(x))
 diffCommit strat c0 =
     do c <- catCommit c0
        new <- slurpTree (fp2fn ".") $ myTree c
-       old <- mergeCommits strat (myParents c) >>= slurpTree (fp2fn ".")
-       return $ unsafeDiff [] old new
+       Sealed oldh <- mergeCommits strat (myParents c)
+       old <- slurpTree (fp2fn ".") oldh
+       return $ FlippedSeal $ diff [] old new

@@ -28,6 +28,7 @@ import Iolaus.RepoPath ( toFilePath )
 import Iolaus.IO ( mReadFilePS )
 import Iolaus.SlurpDirectory ( withSlurpy )
 import Iolaus.FileName ( fp2fn )
+import Iolaus.Sealed ( Sealed(..), mapSealM )
 
 import Git.Plumbing ( parseRev, catCommitTree )
 import Git.Helpers ( slurpTree )
@@ -66,7 +67,8 @@ show_contents = IolausCommand {command_name = "contents",
 show_contents_cmd :: [IolausFlag] -> [String] -> IO ()
 show_contents_cmd opts args =
     do path_list <- fixSubPaths opts args
-       s <- parseRev "HEAD" >>= catCommitTree >>= slurpTree (fp2fn ".")
+       Sealed s <- parseRev "HEAD" >>= mapSealM catCommitTree >>=
+                   mapSealM (slurpTree (fp2fn "."))
        case withSlurpy s $ mapM (mReadFilePS.fp2fn.toFilePath) path_list of
          Left e -> fail e
          Right xs -> mapM_ B.putStr $ snd xs

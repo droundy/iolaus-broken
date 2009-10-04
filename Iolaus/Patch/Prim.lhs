@@ -659,8 +659,10 @@ commute_filepatches _ = Unknown
 commuteFP :: FileName -> (FilePatchType :> FilePatchType) C(x y)
           -> Perhaps ((Prim :> Prim) C(x y))
 commuteFP _ (Chmod _ :> Chmod _) = Failed
-commuteFP f (Chmod e :> x) = Succeeded (FP f x :> FP f (Chmod e))
-commuteFP f (x :> Chmod e) = Succeeded (FP f (Chmod e) :> FP f x)
+commuteFP f (Chmod e :> x) = Succeeded (FP f (unsafeCoerceP x) :>
+                                        FP f (Chmod e))
+commuteFP f (x :> Chmod e) = Succeeded (FP f (Chmod e) :>
+                                        FP f (unsafeCoerceP x))
 commuteFP f (p2 :> Hunk line1 [] []) =
     seq f $ Succeeded (FP f (Hunk line1 [] []) :> FP f (unsafeCoerceP p2))
 commuteFP f (Hunk line1 [] [] :> p2) =

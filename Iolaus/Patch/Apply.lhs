@@ -43,7 +43,7 @@ import Iolaus.SlurpDirectory ( Slurpy, withSlurpy )
 import Iolaus.IO ( WriteableDirectory(..) )
 --import Iolaus.FilePathMonad ( withFilePaths, withSubPaths )
 #include "impossible.h"
-import Iolaus.Ordered ( FL(..), (:>)(..), mapFL_FL, spanFL )
+import Iolaus.Ordered ( FL(..), (:>)(..), mapFL_FL, spanFL, unsafeCoerceS )
 \end{code}
 
 
@@ -95,10 +95,11 @@ context of a patch consists of the set of patches that precede it.
 --apply_to_subpaths :: Apply p => p C(x y) -> [SubPath] -> [SubPath]
 --apply_to_subpaths pa fs = withSubPaths fs (apply pa)
 
-apply_to_slurpy :: (Apply p, Monad m) => p C(x y) -> Slurpy -> m Slurpy
+apply_to_slurpy :: (Apply p, Monad m) => p C(x y)
+                -> Slurpy C(x) -> m (Slurpy C(y))
 apply_to_slurpy p s = case withSlurpy s (apply p) of
                           Left err -> fail err
-                          Right (s', ()) -> return s'
+                          Right (s', ()) -> return $ unsafeCoerceS s'
 \end{code}
 
 \begin{code}

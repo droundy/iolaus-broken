@@ -21,7 +21,7 @@
 
 #include "gadts.h"
 
-module Iolaus.Sealed ( Sealed(..), seal, unseal, mapSeal,
+module Iolaus.Sealed ( Sealed(..), seal, unseal, mapSeal, mapSealM,
 #ifndef GADT_WITNESSES
                       unsafeUnseal, unsafeUnflippedseal, unsafeUnseal2,
 #endif
@@ -79,6 +79,10 @@ liftSM :: Monad m => (FORALL(x) a C(x) -> b) -> m (Sealed a) -> m b
 liftSM f m = do sx <- m
                 return (unseal f sx)
 
+mapSealM :: Monad m => (FORALL(x) a C(x) -> m (b C(x))) -> Sealed a -> m (Sealed b)
+mapSealM f (Sealed x) = do y <- f x
+                           return (Sealed y)
+
 mapSeal :: (FORALL(x) a C(x ) -> b C(x )) -> Sealed a -> Sealed b
 mapSeal f = unseal (seal . f)
 
@@ -98,6 +102,11 @@ unsealFlipped :: (FORALL(x y) a C(x y) -> b) -> FlippedSeal a C(z) -> b
 unsealFlipped f (FlippedSeal a) = f a
 
 instance Show1 a => Show (Sealed a) where
-    showsPrec d (Sealed x) = showParen (d > app_prec) $ showString "Sealed " . showsPrec1 (app_prec + 1) x
+    showsPrec d (Sealed x) = showsPrec1 (app_prec + 1) x
 instance Show2 a => Show (Sealed2 a) where
-    showsPrec d (Sealed2 x) = showParen (d > app_prec) $ showString "Sealed2 " . showsPrec2 (app_prec + 1) x
+    showsPrec d (Sealed2 x) = showsPrec2 (app_prec + 1) x
+
+instance Eq1 a => Eq (Sealed a) where
+    Sealed x == Sealed y = eq1 x y
+instance Ord1 a => Ord (Sealed a) where
+    compare (Sealed x) (Sealed y) = compare1 x y

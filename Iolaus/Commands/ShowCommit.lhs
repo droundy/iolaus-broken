@@ -25,6 +25,7 @@ import Iolaus.Printer ( putDocLnWith )
 import Iolaus.ColorPrinter ( fancyPrinters )
 import Iolaus.Patch ( showContextPatch, summarize )
 import Iolaus.FileName ( fp2fn )
+import Iolaus.Sealed ( Sealed(Sealed), FlippedSeal(FlippedSeal), mapSealM )
 
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( parseRev, nameRevs, catCommit, CommitEntry(myParents) )
@@ -66,12 +67,12 @@ commit_cmd :: [IolausFlag] -> [String] -> IO ()
 commit_cmd opts cs = mapM_ showc cs
     where showc c =
               do let mystrategy = Builtin
-                 x <- parseRev c
+                 Sealed x <- parseRev c
                  commit <- catCommit x
                  putStr $ show commit
-                 old <- mergeCommits mystrategy (myParents commit) >>=
-                        slurpTree (fp2fn ".")
-                 ch <- diffCommit mystrategy x
+                 Sealed old <- mergeCommits mystrategy (myParents commit) >>=
+                               mapSealM (slurpTree (fp2fn "."))
+                 FlippedSeal ch <- diffCommit mystrategy x
                  if Summary `elem` opts
                    then putDocLnWith fancyPrinters $ summarize ch
                    else putDocLnWith fancyPrinters $ showContextPatch old ch

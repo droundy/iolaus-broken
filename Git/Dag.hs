@@ -1,62 +1,79 @@
+{-# LANGUAGE CPP #-}
+#include "gadts.h"
+
 module Git.Dag ( parents, ancestors, isAncestorOf,
-                 mergeBases ) where
+                 mergeBases,
+                 commonAncestors, uncommonAncestors ) where
 
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
 import System.IO.Unsafe ( unsafePerformIO )
 
+import Iolaus.Sealed ( Sealed(Sealed), unseal )
 import Git.Plumbing ( Hash, Commit, catCommit, CommitEntry(..) )
 
-data CommitLinks = CommitLinks { cancestors :: S.Set (Hash Commit),
-                                 cparents :: [Hash Commit] }
+data CommitLinks = CommitLinks { cancestors :: S.Set (Sealed (Hash Commit)),
+                                 cparents :: [Sealed (Hash Commit)] }
                  deriving ( Eq )
 instance Ord CommitLinks where
     compare x y = compare (S.size $ cancestors x) (S.size $ cancestors y)
 
 {-# NOINLINE genealogy #-}
-genealogy :: IORef (M.Map (Hash Commit) CommitLinks)
+genealogy :: IORef (M.Map (Sealed (Hash Commit)) CommitLinks)
 genealogy = unsafePerformIO $ newIORef M.empty
 
-isAncestorOf :: Hash Commit -> Hash Commit -> Bool
-a `isAncestorOf` b = a `S.member` ancestors b
+isAncestorOf :: Hash Commit C(x) -> Hash Commit C(y) -> Bool
+a `isAncestorOf` b = Sealed a `S.member` ancestors b
 
-commonAncestors :: Hash Commit -> Hash Commit -> S.Set (Hash Commit)
+commonAncestors :: Hash Commit C(x) -> Hash Commit C(y)
+                -> S.Set (Sealed (Hash Commit))
 commonAncestors a b = S.intersection (ancestors a) (ancestors b)
 
-mergeBases :: [Hash Commit] -> [Hash Commit]
+uncommonAncestors :: [Sealed (Hash Commit)] -> S.Set (Sealed (Hash Commit))
+uncommonAncestors xs = S.difference (S.unions axs) com
+    where axs = map (unseal ancestors) xs
+          com = int S.empty axs
+          int i [] = i
+          int i (s:ss) = int (S.intersection i s) ss
+
+findChildren :: Hash Commit C(x) -> S.Set (Sealed (Hash Commit))
+             -> S.Set (Sealed (Hash Commit))
+findChildren p = S.filter (elem (Sealed p) . unseal parents)
+
+mergeBases :: [Sealed (Hash Commit)] -> [Sealed (Hash Commit)]
 mergeBases [] = []
-mergeBases (h:hs) = mb (ancestors h) hs
+mergeBases (h:hs) = mb (unseal ancestors h) hs
     where mb a [] = fmb 0 [] $ S.toList a
-          mb a (x:xs) = mb (S.intersection a $ ancestors x) xs
+          mb a (x:xs) = mb (S.intersection a $ unseal ancestors x) xs
           fmb _ sofar [] = sofar
           fmb na sofar (x:xs) = if nx > na
                                 then fmb nx [x] xs
                                 else if nx == na
                                      then fmb na (x:sofar) xs
                                      else fmb na sofar xs
-              where nx = S.size $ ancestors x
+              where nx = S.size $ unseal ancestors x
 
-ancestors :: Hash Commit -> S.Set (Hash Commit)
-ancestors h = unsafePerformIO $ findAncestors h
+ancestors :: Hash Commit C(x) -> S.Set (Sealed (Hash Commit))
+ancestors h = unsafePerformIO $ findAncestors $ Sealed h
 
-parents :: Hash Commit -> [Hash Commit]
+parents :: Hash Commit C(x) -> [Sealed (Hash Commit)]
 parents h = unsafePerformIO $
-    do ms <- M.lookup h `fmap` readIORef genealogy
+    do ms <- M.lookup (Sealed h) `fmap` readIORef genealogy
        case ms of
          Just s -> return $ cparents s
-         Nothing -> do findAncestors h -- to compute and cache...
-                       ms' <- M.lookup h `fmap` readIORef genealogy
+         Nothing -> do findAncestors (Sealed h) -- to compute and cache...
+                       ms' <- M.lookup (Sealed h) `fmap` readIORef genealogy
                        case ms' of
                          Just s -> return $ cparents s
                          Nothing -> fail "aack in findParents"
 
-findAncestors :: Hash Commit -> IO (S.Set (Hash Commit))
-findAncestors h =
+findAncestors :: Sealed (Hash Commit) -> IO (S.Set (Sealed (Hash Commit)))
+findAncestors h@(Sealed hh) =
     do ms <- M.lookup h `fmap` readIORef genealogy
        case ms of
          Just s -> return $ cancestors s
-         Nothing -> do ps <- myParents `fmap` catCommit h
+         Nothing -> do ps <- myParents `fmap` catCommit hh
                        as <- mapM findAncestors ps
                        let cl = CommitLinks (S.unions $ S.fromList ps:as) ps
                        modifyIORef genealogy $ M.insert h cl

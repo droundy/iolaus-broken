@@ -26,6 +26,7 @@ import Iolaus.Command ( IolausCommand(..), nodefaults )
 import Iolaus.Arguments ( IolausFlag, working_repo_dir,
                         match_several_or_last )
 import Iolaus.Utils ( askUser )
+import Iolaus.Sealed ( unseal )
 
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( updateref, revListHashes, revList, RevListOption(..) )
@@ -141,7 +142,7 @@ unrecord_cmd _ _ =
                 putStrLn m
                 yorn <- askUser "Shall I unrecord this patch? "
                 case yorn of
-                  'y':_ -> updateref "refs/heads/master" p
+                  'y':_ -> unseal (updateref "refs/heads/master") p
                   _ -> putStrLn "Unrecord cancelled."
          _ -> putStrLn "Sorry, you need two patches to do an unrecord."
 \end{code}
