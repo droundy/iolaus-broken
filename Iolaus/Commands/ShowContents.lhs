@@ -68,7 +68,7 @@ show_contents_cmd :: [IolausFlag] -> [String] -> IO ()
 show_contents_cmd opts args =
     do path_list <- fixSubPaths opts args
        Sealed s <- parseRev "HEAD" >>= mapSealM catCommitTree >>=
-                   mapSealM (slurpTree (fp2fn "."))
+                   mapSealM slurpTree
        case withSlurpy s $ mapM (mReadFilePS.fp2fn.toFilePath) path_list of
          Left e -> fail e
          Right xs -> mapM_ B.putStr $ snd xs

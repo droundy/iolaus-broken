@@ -63,13 +63,16 @@ test opts t | Test `elem` opts =
        return ()
 test _ _ = return ()
 
-slurpTree :: FileName -> Hash Tree C(x) -> IO (Slurpy C(x))
-slurpTree rootdir t =
+slurpTree :: Hash Tree C(x) -> IO (Slurpy C(x))
+slurpTree = slurpTreeHelper (fp2fn ".")
+
+slurpTreeHelper :: FileName -> Hash Tree C(x) -> IO (Slurpy C(x))
+slurpTreeHelper rootdir t =
     do xs <- catTree t
        unsafeInterleaveIO $
              (Slurpy rootdir . SlurpDir (Just t). slurpies_to_map)
              `fmap` mapM sl xs
-    where sl (n, Subtree t') = unsafeInterleaveIO $ slurpTree n t'
+    where sl (n, Subtree t') = unsafeInterleaveIO $ slurpTreeHelper n t'
           sl (n, File h) =
               do x <- unsafeInterleaveIO $ catBlob h
                  return $ Slurpy n $ SlurpFile NotExecutable (Just h) x
@@ -126,7 +129,7 @@ mergeCommits Builtin _ = fail "Builtin can't do octopi"
 diffCommit :: Strategy -> Hash Commit C(x) -> IO (FlippedSeal (FL Prim) C(x))
 diffCommit strat c0 =
     do c <- catCommit c0
-       new <- slurpTree (fp2fn ".") $ myTree c
+       new <- slurpTree $ myTree c
        Sealed oldh <- mergeCommits strat (myParents c)
-       old <- slurpTree (fp2fn ".") oldh
+       old <- slurpTree oldh
        return $ FlippedSeal $ diff [] old new

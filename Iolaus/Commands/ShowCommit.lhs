@@ -24,7 +24,6 @@ import Iolaus.Command ( IolausCommand(..), nodefaults )
 import Iolaus.Printer ( putDocLnWith )
 import Iolaus.ColorPrinter ( fancyPrinters )
 import Iolaus.Patch ( showContextPatch, summarize, invert, apply_to_slurpy )
-import Iolaus.FileName ( fp2fn )
 import Iolaus.Sealed ( Sealed(Sealed), FlippedSeal(FlippedSeal) )
 
 import Git.LocateRepo ( amInRepository )
@@ -70,7 +69,7 @@ commit_cmd opts cs = mapM_ showc cs
                  commit <- catCommit x
                  putStr $ show commit
                  FlippedSeal ch <- diffCommit mystrategy x
-                 new <- slurpTree (fp2fn ".") (myTree commit)
+                 new <- slurpTree (myTree commit)
                  let Just old = apply_to_slurpy (invert ch) new
                  if Summary `elem` opts
                    then putDocLnWith fancyPrinters $ summarize ch

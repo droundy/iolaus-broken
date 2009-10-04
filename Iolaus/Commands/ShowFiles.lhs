@@ -27,7 +27,6 @@ import Iolaus.Arguments ( IolausFlag(..), working_repo_dir,
 import Iolaus.Command ( IolausCommand(..), nodefaults, command_alias )
 import Iolaus.SlurpDirectory ( Slurpy, list_slurpy,
                              list_slurpy_files, list_slurpy_dirs )
-import Iolaus.FileName ( fp2fn )
 import Iolaus.Sealed ( Sealed(..), mapSealM )
 
 import Git.Plumbing ( parseRev, catCommitTree )
@@ -106,7 +105,7 @@ manifest_cmd :: (FORALL(x) [IolausFlag] -> Slurpy C(x) -> [FilePath])
              -> [IolausFlag] -> [String] -> IO ()
 manifest_cmd to_list opts _ =
     do Sealed s <- parseRev "HEAD" >>= mapSealM catCommitTree
-                   >>= mapSealM (slurpTree (fp2fn "."))
+                   >>= mapSealM slurpTree
        mapM_ output $ to_list opts s
     where output_null name = do { putStr name ; putChar '\0' }
           output = if NullFlag `elem` opts then output_null else putStrLn

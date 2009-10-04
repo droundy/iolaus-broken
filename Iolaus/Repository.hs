@@ -21,7 +21,6 @@ module Iolaus.Repository ( get_unrecorded_changes,
                            get_unrecorded, Unrecorded(..),
                            slurp_recorded, slurp_working ) where
 
-import Iolaus.FileName ( fp2fn )
 import Iolaus.Diff ( diff )
 import Iolaus.Patch ( Prim )
 import Iolaus.Ordered ( FL, unsafeCoerceS )
@@ -37,14 +36,14 @@ slurp_recorded =
     do hs <- heads
        case hs of
          [] -> return empty_slurpy -- no history!
-         [Sealed h] -> do s <- catCommitTree h >>= slurpTree (fp2fn ".")
+         [Sealed h] -> do s <- catCommitTree h >>= slurpTree
                           return (unsafeCoerceS s)
          _ -> fail "can't yet handle multiple-head case"
 
 slurp_working :: IO (Sealed Slurpy)
 slurp_working =
     do touchedFiles >>= updateindex
-       writetree >>= mapSealM (slurpTree (fp2fn "."))
+       writetree >>= mapSealM slurpTree
 
 data RecordedState = RecordedState
 
