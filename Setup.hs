@@ -15,7 +15,6 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"],
           executable "git-imof" "git-imof.hs" []
           enforceAllPrivacy
           allTests
-          addDependencies "witnesses" ["Git/Helpers.hi","git-imof"]
 
 allTests =
    do here <- pwd

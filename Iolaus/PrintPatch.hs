@@ -47,5 +47,5 @@ printPatchPager = printPatch
 
 -- | 'contextualPrintPatch' prints a patch, together with its context,
 -- on standard output.
-contextualPrintPatch :: Patchy p => Slurpy -> p C(x y) -> IO ()
+contextualPrintPatch :: Patchy p => Slurpy C(x) -> p C(x y) -> IO ()
 contextualPrintPatch s p = putDocLnWith fancyPrinters $ showContextPatch s p

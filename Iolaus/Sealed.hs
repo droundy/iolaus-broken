@@ -102,9 +102,9 @@ unsealFlipped :: (FORALL(x y) a C(x y) -> b) -> FlippedSeal a C(z) -> b
 unsealFlipped f (FlippedSeal a) = f a
 
 instance Show1 a => Show (Sealed a) where
-    showsPrec d (Sealed x) = showsPrec1 (app_prec + 1) x
+    showsPrec d (Sealed x) = showsPrec1 d x
 instance Show2 a => Show (Sealed2 a) where
-    showsPrec d (Sealed2 x) = showsPrec2 (app_prec + 1) x
+    showsPrec d (Sealed2 x) = showsPrec2 d x
 
 instance Eq1 a => Eq (Sealed a) where
     Sealed x == Sealed y = eq1 x y

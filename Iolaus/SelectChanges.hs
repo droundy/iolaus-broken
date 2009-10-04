@@ -59,7 +59,7 @@ type MatchCriterion p = FORALL(u v) WhichChanges -> [IolausFlag] -> (p C(u v)) -
 type WithPatches p a C(x y) =
         String              -- jobname
      -> [IolausFlag]         -- opts
-     -> Slurpy              -- directory
+     -> Slurpy C(x)          -- directory
      -> FL p C(x y)         -- patches to select among
      -> ((FL p :> FL p) C(x y) -> IO a) -- job
      -> IO a                -- result of running job
@@ -68,7 +68,7 @@ type WithPatches p a C(x y) =
 type WithPatchesToFiles p a C(x y) =
         String              -- jobname
      -> [IolausFlag]         -- opts
-     -> Slurpy              -- directory
+     -> Slurpy C(x)         -- directory
      -> [FilePath]          -- files
      -> FL p C(x y)         -- patches to select among
      -> ((FL p :> FL p) C(x y) -> IO a) -- job

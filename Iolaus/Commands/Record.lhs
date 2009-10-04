@@ -49,6 +49,7 @@ import Iolaus.SelectChanges ( with_selected_changes_to_files )
 import Iolaus.Ordered ( (:>)(..), FL(NilFL) )
 import Iolaus.Progress ( debugMessage )
 import Iolaus.Repository ( get_unrecorded_changes, slurp_recorded )
+import Iolaus.Sealed ( Sealed(Sealed) )
 
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( lsfiles, heads,
@@ -98,9 +99,8 @@ record_cmd opts args = do
     files <- sort `fmap` fixSubPaths opts args
     handleJust only_successful_exits (\_ -> return ()) $ do
     old <- slurp_recorded
-    allchs <- get_unrecorded_changes
-    newtree <-
-        with_selected_changes_to_files "record" opts old (map toFilePath files)
+    Sealed allchs <- get_unrecorded_changes
+    with_selected_changes_to_files "record" opts old (map toFilePath files)
                                    allchs $ \ (ch:>_) ->
         do debugMessage "have finished selecting changes..."
            case ch of
@@ -108,16 +108,17 @@ record_cmd opts args = do
                          exitWith ExitSuccess
              _ -> return ()
            case apply_to_slurpy ch old of
-             Just new' -> writeSlurpTree new'
              Nothing -> impossible
-    (name, my_log, _) <- get_log opts Nothing
-                         (world_readable_temp "iolaus-record")
-    let message = (unlines $ name:my_log)
-    test (testByDefault opts) newtree
-    hs <- heads
-    com <- commitTree newtree hs message
-    updateref "refs/heads/master" com
-    putStrLn ("Finished recording patch '"++ name ++"'")
+             Just new' ->
+                 do newtree <- writeSlurpTree new'
+                    (name, my_log, _) <- get_log opts Nothing
+                                       (world_readable_temp "iolaus-record")
+                    let message = (unlines $ name:my_log)
+                    test (testByDefault opts) newtree
+                    hs <- heads
+                    com <- commitTree newtree hs message
+                    updateref "refs/heads/master" com
+                    putStrLn ("Finished recording patch '"++ name ++"'")
 
  -- check that what we treat as the patch name is not accidentally a command
  -- line flag

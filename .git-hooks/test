@@ -2,4 +2,4 @@
 
 ./Setup.hs test
 
-./Setup.hs --with-type-witnesses witnesses
+./Setup.hs --with-type-witnesses build

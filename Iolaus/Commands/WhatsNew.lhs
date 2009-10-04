@@ -31,7 +31,7 @@ import Iolaus.Arguments ( IolausFlag(Summary), working_repo_dir, summary )
 import Iolaus.Patch ( showContextPatch, summarize )
 import Iolaus.Printer ( putDocLnWith )
 import Iolaus.ColorPrinter ( fancyPrinters )
-import Iolaus.Repository ( get_unrecorded_changes, slurp_recorded )
+import Iolaus.Repository ( Unrecorded(..), get_unrecorded, slurp_recorded )
 
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( lsfiles,
@@ -79,7 +79,7 @@ whatsnew = IolausCommand {command_name = "whatsnew",
 whatsnew_cmd :: [IolausFlag] -> [String] -> IO ()
 whatsnew_cmd opts _ =
     do old <- slurp_recorded
-       chs <- get_unrecorded_changes
+       Unrecorded chs _ <- get_unrecorded
        if Summary `elem` opts
           then putDocLnWith fancyPrinters $ summarize chs
           else putDocLnWith fancyPrinters $ showContextPatch old chs

@@ -39,8 +39,7 @@ import Iolaus.SelectChanges ( with_selected_last_changes_to_files )
 --import Iolaus.Commands.Unrevert ( write_unrevert )
 import Iolaus.SlurpDirectory ( Slurpy )
 import Iolaus.Progress ( debugMessage )
-import Iolaus.Repository ( get_unrecorded_changes,
-                           slurp_recorded, slurp_working )
+import Iolaus.Repository ( Unrecorded(..), get_unrecorded, slurp_recorded )
 
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( lsfiles, diffTrees )
@@ -92,25 +91,26 @@ revert_cmd opts args =
        when (areFileArgs files) $
             putStrLn $ "Reverting changes in "++unwords (map show files)++"..\n"
        old <- slurp_recorded
-       new <- slurp_working
-       chs <- get_unrecorded_changes
-       let unrevertchs (_:>NilFL) = putStrLn "There are no changes to revert!"
-           unrevertchs (_:>ch) =
-               do let theseChanges = englishNum (lengthFL ch) $
-                                     This $ Noun $ "change"
-                  yorn <- if All `elem` opts
-                          then return "y"
-                          else askUser $ "Do you really want to revert " ++
-                               theseChanges "? "
-                  case yorn of ('y':_) -> return ()
-                               _ -> exitWith $ ExitSuccess
-                  debugMessage "about to apply inverse patch!"
-                  write_unrevert new ch
-                  apply (invert ch)
+       Unrecorded chs new <- get_unrecorded
        with_selected_last_changes_to_files "revert" opts old
-           (map toFilePath files) chs unrevertchs
+           (map toFilePath files) chs $ \selected ->
+               case selected of
+                 _:>NilFL -> putStrLn "There are no changes to revert!"
+                 _:>ch ->
+                     do let theseChanges = englishNum (lengthFL ch) $
+                                           This $ Noun $ "change"
+                        yorn <- if All `elem` opts
+                                then return "y"
+                                else askUser $
+                                         "Do you really want to revert " ++
+                                         theseChanges "? "
+                        case yorn of 'y':_ -> return ()
+                                     _ -> exitWith $ ExitSuccess
+                        debugMessage "about to apply inverse patch!"
+                        write_unrevert new ch
+                        apply (invert ch)
 
-write_unrevert :: Slurpy -> FL Prim C(x y) -> IO ()
+write_unrevert :: Slurpy C(y) -> FL Prim C(x y) -> IO ()
 write_unrevert s p =
     do new <- writeSlurpTree s
        old <- apply_to_slurpy (invert p) s >>= writeSlurpTree

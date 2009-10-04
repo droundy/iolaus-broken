@@ -23,14 +23,13 @@ import Iolaus.Arguments ( IolausFlag(..), summary, working_repo_dir )
 import Iolaus.Command ( IolausCommand(..), nodefaults )
 import Iolaus.Printer ( putDocLnWith )
 import Iolaus.ColorPrinter ( fancyPrinters )
-import Iolaus.Patch ( showContextPatch, summarize )
+import Iolaus.Patch ( showContextPatch, summarize, invert, apply_to_slurpy )
 import Iolaus.FileName ( fp2fn )
-import Iolaus.Sealed ( Sealed(Sealed), FlippedSeal(FlippedSeal), mapSealM )
+import Iolaus.Sealed ( Sealed(Sealed), FlippedSeal(FlippedSeal) )
 
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( parseRev, nameRevs, catCommit, CommitEntry(myParents) )
-import Git.Helpers ( slurpTree,
-                     mergeCommits, diffCommit, Strategy( Builtin ) )
+import Git.Plumbing ( parseRev, nameRevs, catCommit, CommitEntry(myTree) )
+import Git.Helpers ( slurpTree, diffCommit, Strategy( Builtin ) )
 \end{code}
 
 \options{show commit}
@@ -70,9 +69,9 @@ commit_cmd opts cs = mapM_ showc cs
                  Sealed x <- parseRev c
                  commit <- catCommit x
                  putStr $ show commit
-                 Sealed old <- mergeCommits mystrategy (myParents commit) >>=
-                               mapSealM (slurpTree (fp2fn "."))
                  FlippedSeal ch <- diffCommit mystrategy x
+                 new <- slurpTree (fp2fn ".") (myTree commit)
+                 let Just old = apply_to_slurpy (invert ch) new
                  if Summary `elem` opts
                    then putDocLnWith fancyPrinters $ summarize ch
                    else putDocLnWith fancyPrinters $ showContextPatch old ch
