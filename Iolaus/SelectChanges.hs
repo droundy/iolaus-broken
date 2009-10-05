@@ -48,7 +48,6 @@ import Iolaus.TouchesFiles ( deselect_not_touching, select_not_touching )
 import Iolaus.PrintPatch ( printFriendly, printPatch, printPatchPager )
 import Iolaus.SlurpDirectory ( Slurpy )
 import Iolaus.Flags ( IolausFlag( Summary, Verbose ), isInteractive )
-import Iolaus.Sealed ( seal2, unseal2 )
 import Iolaus.Utils ( askUser, promptCharFancy, without_buffering )
 import Iolaus.Printer ( prefix, putDocLn )
 
@@ -278,7 +277,7 @@ text_select :: forall p C(x y z). (Patchy p, Effect p) => String -> WhichChanges
 text_select _ _ _ _ _ _ _ NilFL pc = return pc
 text_select jn whichch crit opts n_max n
             tps_done tps_todo@(tp:>:tps_todo') pc = do
-      (printFriendly opts) `unseal2` viewp
+      viewp (printFriendly opts)
       repeat_this -- prompt the user
     where
         do_next_action ja je = tentatively_text_select ja jn je whichch crit opts
@@ -326,8 +325,8 @@ text_select jn whichch crit opts n_max n
             'w' -> do_next $ make_uncertain (tag tp) pc
             's' -> do_next_action "Skipped"  (Noun "change") $ skip_file
             'f' -> do_next_action "Included" (Noun "change") $ do_file
-            'v' -> printPatch `unseal2` viewp >> repeat_this
-            'p' -> printPatchPager `unseal2` viewp >> repeat_this
+            'v' -> viewp printPatch >> repeat_this
+            'p' -> viewp printPatchPager >> repeat_this
             'l' ->
                 do let selected = case get_choices pc of
                                   (first_chs:>_:>last_chs) ->
@@ -335,16 +334,13 @@ text_select jn whichch crit opts n_max n
                                          whichch == FirstReversed
                                       then sequence_ $ map_patches last_chs
                                       else sequence_ $ map_patches first_chs
-                       map_patches = mapFL
-                                     (\a ->
-                                      (printFriendly opts) `unseal2`
-                                      (seal2 $ tp_patch a))
+                       map_patches = mapFL (printFriendly opts . tp_patch)
                    putStrLn $ "---- Already selected "++things++" ----"
                    selected
                    putStrLn $ "---- end of already selected "++things++" ----"
-                   (printFriendly opts) `unseal2` viewp
+                   viewp (printFriendly opts)
                    repeat_this
-            'x' -> do (putDocLn . prefix "    " . summary) `unseal2` viewp
+            'x' -> do viewp (putDocLn . prefix "    " . summary)
                       repeat_this
             'd' -> return pc
             'a' -> do ask_confirmation
@@ -379,7 +375,10 @@ text_select jn whichch crit opts n_max n
         jn_cap = (toUpper $ head jn) : tail jn
         touched_files = list_touched_files $ tp_patch tp
         is_single_file_patch = length touched_files == 1
-        viewp = if whichch == LastReversed || whichch == FirstReversed then seal2 $ invert (tp_patch tp) else seal2 $ tp_patch tp
+        viewp :: (FORALL(xx yy) p C(xx yy) -> IO ()) -> IO ()
+        viewp f = if whichch == LastReversed || whichch == FirstReversed
+                    then f (invert (tp_patch tp))
+                    else f (tp_patch tp)
         ask_confirmation =
             if jn `elem` ["unpull", "unrecord", "obliterate"]
             then do yorn <- askUser $ "Really " ++ jn ++ " all undecided patches? "

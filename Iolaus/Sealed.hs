@@ -22,10 +22,7 @@
 #include "gadts.h"
 
 module Iolaus.Sealed ( Sealed(..), seal, unseal, mapSeal, mapSealM,
-                       Sealed2(..), seal2, unseal2, mapSeal2,
-                       FlippedSeal(..), flipSeal, unsealFlipped, mapFlipped,
-                       unsealM, liftSM
-                     ) where
+                       FlippedSeal(..), flipSeal ) where
 
 import GHC.Base ( unsafeCoerce# )
 import Iolaus.Show
@@ -35,12 +32,6 @@ data Sealed a where
 
 seal :: a C(x ) -> Sealed a
 seal = Sealed
-
-data Sealed2 a where
-    Sealed2 :: !(a C(x y )) -> Sealed2 a
-
-seal2 :: a C(x y ) -> Sealed2 a
-seal2 = Sealed2
 
 data FlippedSeal a C(y) where
     FlippedSeal :: !(a C(x y)) -> FlippedSeal a C(y)
@@ -57,14 +48,6 @@ unseal f x = f (seriouslyUnsafeUnseal x)
 -- laziness property:
 -- unseal (const True) undefined == True
 
-unsealM :: Monad m => m (Sealed a) -> (FORALL(x) a C(x) -> m b) -> m b
-unsealM m1 m2 = do sx <- m1
-                   unseal m2 sx
-
-liftSM :: Monad m => (FORALL(x) a C(x) -> b) -> m (Sealed a) -> m b
-liftSM f m = do sx <- m
-                return (unseal f sx)
-
 mapSealM :: Monad m => (FORALL(x) a C(x) -> m (b C(x))) -> Sealed a -> m (Sealed b)
 mapSealM f (Sealed x) = do y <- f x
                            return (Sealed y)
@@ -72,26 +55,8 @@ mapSealM f (Sealed x) = do y <- f x
 mapSeal :: (FORALL(x) a C(x ) -> b C(x )) -> Sealed a -> Sealed b
 mapSeal f = unseal (seal . f)
 
-mapFlipped :: (FORALL(x) a C(x y) -> b C(x z)) -> FlippedSeal a C(y) -> FlippedSeal b C(z)
-mapFlipped f (FlippedSeal x) = FlippedSeal (f x)
-
-seriouslyUnsafeUnseal2 :: Sealed2 a -> a C(() ())
-seriouslyUnsafeUnseal2 (Sealed2 a) = unsafeCoerce# a
-
-unseal2 :: (FORALL(x y) a C(x y ) -> b) -> Sealed2 a -> b
-unseal2 f a = f (seriouslyUnsafeUnseal2 a)
-
-mapSeal2 :: (FORALL(x y) a C(x y ) -> b C(x y )) -> Sealed2 a -> Sealed2 b
-mapSeal2 f = unseal2 (seal2 . f)
-
-unsealFlipped :: (FORALL(x y) a C(x y) -> b) -> FlippedSeal a C(z) -> b
-unsealFlipped f (FlippedSeal a) = f a
-
 instance Show1 a => Show (Sealed a) where
     showsPrec d (Sealed x) = showsPrec1 d x
-instance Show2 a => Show (Sealed2 a) where
-    showsPrec d (Sealed2 x) = showsPrec2 d x
-
 instance Eq1 a => Eq (Sealed a) where
     Sealed x == Sealed y = eq1 x y
 instance Ord1 a => Ord (Sealed a) where

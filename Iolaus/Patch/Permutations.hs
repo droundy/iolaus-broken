@@ -80,7 +80,7 @@ partitionRL' _ NilRL qs = reverseFL qs :> NilRL
 
 partitionRL' keepright (p :<: ps) qs
    | keepright p,
-     Right (qs' :> p') <- commuteFL (p :> qs)
+     Just (qs' :> p') <- commuteFL (p :> qs)
        = case partitionRL' keepright ps qs' of
          a :> b -> a :> p' :<: b
    | otherwise = partitionRL' keepright ps (p :>: qs)

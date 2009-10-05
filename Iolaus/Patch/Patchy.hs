@@ -32,7 +32,6 @@ import Data.Maybe ( fromJust )
 import Data.List ( nub )
 
 import Iolaus.SlurpDirectory ( Slurpy )
-import Iolaus.Sealed ( Sealed2(..), seal2 )
 import Iolaus.Ordered
 import Iolaus.Printer ( Doc, (<>), text )
 import Iolaus.Lock ( writeDocBinFile )
@@ -111,14 +110,11 @@ commuteRL (z :<: zs :> w) = do w' :> z' <- commute (z :> w)
                                return (w'' :> z' :<: zs')
 commuteRL (NilRL :> w) = Just (w :> NilRL)
 
-commuteFL :: Commute p => (p :> FL p) C(x y) -> Either (Sealed2 p) ((FL p :> p) C(x y))
-commuteFL (p :> NilFL) = Right (NilFL :> p)
-commuteFL (q :> p :>: ps) = case commute (q :> p) of
-                            Just (p' :> q') ->
-                               case commuteFL (q' :> ps) of
-                               Right (ps' :> q'') -> Right (p' :>: ps' :> q'')
-                               Left l -> Left l
-                            Nothing -> Left $ seal2 p
+commuteFL :: Commute p => (p :> FL p) C(x y) -> Maybe ((FL p :> p) C(x y))
+commuteFL (p :> NilFL) = Just (NilFL :> p)
+commuteFL (q :> p :>: ps) = do p' :> q' <- commute (q :> p)
+                               ps' :> q'' <- commuteFL (q' :> ps)
+                               Just (p' :>: ps' :> q'')
 
 instance Apply p => Apply (RL p) where
     apply NilRL = return ()
