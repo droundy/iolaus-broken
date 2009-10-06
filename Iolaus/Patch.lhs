@@ -19,9 +19,9 @@
 {-# OPTIONS_GHC -cpp -fno-warn-orphans #-}
 #include "gadts.h"
 module Iolaus.Patch ( Prim, Named, Patchy, apply,
-                    rmfile, addfile, chmod, rmdir, adddir, move,
-                    hunk, description,
-                    showContextPatch, showPatch, showNicely,
+                      rmfile, addfile, chmod, rmdir, adddir, move,
+                      chunkify, chunk, hunk, description,
+                      showContextPatch, showPatch, showNicely,
                     infopatch, thing, things,
                     is_similar, is_addfile, is_hunk,
                     Effect, effect,
@@ -51,15 +51,15 @@ import Iolaus.Patch.Permutations ( commuteWhatWeCanRL, commuteWhatWeCanFL,
                                  partitionFL, partitionRL,
                                  remove_subsequenceRL, removeFL )
 import Iolaus.Patch.Viewing ( summarize )
-import Iolaus.Patch.Apply ( apply_to_slurpy )
+import Iolaus.Patch.Apply ( apply_to_slurpy, chunkify )
 import Iolaus.Patch.Prim ( Effect(effect),
-                         Prim, canonize,
-                         sort_coalesceFL,
-                         rmdir, rmfile, adddir, addfile, chmod,
-                         hunk, move, 
-                         is_adddir, is_addfile,
-                         is_hunk, is_similar,
-                         try_to_shrink, try_shrinking_inverse )
+                           Prim, canonize,
+                           sort_coalesceFL,
+                           rmdir, rmfile, adddir, addfile, chmod,
+                           chunk, hunk, move, 
+                           is_adddir, is_addfile,
+                           is_hunk, is_similar,
+                           try_to_shrink, try_shrinking_inverse )
 
 instance Patchy Prim
 \end{code}

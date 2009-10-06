@@ -30,8 +30,8 @@ module Iolaus.Patch.Prim
          is_identity,
          formatFileName,
          adddir, addfile,
-         hunk, move, rmdir, rmfile, chmod,
-         is_addfile, is_hunk,
+         hunk, chunk, move, rmdir, rmfile, chmod,
+         is_addfile, is_hunk, is_chunk,
          is_similar, is_adddir, is_filepatch,
          canonize, try_to_shrink,
          subcommutes, sort_coalesceFL, join,
@@ -40,7 +40,6 @@ module Iolaus.Patch.Prim
        )
        where
 
-import Prelude hiding ( pi )
 import Control.Monad ( MonadPlus, msum, mzero, mplus )
 #ifndef GADT_WITNESSES
 import Data.Map ( elems, fromListWith, mapWithKey )
@@ -59,9 +58,10 @@ import Iolaus.Patch.Patchy ( Invert(..), Commute(..) )
 import Iolaus.Patch.Permutations () -- for Invert instance of FL
 import Iolaus.Show
 import Iolaus.Lcs2 ( patientChanges )
-import Iolaus.Printer ( Doc, vcat, Color(Cyan,Magenta), lineColor,
-                      text, blueText,
-                      ($$), (<+>), prefix, userchunkPS )
+import Iolaus.Printer ( Doc, vcat, hcat,
+                        Color(Red,Green,Cyan,Magenta), lineColor,
+                        text, blueText, colorPS,
+                        ($$), (<+>), (<>), prefix, userchunkPS )
 import Iolaus.IO ( ExecutableBit(IsExecutable, NotExecutable) )
 #include "impossible.h"
 
@@ -75,6 +75,8 @@ data Prim C(x y) where
 data FilePatchType C(x y) = RmFile | AddFile
                           | Chmod ExecutableBit
                           | Hunk !Int [B.ByteString] [B.ByteString]
+                          | Chunk !B.ByteString !Int
+                                  [B.ByteString] [B.ByteString]
                             deriving (Eq,Ord)
 
 data DirPatchType C(x y) = RmDir | AddDir
@@ -135,6 +137,10 @@ is_adddir _ = False
 is_hunk :: Prim C(x y) -> Bool
 is_hunk (FP _ (Hunk _ _ _)) = True
 is_hunk _ = False
+
+is_chunk :: Prim C(x y) -> Bool
+is_chunk (FP _ (Chunk _ _ _ _)) = True
+is_chunk _ = False
 \end{code}
 
 \begin{code}
@@ -155,6 +161,11 @@ rmdir d = DP (n_fn d) RmDir
 move f f' = Move (n_fn f) (n_fn f')
 hunk f line old new = evalargs FP (n_fn f) (Hunk line old new)
 
+chunk :: FilePath -> B.ByteString -> Int
+      -> [B.ByteString] -> [B.ByteString] -> Prim C(x y)
+chunk f c w o n = seq ccc (FP (n_fn f) ccc)
+    where ccc = Chunk c w o n
+
 chmod :: FilePath -> ExecutableBit -> Prim C(x y)
 chmod f x = FP (n_fn f) (Chmod x)
 \end{code}
@@ -169,6 +180,7 @@ instance Invert Prim where
     invert (FP f AddFile)  = FP f RmFile
     invert (FP f (Chmod IsExecutable)) = FP f (Chmod NotExecutable)
     invert (FP f (Chmod NotExecutable)) = FP f (Chmod IsExecutable)
+    invert (FP f (Chunk chs w old new))  = FP f $ Chunk chs w new old
     invert (FP f (Hunk line old new))  = FP f $ Hunk line new old
     invert (DP d RmDir) = DP d AddDir
     invert (DP d AddDir) = DP d RmDir
@@ -200,6 +212,7 @@ instance Show (FilePatchType C(x y)) where
     showsPrec _ AddFile = showString "AddFile"
     showsPrec _ (Chmod IsExecutable) = showString "Chmod IsExecutable"
     showsPrec _ (Chmod NotExecutable) = showString "Chmod NotExecutable"
+    showsPrec _ (Chunk _ _ _ _) = showString "Chunk not shown"
     showsPrec d (Hunk line old new) | all ((==1) . B.length) old && all ((==1) . B.length) new
         = showParen (d > app_prec) $ showString "Hunk " .
                                       showsPrec (app_prec + 1) line . showString " " .
@@ -229,6 +242,7 @@ showPrim (FP f AddFile) = showAddFile f
 showPrim (FP f RmFile)  = showRmFile f
 showPrim (FP f (Chmod x)) = showChmod f x
 showPrim (FP f (Hunk line old new))  = showHunk f line old new
+showPrim (FP f (Chunk chs line old new))  = showChunk f chs line old new
 showPrim (DP d AddDir) = showAddDir d
 showPrim (DP d RmDir)  = showRmDir d
 showPrim (Move f f') = showMove f f'
@@ -309,9 +323,15 @@ showHunk f line old new =
            blueText "hunk" <+> formatFileName f <+> text (show line)
         $$ lineColor Magenta (prefix "-" (vcat $ map userchunkPS old))
         $$ lineColor Cyan    (prefix "+" (vcat $ map userchunkPS new))
-\end{code}
 
-\begin{code}
+showChunk :: FileName -> B.ByteString
+          -> Int -> [B.ByteString] -> [B.ByteString] -> Doc
+showChunk f chs word old new =
+           blueText "chunk" <+> userchunkPS chs <+> formatFileName f
+                        <+> text (show word) $$
+              (hcat $ map (colorPS Red) old) <>
+              (hcat $ map (colorPS Green) new)
+
 try_to_shrink :: FL Prim C(x y) -> FL Prim C(x y)
 try_to_shrink = mapPrimFL try_harder_to_shrink
 
@@ -610,6 +630,7 @@ old and new version of a file.
 canonize :: Prim C(x y) -> FL Prim C(x y)
 canonize p | IsEq <- is_identity p = NilFL
 canonize (FP f (Hunk line old new)) = canonizeHunk f line old new
+canonize (FP f (Chunk c w old new)) = canonizeChunk f c w old new
 canonize p = p :>: NilFL
 \end{code}
 
@@ -755,6 +776,15 @@ with all right, but with more space complexity.  I think it's more
 efficient to just chop the head and tail off first.
 
 \begin{code}
+canonizeChunk :: FileName -> B.ByteString -> Int
+             -> [B.ByteString] -> [B.ByteString] -> FL Prim C(x y)
+canonizeChunk f c w old new
+    | null old || null new
+        = FP f (Chunk c w old new) :>: NilFL
+canonizeChunk f c w old new = make_chs $ patientChanges old new
+    where make_chs ((l,o,n):cs) = FP f (Chunk c (l+w) o n) :>: make_chs cs
+          make_chs [] = unsafeCoerceP NilFL
+
 canonizeHunk :: FileName -> Int
              -> [B.ByteString] -> [B.ByteString] -> FL Prim C(x y)
 canonizeHunk f line old new

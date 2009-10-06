@@ -23,12 +23,11 @@
 module Iolaus.Diff ( diff ) where
 
 import Iolaus.SlurpDirectory ( Slurpy )
-import Iolaus.Patch ( Prim )
 import Iolaus.Flags ( IolausFlag(..) )
 import Iolaus.Ordered ( FL(..), unsafeCoerceP, unsafeCoerceS )
 import Data.List ( partition, sort )
 import Data.List ( intersperse )
-import qualified Data.ByteString.Char8 as BC (last)
+import qualified Data.ByteString.Char8 as BC ( last, pack )
 import qualified Data.ByteString as B (empty, ByteString)
 
 import Iolaus.Ordered ( (+>+) )
@@ -38,7 +37,8 @@ import Iolaus.IO ( ExecutableBit(..) )
 import Iolaus.SlurpDirectory ( slurp_name, is_dir, is_file,
                                get_filehash, get_dirhash, get_fileEbit,
                                get_dircontents, get_filecontents )
-import Iolaus.Patch ( apply_to_slurpy, move, hunk, canonize, rmfile, rmdir,
+import Iolaus.Patch ( Prim, chunk, chunkify,
+                      apply_to_slurpy, move, hunk, canonize, rmfile, rmdir,
                       addfile, adddir, chmod, invert )
 
 #include "impossible.h"
@@ -166,7 +166,13 @@ diff_files f o n | linesPS o == [B.empty] && linesPS n == [B.empty] = id
                  | linesPS n == [B.empty] = diff_from_empty invert f o
 diff_files f o n = if o == n
                    then id
-                   else (canonize (hunk f 1 (linesPS o) (linesPS n)) +>+)
+                   else (canonize (chunk f newlines 0
+                                             (chunkify newlines o)
+                                             (chunkify newlines n)) +>+)
+--                   else (canonize (hunk f 1 (linesPS o) (linesPS n)) +>+)
+
+newlines :: B.ByteString
+newlines = BC.pack " ,\n"
 
 diff_from_empty :: (Prim C(x x) -> Prim C(x x)) -> FilePath -> B.ByteString
                 -> (FL Prim C(x x) -> FL Prim C(x x))
@@ -174,8 +180,10 @@ diff_from_empty inv f b =
     if b == B.empty
     then id
     else let p = if BC.last b == '\n'
-                 then hunk f 1 [] $ init $ linesPS b
-                 else hunk f 1 [B.empty] $ linesPS b
+                 then chunk f newlines 0 [] $ init $ chunkify newlines b
+                 else chunk f newlines 0 [B.empty] $ chunkify newlines b
+                 --then hunk f 1 [] $ init $ linesPS b
+                 --else hunk f 1 [B.empty] $ linesPS b
          in (inv p:>:)
 
 diff_removed :: [FilePath] -> Slurpy C(x)

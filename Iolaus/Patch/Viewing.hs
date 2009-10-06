@@ -21,25 +21,24 @@
 module Iolaus.Patch.Viewing ( summarize ) where
 
 import Prelude hiding ( pi )
-import Control.Monad ( liftM )
 import Data.List ( sort )
 
 import Iolaus.SlurpDirectory ( Slurpy, get_slurp, get_filecontents )
-import Iolaus.ByteStringUtils (linesPS )
-import qualified Data.ByteString as B (null)
+import Iolaus.ByteStringUtils ( linesPS, unlinesPS )
+import qualified Data.ByteString as B (null, concat)
 import Iolaus.FileName ( FileName, fp2fn, fn2fp )
-import Iolaus.Printer ( Doc, empty, vcat,
-                 text, blueText, Color(Cyan,Magenta), lineColor,
-                 minus, plus, ($$), (<+>), (<>),
-                 prefix, renderString,
-                 userchunkPS,
-               )
+import Debug.Trace
+import Iolaus.Printer
+    ( Doc, empty, vcat, hcat,
+      text, blueText, Color(Red,Green,Cyan,Magenta), lineColor, colorPS,
+      minus, plus, ($$), (<+>), (<>),
+      prefix, renderString, userchunkPS, unsafePackedString )
 import Iolaus.Patch.Core ( Named(..) )
 import Iolaus.Patch.Prim ( Prim(..), isHunk, formatFileName, showPrim,
-                         Effect, effect,
-                         DirPatchType(..), FilePatchType(..) )
+                           Effect, effect,
+                           DirPatchType(..), FilePatchType(..) )
 import Iolaus.Patch.Patchy ( Patchy, Apply, ShowPatch(..), identity )
-import Iolaus.Patch.Apply ( apply_to_slurpy )
+import Iolaus.Patch.Apply ( apply_to_slurpy, chunkify )
 #include "impossible.h"
 #include "gadts.h"
 import Iolaus.Ordered ( RL(..), FL(..), mapFL, reverseRL )
@@ -47,6 +46,8 @@ import Iolaus.Ordered ( RL(..), FL(..), mapFL, reverseRL )
 instance ShowPatch Prim where
     showPatch = showPrim
     showContextPatch s p@(FP _ (Hunk _ _ _)) = showContextHunk s p
+    showContextPatch s p@(FP _ (Chunk _ _ _ _)) = trace "starting showContexChunk"
+                                                  showContextChunk s p
     showContextPatch _ p = showPatch p
     summary = gen_summary . (:>: NilFL)
     thing _ = "change"
@@ -74,6 +75,23 @@ showContextSeries slur patches = scs slur identity patches
                         fromJust $ apply_to_slurpy p s
           scs _ _ NilFL = empty
 
+showContextChunk :: Slurpy C(x) -> Prim C(x y) -> Doc
+showContextChunk s p@(FP f (Chunk c w o n)) =
+    case (chunkify c . get_filecontents) `fmap` get_slurp f s of
+      Nothing -> showPatch p -- This is a weird error...
+      Just ws ->
+          blueText "chunk" <+> userchunkPS c <+> formatFileName f
+                       <+> text (show w) $$
+              unsafePackedString precontext <>
+              (hcat $ map (colorPS Red) o) <>
+              (hcat $ map (colorPS Green) n) <>
+              unsafePackedString postcontext
+          where precontext = unlinesPS $ last3 $ linesPS $ B.concat $ take w ws
+                last3 xs = drop (max 0 (length xs-3)) xs
+                postcontext = unlinesPS $ take 3 $ linesPS $ B.concat $
+                              drop (w+length o) ws
+showContextChunk _ _ = impossible
+
 showContextHunk :: (Apply p, ShowPatch p, Effect p) =>
                    Slurpy C(x) -> p C(x y) -> Doc
 showContextHunk s p = case isHunk p of
@@ -83,7 +101,7 @@ showContextHunk s p = case isHunk p of
 coolContextHunk :: Slurpy C(b) -> Prim C(a b) -> Prim C(b c)
                 -> Prim C(c d) -> Doc
 coolContextHunk s prev p@(FP f (Hunk l o n)) next =
-    case (linesPS . get_filecontents) `liftM` get_slurp f s of
+    case (linesPS . get_filecontents) `fmap` get_slurp f s of
     Nothing -> showPatch p -- This is a weird error...
     Just ls ->
         let numpre = case prev of
@@ -118,6 +136,7 @@ gen_summary p
     where themods = map summ $ combine $ sort $ concat $ mapFL s p
           s :: Prim C(x y) -> [(FileName, Int, Int, Int, Bool)]
           s (FP f (Hunk _ o n)) = [(f, length o, length n, 0, False)]
+          s (FP f (Chunk _ _ o n)) = [(f, length o, length n, 0, False)]
           s (FP f (Chmod _)) = [(f, 0, 0, 0, False)]
           s (FP f AddFile) = [(f, -1, 0, 0, False)]
           s (FP f RmFile) = [(f, 0, -1, 0, False)]

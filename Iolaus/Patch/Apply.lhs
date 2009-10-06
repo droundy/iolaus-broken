@@ -22,12 +22,11 @@
 
 #include "gadts.h"
 
-module Iolaus.Patch.Apply ( apply_to_slurpy, applyFL ) where
-
-import Prelude hiding ( catch, pi )
+module Iolaus.Patch.Apply ( apply_to_slurpy, applyFL, chunkify ) where
 
 import qualified Data.ByteString.Char8 as BC ( singleton )
-import qualified Data.ByteString as B ( ByteString, null, empty, concat )
+import qualified Data.ByteString as B ( ByteString, null, empty, concat,
+                                        findIndex, elem, splitAt )
 
 import Iolaus.ByteStringUtils ( unlinesPS,
                               break_after_nth_newline,
@@ -37,8 +36,8 @@ import Data.List ( intersperse )
 import Iolaus.Patch.Patchy ( Apply, apply )
 import Iolaus.Patch.Commute ()
 import Iolaus.Patch.Core ( Named(..) )
-import Iolaus.Patch.Prim ( Prim(..),
-                         DirPatchType(..), FilePatchType(..) )
+import Iolaus.Patch.Prim ( Prim(..), is_hunk, is_chunk,
+                           DirPatchType(..), FilePatchType(..) )
 import Iolaus.SlurpDirectory ( Slurpy, withSlurpy )
 import Iolaus.IO ( WriteableDirectory(..) )
 --import Iolaus.FilePathMonad ( withFilePaths, withSubPaths )
@@ -112,19 +111,22 @@ instance Apply Prim where
     apply (FP f AddFile) = mCreateFile f
     apply (FP f (Chmod x)) = mSetFileExecutable f x
     apply p@(FP _ (Hunk _ _ _)) = applyFL (p :>: NilFL)
+    apply p@(FP _ (Chunk _ _ _ _)) = applyFL (p :>: NilFL)
     apply (DP d AddDir) = mCreateDirectory d
     apply (DP d RmDir) = mRemoveDirectory d
     apply (Move f f') = mRename f f'
 
 applyFL :: WriteableDirectory m => FL Prim C(x y) -> m ()
 applyFL NilFL = return ()
-applyFL ((FP f h@(Hunk _ _ _)):>:the_ps)
- = case spanFL f_hunk the_ps of
-       (xs :> ps') ->
-           do let foo = h :>: mapFL_FL (\(FP _ h') -> h') xs
-              mModifyFilePS f $ hunkmod foo
-              applyFL ps'
+applyFL (ppp@(FP f h):>:the_ps)
+    | is_hunk ppp || is_chunk ppp =
+        case spanFL f_hunk the_ps of
+          (xs :> ps') ->
+              do let foo = h :>: mapFL_FL (\(FP _ h') -> h') xs
+                 mModifyFilePS f $ hunkmod foo
+                 applyFL ps'
     where f_hunk (FP f' (Hunk _ _ _)) | f == f' = True
+          f_hunk (FP f' (Chunk _ _ _ _)) | f == f' = True
           f_hunk _ = False
           hunkmod :: WriteableDirectory m => FL FilePatchType C(x y)
                   -> B.ByteString -> m B.ByteString
@@ -133,8 +135,29 @@ applyFL ((FP f h@(Hunk _ _ _)):>:the_ps)
            = case applyHunkLines [(line,old,new)] ps of
                  Just ps' -> hunkmod hs ps'
                  Nothing -> fail $ "Error applying hunk to file " ++ fn2fp f
+          hunkmod (Chunk ch w old new:>:hs) ps =
+              case applyChunk ch w old new ps of
+                Just ps' -> hunkmod hs ps'
+                Nothing -> fail $ "Error applying chunk to file " ++ fn2fp f
           hunkmod _ _ = impossible
 applyFL (p:>:ps) = apply p >> applyFL ps
+
+applyChunk :: B.ByteString -> Int -> [B.ByteString] -> [B.ByteString]
+           -> B.ByteString -> Maybe B.ByteString
+applyChunk ch w old new = fmap B.concat . appl . chunkify ch
+    where appl xs = case splitAt w xs of
+                      (pre, more) ->
+                          do post <- stripPrefix old more
+                             Just $ pre ++ new ++ post
+          stripPrefix (x:xs) (y:ys) | x == y = stripPrefix xs ys
+          stripPrefix [] ys = Just ys
+          stripPrefix _ _ = Nothing
+
+chunkify :: B.ByteString -> B.ByteString -> [B.ByteString]
+chunkify _ ps | B.null ps = []
+chunkify c ps = case B.findIndex (`B.elem` c) ps of
+                Nothing -> [ps]
+                Just i -> case B.splitAt (i+1) ps of (a,b) -> a : chunkify c b
 \end{code}
 
 \subsection{Hunk patches}

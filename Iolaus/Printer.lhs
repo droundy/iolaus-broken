@@ -44,7 +44,9 @@ module Iolaus.Printer
                 hPutDocWith, hPutDocLnWith, putDocWith, putDocLnWith,
                 renderString, renderStringWith, renderPS, renderPSWith,
                 renderPSs, renderPSsWith, lineColor,
-                prefix, colorText, invisibleText, hiddenText, hiddenPrefix, userchunk, text,
+                prefix, colorText, colorPS,
+                invisibleText, hiddenText, hiddenPrefix,
+                userchunk, text,
                 printable, wrap_text,
                 blueText, redText, greenText, magentaText, cyanText,
                 unsafeText, unsafeBoth, unsafeBothText, unsafeChar,
@@ -294,6 +296,9 @@ cyanText = colorText Cyan
 -- | 'colorText' creates a 'Doc' containing colored text from a @String@
 colorText :: Color -> String -> Doc
 colorText c = mkColorPrintable c . S
+
+colorPS :: Color -> B.ByteString -> Doc
+colorPS c = mkColorPrintable c . PS
 
 -- | @'wrap_text' n s@ is a 'Doc' representing @s@ line-wrapped at 'n' characters
 wrap_text :: Int -> String -> Doc
