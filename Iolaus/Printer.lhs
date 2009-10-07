@@ -60,7 +60,8 @@ module Iolaus.Printer
 
 import Data.List (intersperse)
 import System.IO (Handle, stdout, hPutStr)
-import qualified Data.ByteString as B (ByteString, hPut, concat)
+import qualified Data.ByteString as B (ByteString, hPut, concat, null,
+                                       span, spanEnd, elem)
 import qualified Data.ByteString.Char8 as BC (unpack, pack, singleton)
 
 -- | A 'Printable' is either a String, a packed string, or a chunk of
@@ -170,6 +171,7 @@ data Printers' = Printers {colorP :: !(Color -> Printer),
 type Printer = Printable -> St -> Document
 
 data Color = Blue | Red | Green | Cyan | Magenta
+           | Underline Color
 
 -- | 'Document' is a wrapper around '[Printable] -> [Printable]' which allows
 -- for empty Documents. The simplest 'Documents' are built from 'String's
@@ -298,7 +300,16 @@ colorText :: Color -> String -> Doc
 colorText c = mkColorPrintable c . S
 
 colorPS :: Color -> B.ByteString -> Doc
-colorPS c = mkColorPrintable c . PS
+colorPS c ps
+    | B.null ps = empty
+    | otherwise = case B.span isWhite ps of
+                  (w,more) ->
+                     case B.spanEnd isWhite more of
+                       (body,w2) ->
+                           mkColorPrintable (Underline c) (PS w) <>
+                           mkColorPrintable c (PS body) <>
+                           mkColorPrintable (Underline c) (PS w2)
+    where isWhite = (`B.elem` (BC.pack "\n\t "))
 
 -- | @'wrap_text' n s@ is a 'Doc' representing @s@ line-wrapped at 'n' characters
 wrap_text :: Int -> String -> Doc
