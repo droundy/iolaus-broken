@@ -45,7 +45,7 @@ import Control.Monad ( MonadPlus, msum, mzero, mplus )
 import Data.Map ( elems, fromListWith, mapWithKey )
 #endif
 
-import qualified Data.ByteString as B ( ByteString, length, head )
+import qualified Data.ByteString as B ( ByteString, length, head, concat )
 
 import Iolaus.FileName ( FileName, fn2fp, fp2fn, norm_path,
                               movedirfilename, encode_white )
@@ -58,8 +58,7 @@ import Iolaus.Patch.Patchy ( Invert(..), Commute(..) )
 import Iolaus.Patch.Permutations () -- for Invert instance of FL
 import Iolaus.Show
 import Iolaus.Lcs2 ( patientChanges )
-import Iolaus.Printer ( Doc, vcat, hcat,
-                        Color(Red,Green,Cyan,Magenta), lineColor,
+import Iolaus.Printer ( Doc, vcat, Color(Red,Green,Cyan,Magenta), lineColor,
                         text, blueText, colorPS,
                         ($$), (<+>), (<>), prefix, userchunkPS )
 import Iolaus.IO ( ExecutableBit(IsExecutable, NotExecutable) )
@@ -329,8 +328,8 @@ showChunk :: FileName -> B.ByteString
 showChunk f chs word old new =
            blueText "chunk" <+> userchunkPS chs <+> formatFileName f
                         <+> text (show word) $$
-              (hcat $ map (colorPS Red) old) <>
-              (hcat $ map (colorPS Green) new)
+              (colorPS Red $ B.concat old) <>
+              (colorPS Green $ B.concat new)
 
 try_to_shrink :: FL Prim C(x y) -> FL Prim C(x y)
 try_to_shrink = mapPrimFL try_harder_to_shrink
