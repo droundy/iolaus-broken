@@ -689,6 +689,10 @@ commuteFP f (Hunk line1 [] [] :> p2) =
     seq f $ Succeeded (FP f (unsafeCoerceP p2) :> FP f (Hunk line1 [] []))
 commuteFP f (Hunk line2 old2 new2 :> Hunk line1 old1 new1) = seq f $
   toPerhaps $ commuteHunk f (Hunk line2 old2 new2 :> Hunk line1 old1 new1)
+commuteFP f (Chunk c w1 o1 n1 :> Chunk c2 w2 o2 n2)
+    | c == c2 =
+        toPerhaps $ commuteChunk f (Chunk c w1 o1 n1 :> Chunk c2 w2 o2 n2)
+-- FIXME: add commmute for chunks
 commuteFP _ _ = Unknown
 \end{code}
 
@@ -731,6 +735,30 @@ commuteHunk f (Hunk line1 old1 new1 :> Hunk line2 old2 new2)
         lengthold1 = length old1
         lengthold2 = length old2
 commuteHunk _ _ = impossible
+
+commuteChunk :: FileName -> (FilePatchType :> FilePatchType) C(x y)
+             -> Maybe ((Prim :> Prim) C(x y))
+commuteChunk f (Chunk c line1 old1 new1 :> Chunk _ line2 old2 new2)
+  | seq f $ line1 + lengthnew1 < line2 =
+      Just (FP f (Chunk c (line2 - lengthnew1 + lengthold1) old2 new2) :>
+            FP f (Chunk c line1 old1 new1))
+  | line2 + lengthold2 < line1 =
+      Just (FP f (Chunk c line2 old2 new2) :>
+            FP f (Chunk c (line1+ lengthnew2 - lengthold2) old1 new1))
+  | line1 + lengthnew1 == line2 &&
+    lengthold2 /= 0 && lengthold1 /= 0 && lengthnew2 /= 0 && lengthnew1 /= 0 =
+      Just (FP f (Chunk c (line2 - lengthnew1 + lengthold1) old2 new2) :>
+            FP f (Chunk c line1 old1 new1))
+  | line2 + lengthold2 == line1 &&
+    lengthold2 /= 0 && lengthold1 /= 0 && lengthnew2 /= 0 && lengthnew1 /= 0 =
+      Just (FP f (Chunk c line2 old2 new2) :>
+            FP f (Chunk c (line1 + lengthnew2 - lengthold2) old1 new1))
+  | otherwise = Nothing
+  where lengthnew1 = length new1
+        lengthnew2 = length new2
+        lengthold1 = length old1
+        lengthold2 = length old2
+commuteChunk _ _ = impossible
 \end{code}
 Hunks, of course, can be coalesced if they have any overlap.  Note that
 coalesce code doesn't check if the two patches are conflicting.  If you are
