@@ -79,7 +79,7 @@ showContextStuff _ NilFL = empty
 showContextStuff s0 ps@(FP f (Chunk c _ _ _) :>: _) =
     case (chunkify c . get_filecontents) `fmap` get_slurp f s0 of
       Nothing -> error "bad slurp showContextStuff"
-      Just zs -> blueText "chunk" <+> userchunkPS c <+> formatFileName f $$
+      Just zs -> blueText "chunk" <+> formatFileName f $$
                  scc 0 zs s0 ps
     where scc :: Int -> [B.ByteString] -> Slurpy C(x) -> FL Prim C(x y)
               -> Doc
@@ -93,7 +93,7 @@ showContextStuff s0 ps@(FP f (Chunk c _ _ _) :>: _) =
               where precontext =
                         if length prels > 6
                         then if w0 == 0
-                             then blueText (show w++":") $$
+                             then formatFileName f <+> blueText (show w++":") $$
                                   unsafePackedString
                                   (unlinesPS $ drop (length prels-3) prels)
                              else (unsafePackedString $ unlinesPS $ take 3 $
