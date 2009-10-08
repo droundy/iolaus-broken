@@ -18,16 +18,60 @@
 --  Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 module Iolaus.Lcs2 ( getChanges, patientChanges, smartChanges,
-                         patientLcs ) where
+                     patientLcs, nestedChanges ) where
 
 import Data.List ( sort )
 import Data.Array.ST
 import Control.Monad.ST
 import qualified Data.Set as S
 
-import qualified Data.ByteString as B (ByteString)
+import qualified Data.ByteString as B ( ByteString, elem )
 
 #include "impossible.h"
+
+nestedChanges :: [B.ByteString] -> [B.ByteString]
+              -> [(Int, [B.ByteString], [B.ByteString])]
+nestedChanges o n = nestedChanges0 0 o n
+
+nestedChanges0 :: Int -> [B.ByteString] -> [B.ByteString]
+               -> [(Int, [B.ByteString], [B.ByteString])]
+nestedChanges0 i (x:o) (x':n) | x == x' = ip1 `seq` nestedChanges0 ip1 o n
+                              where ip1 = i+1
+nestedChanges0 i0 o0 n0 = nc i0 (lcus ol nl) ol nl
+    where nl = bylines n0
+          ol = bylines o0
+          nc i [] o n = easydiff i o n
+          nc i (x:xs) o n =
+              case break (==x) o of
+                (oa, _:ob) ->
+                    case break (==x) n of
+                      (na, _:nb) ->
+                         i' `seq` easydiff i oa na ++ nc i' xs ob nb
+                             where i' = i + length (concat na) + length x
+                      (_,[]) -> impossible
+                (_,[]) -> impossible
+          easydiff i o n = mkdiff i (patientLcs oo nn) oo nn
+              where (oo, nn) = (concat o, concat n)
+
+bylines :: [B.ByteString] -> [[B.ByteString]]
+bylines [] = []
+bylines xs = case break (B.elem nl) xs of
+               (_,[]) -> [xs]
+               (a,n:b) -> (a++[n]) : bylines b
+    where nl = 10 -- '\n'
+
+
+-- | the longest common subsequence of unique items
+
+lcus :: Ord a => [a] -> [a] -> [a]
+lcus xs0 ys0 = lcs (filter (`S.member`u) xs0) (filter (`S.member`u) ys0)
+    where uxs = findUnique xs0
+          uys = findUnique ys0
+          u = S.intersection uxs uys
+          findUnique xs = S.fromList $ gru $ sort xs
+          gru (x:x':xs) | x == x' = gru (dropWhile (==x) xs)
+          gru (x:xs) = x : gru xs
+          gru [] = []
 
 {-# SPECIALIZE smartChanges :: [B.ByteString] -> [B.ByteString]
                               -> [(Int, [B.ByteString], [B.ByteString])] #-}

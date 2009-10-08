@@ -57,7 +57,7 @@ import Iolaus.Ordered ( EqCheck(..), MyEq(..),
 import Iolaus.Patch.Patchy ( Invert(..), Commute(..) )
 import Iolaus.Patch.Permutations () -- for Invert instance of FL
 import Iolaus.Show
-import Iolaus.Lcs2 ( patientChanges )
+import Iolaus.Lcs2 ( nestedChanges )
 import Iolaus.Printer ( Doc, vcat, Color(Red,Green,Cyan,Magenta), lineColor,
                         text, blueText, colorPS,
                         ($$), (<+>), (<>), prefix, userchunkPS )
@@ -808,7 +808,7 @@ canonizeChunk :: FileName -> B.ByteString -> Int
 canonizeChunk f c w old new
     | null old || null new
         = FP f (Chunk c w old new) :>: NilFL
-canonizeChunk f c w old new = make_chs $ patientChanges old new
+canonizeChunk f c w old new = make_chs $ nestedChanges old new
     where make_chs ((l,o,n):cs) = FP f (Chunk c (l+w) o n) :>: make_chs cs
           make_chs [] = unsafeCoerceP NilFL
 
@@ -817,7 +817,7 @@ canonizeHunk :: FileName -> Int
 canonizeHunk f line old new
     | null old || null new
         = FP f (Hunk line old new) :>: NilFL
-canonizeHunk f line old new = make_holey f line $ patientChanges old new
+canonizeHunk f line old new = make_holey f line $ nestedChanges old new
 
 make_holey :: FileName -> Int -> [(Int,[B.ByteString], [B.ByteString])]
            -> FL Prim C(x y)
