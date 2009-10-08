@@ -33,7 +33,8 @@ import Control.Monad ( when )
 import System.Exit ( exitWith, ExitCode(ExitSuccess) )
 
 import Iolaus.English ( Noun(..), englishNum  )
-import Iolaus.Patch ( Patchy, Prim, Effect, summary, invert, list_touched_files )
+import Iolaus.Patch ( Patchy, Prim, Effect, summary, invert,
+                      list_touched_files, apply_to_slurpy )
 import qualified Iolaus.Patch ( thing, things )
 import Iolaus.Ordered ( FL(..), RL(..), (:>)(..),
                        (+>+), lengthFL, mapFL_FL,
@@ -45,11 +46,13 @@ import Iolaus.PatchChoices ( PatchChoices, patch_choices, patch_choices_tps,
                            patch_slot, select_all_middles,
                            TaggedPatch, tp_patch, Slot(..) )
 import Iolaus.TouchesFiles ( deselect_not_touching, select_not_touching )
-import Iolaus.PrintPatch ( printFriendly, printPatch, printPatchPager )
+import Iolaus.PrintPatch ( contextualPrintPatch,
+                           printFriendly, printPatchPager )
 import Iolaus.SlurpDirectory ( Slurpy )
 import Iolaus.Flags ( IolausFlag( Summary, Verbose ), isInteractive )
 import Iolaus.Utils ( askUser, promptCharFancy, without_buffering )
 import Iolaus.Printer ( prefix, putDocLn )
+#include "impossible.h"
 
 data WhichChanges = Last | LastReversed | First | FirstReversed deriving (Eq, Show)
 
@@ -137,70 +140,76 @@ with_any_selected_changes_last :: (Patchy p, Effect p)
                                => (FL p C(x y) -> (FL p :> FL p) C(x y))
                                -> MatchCriterion p
                                -> WithPatchesToFiles p a C(x y)
-with_any_selected_changes_last p2c crit jobname opts _ _ ps job =
+with_any_selected_changes_last p2c crit jobname opts s _ ps job =
  case p2c ps of
  ps_to_consider :> other_ps ->
-         if not $ isInteractive opts
-         then job $ ps_to_consider :> other_ps
-         else do pc <- without_buffering $
-                       tentatively_text_select "" jobname (Noun "patch") Last crit
-                                              opts ps_len 0 NilRL init_tps init_pc
-                 job $ selected_patches_last rejected_ps pc
-         where rejected_ps = ps_to_consider
-               ps_len = lengthFL init_tps
-               (init_pc, init_tps) = patch_choices_tps $ other_ps
+     if not $ isInteractive opts
+     then job $ ps_to_consider :> other_ps
+     else do pc <- without_buffering $
+                   tentatively_text_select "" jobname (Noun "patch") Last crit
+                               opts ps_len 0
+                               (fromJust $ apply_to_slurpy ps_to_consider s)
+                               NilRL init_tps init_pc
+             job $ selected_patches_last rejected_ps pc
+     where rejected_ps = ps_to_consider
+           ps_len = lengthFL init_tps
+           (init_pc, init_tps) = patch_choices_tps $ other_ps
 
 with_any_selected_changes_first :: forall p a C(x y). (Patchy p, Effect p)
                                 => (FL p C(x y) -> (FL p :> FL p) C(x y))
                                 -> MatchCriterion p
                                 -> WithPatchesToFiles p a C(x y)
-with_any_selected_changes_first p2c crit jobname opts _ _ ps job =
+with_any_selected_changes_first p2c crit jobname opts s _ ps job =
  case p2c ps of
  ps_to_consider :> other_ps ->
-         if not $ isInteractive opts
-         then job $ ps_to_consider :> other_ps
-         else do pc <- without_buffering $
-                       tentatively_text_select "" jobname (Noun "patch") First crit
-                                              opts ps_len 0 NilRL init_tps init_pc
-                 job $ selected_patches_first rejected_ps pc
-         where rejected_ps = other_ps
-               ps_len = lengthFL init_tps
-               (init_pc, init_tps) = patch_choices_tps $ ps_to_consider
+     if not $ isInteractive opts
+     then job $ ps_to_consider :> other_ps
+     else do pc <- without_buffering $
+                   tentatively_text_select "" jobname (Noun "patch") First crit
+                                          opts ps_len 0 s NilRL init_tps init_pc
+             job $ selected_patches_first rejected_ps pc
+     where rejected_ps = other_ps
+           ps_len = lengthFL init_tps
+           (init_pc, init_tps) = patch_choices_tps $ ps_to_consider
 
-with_any_selected_changes_first_reversed :: forall p a C(x y).
+with_any_selected_changes_first_reversed :: forall p a C(xxx yxx).
                                             (Patchy p, Effect p)
-                                => (FL p C(x y) -> (FL p :> FL p) C(y x))
+                                => (FL p C(xxx yxx) -> (FL p :> FL p) C(yxx xxx))
                                 -> MatchCriterion p
-                                -> WithPatchesToFiles p a C(x y)
-with_any_selected_changes_first_reversed p2c crit jobname opts _ _ ps job =
+                                -> WithPatchesToFiles p a C(xxx yxx)
+with_any_selected_changes_first_reversed p2c crit jobname opts s _ ps job =
  case p2c ps of
  ps_to_consider :> other_ps ->
-         if not $ isInteractive opts
-         then job $ invert other_ps :> invert ps_to_consider
-         else do pc <- without_buffering $
-                       tentatively_text_select "" jobname (Noun "patch") FirstReversed crit
-                                             opts ps_len 0 NilRL init_tps init_pc
-                 job $ selected_patches_first_reversed rejected_ps pc
-         where rejected_ps = ps_to_consider
-               ps_len = lengthFL init_tps
-               (init_pc, init_tps) = patch_choices_tps other_ps
+     if not $ isInteractive opts
+     then job $ invert other_ps :> invert ps_to_consider
+     else do pc <- without_buffering $
+                   tentatively_text_select "" jobname (Noun "patch")
+                              FirstReversed crit opts ps_len 0
+                              (fromJust $ apply_to_slurpy (invert other_ps) s)
+                              NilRL init_tps init_pc
+             job $ selected_patches_first_reversed rejected_ps pc
+     where rejected_ps = ps_to_consider
+           ps_len = lengthFL init_tps
+           (init_pc, init_tps) = patch_choices_tps other_ps
 
-with_any_selected_changes_last_reversed :: forall p a C(x y). (Patchy p, Effect p)
-                                => (FL p C(x y) -> (FL p :> FL p) C(y x))
-                                -> MatchCriterion p
-                                -> WithPatchesToFiles p a C(x y)
-with_any_selected_changes_last_reversed p2c crit jobname opts _ _ ps job =
+with_any_selected_changes_last_reversed
+    :: forall p a C(xfirst yfirst). (Patchy p, Effect p)
+       => (FL p C(xfirst yfirst) -> (FL p :> FL p) C(yfirst xfirst))
+    -> MatchCriterion p -> WithPatchesToFiles p a C(xfirst yfirst)
+with_any_selected_changes_last_reversed p2c crit jobname opts s _ ps job =
  case p2c ps of
- ps_to_consider :> other_ps ->
-         if not $ isInteractive opts
-         then job $ invert other_ps :> invert ps_to_consider
-         else do pc <- without_buffering $
-                       tentatively_text_select "" jobname (Noun "patch") LastReversed crit
-                                             opts ps_len 0 NilRL init_tps init_pc
-                 job $ selected_patches_last_reversed rejected_ps pc
-         where rejected_ps = other_ps
-               ps_len = lengthFL init_tps
-               (init_pc, init_tps) = patch_choices_tps ps_to_consider
+   ps_to_consider :> other_ps ->
+     if not $ isInteractive opts
+     then job $ invert other_ps :> invert ps_to_consider
+     else do pc <- without_buffering $
+                   tentatively_text_select "" jobname (Noun "patch") LastReversed crit
+                                         opts ps_len 0
+                                         (fromJust $ apply_to_slurpy ps s)
+                                         NilRL init_tps init_pc
+             job $ selected_patches_last_reversed rejected_ps pc
+     where rejected_ps = other_ps
+           ps_len = lengthFL init_tps
+           (init_pc, init_tps) = patch_choices_tps ps_to_consider
 
 
 patches_to_consider_first' :: (Patchy p, Effect p)
@@ -270,24 +279,24 @@ selected_patches_first_reversed other_ps pc =
   fc :> mc :> lc -> invert (mapFL_FL tp_patch lc) :> invert (other_ps +>+ mapFL_FL tp_patch (fc +>+ mc))
 
 text_select :: forall p C(x y z). (Patchy p, Effect p) => String -> WhichChanges
-            ->  MatchCriterion p -> [IolausFlag] -> Int -> Int
+            ->  MatchCriterion p -> [IolausFlag] -> Int -> Int -> Slurpy C(x)
             -> RL (TaggedPatch p) C(x y) -> FL (TaggedPatch p) C(y z) -> PatchChoices p C(x z)
             -> IO ((PatchChoices p) C(x z))
 
-text_select _ _ _ _ _ _ _ NilFL pc = return pc
+text_select _ _ _ _ _ _ _ _ NilFL pc = return pc
 text_select jn whichch crit opts n_max n
-            tps_done tps_todo@(tp:>:tps_todo') pc = do
-      viewp (printFriendly opts)
+            s tps_done tps_todo@(tp:>:tps_todo') pc = do
+      viewp contextualPrintPatch
       repeat_this -- prompt the user
     where
         do_next_action ja je = tentatively_text_select ja jn je whichch crit opts
                                           n_max
-                                          (n+1) (tp:<:tps_done) tps_todo'
+                                          (n+1) s (tp:<:tps_done) tps_todo'
         do_next = do_next_action "" (Noun "patch")
-        helper :: PatchChoices p C(a b) -> p C(a b)
+        helper :: p C(x y)
         helper = undefined
-        thing  = Iolaus.Patch.thing (helper pc)
-        things = Iolaus.Patch.things (helper pc)
+        thing  = Iolaus.Patch.thing helper
+        things = Iolaus.Patch.things helper
         options_basic =
            [ KeyPress 'y' (jn++" this "++thing)
            , KeyPress 'n' ("don't "++jn++" it")
@@ -325,8 +334,8 @@ text_select jn whichch crit opts n_max n
             'w' -> do_next $ make_uncertain (tag tp) pc
             's' -> do_next_action "Skipped"  (Noun "change") $ skip_file
             'f' -> do_next_action "Included" (Noun "change") $ do_file
-            'v' -> viewp printPatch >> repeat_this
-            'p' -> viewp printPatchPager >> repeat_this
+            'v' -> viewp contextualPrintPatch >> repeat_this
+            'p' -> viewp (const printPatchPager) >> repeat_this
             'l' ->
                 do let selected = case get_choices pc of
                                   (first_chs:>_:>last_chs) ->
@@ -338,9 +347,9 @@ text_select jn whichch crit opts n_max n
                    putStrLn $ "---- Already selected "++things++" ----"
                    selected
                    putStrLn $ "---- end of already selected "++things++" ----"
-                   viewp (printFriendly opts)
+                   viewp contextualPrintPatch
                    repeat_this
-            'x' -> do viewp (putDocLn . prefix "    " . summary)
+            'x' -> do viewp (const $ putDocLn . prefix "    " . summary)
                       repeat_this
             'd' -> return pc
             'a' -> do ask_confirmation
@@ -351,16 +360,16 @@ text_select jn whichch crit opts n_max n
                        NilFL -> -- May as well work out the length now we have all
                                 -- the patches in memory
                                 text_select jn whichch crit opts
-                                    n_max n tps_done tps_todo pc
+                                    n_max n s tps_done tps_todo pc
                        _ -> text_select jn whichch crit opts
-                                n_max (n+1) (tp:<:tps_done) tps_todo' pc
+                                n_max (n+1) s (tp:<:tps_done) tps_todo' pc
             'k' -> case tps_done of
                         NilRL -> repeat_this
                         (tp':<:tps_done') ->
                            text_select jn whichch crit opts
-                               n_max (n-1) tps_done' (tp':>:tps_todo) pc
+                               n_max (n-1) s tps_done' (tp':>:tps_todo) pc
             'c' -> text_select jn whichch crit opts
-                                        n_max n tps_done tps_todo pc
+                                        n_max n s tps_done tps_todo pc
             _   -> do putStrLn $ helpFor jn options
                       repeat_this
         force_yes = if whichch == Last || whichch == FirstReversed then force_last else force_first
@@ -375,10 +384,12 @@ text_select jn whichch crit opts n_max n
         jn_cap = (toUpper $ head jn) : tail jn
         touched_files = list_touched_files $ tp_patch tp
         is_single_file_patch = length touched_files == 1
-        viewp :: (FORALL(xx yy) p C(xx yy) -> IO ()) -> IO ()
+        viewp :: (FORALL(xx yy) Slurpy C(xx) -> p C(xx yy) -> IO ()) -> IO ()
         viewp f = if whichch == LastReversed || whichch == FirstReversed
-                    then f (invert (tp_patch tp))
-                    else f (tp_patch tp)
+                    then f (fromJust $ apply_to_slurpy (tp :<: tps_done) s)
+                           (invert (tp_patch tp))
+                    else f (fromJust $ apply_to_slurpy tps_done s)
+                           (tp_patch tp)
         ask_confirmation =
             if jn `elem` ["unpull", "unrecord", "obliterate"]
             then do yorn <- askUser $ "Really " ++ jn ++ " all undecided patches? "
@@ -390,17 +401,19 @@ text_select jn whichch crit opts n_max n
 tentatively_text_select :: (Patchy p, Effect p) =>
                            String -> String -> Noun -> WhichChanges
                         -> MatchCriterion p -> [IolausFlag]
-                        -> Int -> Int -> RL (TaggedPatch p) C(x y) -> FL (TaggedPatch p) C(y z)
+                        -> Int -> Int -> Slurpy C(x)
+                        -> RL (TaggedPatch p) C(x y)
+                        -> FL (TaggedPatch p) C(y z)
                         -> PatchChoices p C(x z)
                         -> IO ((PatchChoices p) C(x z))
-tentatively_text_select _ _ _ _ _ _ _ _ _ NilFL pc = return pc
+tentatively_text_select _ _ _ _ _ _ _ _ _ _ NilFL pc = return pc
 tentatively_text_select jobaction jobname jobelement whichch crit
-                        opts n_max n ps_done ps_todo pc =
+                        opts n_max n s ps_done ps_todo pc =
   case spanFL (\p -> decided $ patch_slot p pc) ps_todo of
   skipped :> unskipped -> do
    when (numSkipped > 0) show_skipped
    text_select jobname whichch crit opts n_max (n + numSkipped)
-                   (reverseFL skipped +<+ ps_done) unskipped pc
+                   s (reverseFL skipped +<+ ps_done) unskipped pc
    where
    numSkipped  = lengthFL skipped
    show_skipped = do putStrLn $ _doing_ ++ _with_ ++ "."

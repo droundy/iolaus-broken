@@ -18,7 +18,7 @@
 \begin{code}
 {-# OPTIONS_GHC -cpp -fno-warn-orphans #-}
 #include "gadts.h"
-module Iolaus.Patch ( Prim, Named, Patchy, apply,
+module Iolaus.Patch ( Prim, Named, Patchy, Apply, apply,
                       rmfile, addfile, chmod, rmdir, adddir, move,
                       chunkify, chunk, hunk, description,
                       showContextPatch, showPatch, showNicely,
@@ -40,7 +40,7 @@ module Iolaus.Patch ( Prim, Named, Patchy, apply,
                   ) where
 import Iolaus.Patch.Core ( Named, infopatch,
                          patch2patchinfo, patchcontents )
-import Iolaus.Patch.Patchy ( Patchy, writePatch, mergeFL,
+import Iolaus.Patch.Patchy ( Patchy, writePatch, mergeFL, Apply,
                            showPatch, showNicely, showContextPatch,
                            Invert(invert, identity), invertRL, invertFL,
                            thing, things,
