@@ -41,12 +41,12 @@ module Iolaus.Patch ( Prim, Named, Patchy, Apply, apply,
 import Iolaus.Patch.Core ( Named, infopatch,
                          patch2patchinfo, patchcontents )
 import Iolaus.Patch.Patchy ( Patchy, writePatch, mergeFL, Apply,
-                           showPatch, showNicely, showContextPatch,
-                           Invert(invert, identity), invertRL, invertFL,
-                           thing, things,
-                           Commute(merge, commute, list_touched_files),
-                           commuteFL, commuteRL, apply,
-                           description, summary )
+                             showPatch, showNicely, showContextPatch,
+                             Invert(invert, identity), invertRL, invertFL,
+                             thing, things,
+                             Commute(merge, commute, list_touched_files),
+                             commuteFL, commuteRL, apply,
+                             description, summary )
 import Iolaus.Patch.Permutations ( commuteWhatWeCanRL, commuteWhatWeCanFL,
                                  partitionFL, partitionRL,
                                  remove_subsequenceRL, removeFL )
