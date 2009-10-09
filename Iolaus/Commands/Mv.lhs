@@ -23,8 +23,8 @@ module Iolaus.Commands.Mv ( mv ) where
 
 import System.Directory ( createDirectory )
 
-import Iolaus.Command ( IolausCommand(..), nodefaults )
-import Iolaus.Arguments ( IolausFlag, working_repo_dir,
+import Iolaus.Command ( Command(..), nodefaults )
+import Iolaus.Arguments ( Flag, working_repo_dir,
                         allow_problematic_filenames )
 import Iolaus.RepoPath ( parentDir, createDirectoryIfMissing,
                        doesDirectoryExist, setCurrentDirectory )
@@ -54,8 +54,8 @@ mv_help =
 \end{code}
 
 \begin{code}
-mv :: IolausCommand
-mv = IolausCommand {command_name = "mv",
+mv :: Command
+mv = Command {command_name = "mv",
                    command_help = mv_help,
                    command_description = mv_description,
                    command_extra_args = -1,
@@ -67,7 +67,7 @@ mv = IolausCommand {command_name = "mv",
                    command_advanced_options = [],
                    command_basic_options = [allow_problematic_filenames,
                                             working_repo_dir]}
-mv_cmd :: [IolausFlag] -> [String] -> IO ()
+mv_cmd :: [Flag] -> [String] -> IO ()
 mv_cmd _ [] = fail "You must specify at least two arguments for mv"
 mv_cmd _ [_] = fail "You must specify at least two arguments for mv"
 \end{code}

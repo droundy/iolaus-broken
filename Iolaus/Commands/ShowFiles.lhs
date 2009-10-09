@@ -22,9 +22,9 @@
 #include "gadts.h"
 
 module Iolaus.Commands.ShowFiles ( show_files, show_manifest ) where
-import Iolaus.Arguments ( IolausFlag(..), working_repo_dir,
+import Iolaus.Arguments ( Flag(..), working_repo_dir,
                         files, directories, pending, nullFlag )
-import Iolaus.Command ( IolausCommand(..), nodefaults, command_alias )
+import Iolaus.Command ( Command(..), nodefaults, command_alias )
 import Iolaus.SlurpDirectory ( Slurpy, list_slurpy,
                              list_slurpy_files, list_slurpy_dirs )
 import Iolaus.Sealed ( Sealed(..), mapSealM )
@@ -69,8 +69,8 @@ show_files_help =
 \end{code}
 
 \begin{code}
-show_files :: IolausCommand
-show_files = IolausCommand {
+show_files :: Command
+show_files = Command {
   command_name = "files",
   command_help = show_files_help,
   command_description = show_files_description,
@@ -84,12 +84,12 @@ show_files = IolausCommand {
   command_basic_options = [files, directories, pending, nullFlag,
                           working_repo_dir] }
 
-show_manifest :: IolausCommand
+show_manifest :: Command
 show_manifest = command_alias "manifest" show_files {
   command_command = manifest_cmd to_list_manifest
 }
 
-to_list_files, to_list_manifest :: [IolausFlag] -> Slurpy C(x) -> [FilePath]
+to_list_files, to_list_manifest :: [Flag] -> Slurpy C(x) -> [FilePath]
 to_list_files opts =
     files_dirs (NoFiles `notElem` opts) (NoDirectories `notElem` opts)
 to_list_manifest opts =
@@ -101,8 +101,8 @@ files_dirs False True  = list_slurpy_dirs
 files_dirs True  False = list_slurpy_files
 files_dirs True  True  = list_slurpy
 
-manifest_cmd :: (FORALL(x) [IolausFlag] -> Slurpy C(x) -> [FilePath])
-             -> [IolausFlag] -> [String] -> IO ()
+manifest_cmd :: (FORALL(x) [Flag] -> Slurpy C(x) -> [FilePath])
+             -> [Flag] -> [String] -> IO ()
 manifest_cmd to_list opts _ =
     do Sealed s <- parseRev "HEAD" >>= mapSealM catCommitTree
                    >>= mapSealM slurpTree

@@ -23,7 +23,7 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       catTree, catBlob, catCommitTree )
 
 import Iolaus.Progress ( debugMessage )
-import Iolaus.Flags ( IolausFlag(Test, NativeMerge, FirstParentMerge) )
+import Iolaus.Flags ( Flag(Test, NativeMerge, FirstParentMerge) )
 import Iolaus.FileName ( FileName, fp2fn )
 import Iolaus.IO ( ExecutableBit(..) )
 import Iolaus.SlurpDirectoryInternal
@@ -43,7 +43,7 @@ touchedFiles =
        y <- diffFiles [NameOnly] []
        return (x++lines y)
 
-test :: [IolausFlag] -> Hash Tree C(x) -> IO ()
+test :: [Flag] -> Hash Tree C(x) -> IO ()
 test opts t | Test `elem` opts =
  do havet <- doesFileExist ".git-hooks/test"
     if not havet
@@ -114,14 +114,14 @@ writeSlurpTree x = writeSlurpTree (Slurpy (fp2fn ".")
 
 data Strategy = FirstParent | Builtin | MergeN
 
-flag2strategy :: [IolausFlag] -> Strategy
+flag2strategy :: [Flag] -> Strategy
 flag2strategy opts = if NativeMerge `elem` opts
                      then Builtin
                      else if FirstParentMerge `elem` opts
                           then FirstParent
                           else MergeN
 
-mergeCommits :: [IolausFlag] -> [Sealed (Hash Commit)]
+mergeCommits :: [Flag] -> [Sealed (Hash Commit)]
              -> IO (Sealed (Hash Tree))
 mergeCommits opts = mergeCommitsX (flag2strategy opts)
 
@@ -169,7 +169,7 @@ diffDag (Node x ys) =
        let Just old = apply_to_slurpy oldps oldest
        return $ oldps +>+ diff [] old new
 
-diffCommit :: [IolausFlag] -> Hash Commit C(x)
+diffCommit :: [Flag] -> Hash Commit C(x)
            -> IO (FlippedSeal (FL Prim) C(x))
 diffCommit opts c0 =
     do c <- catCommit c0

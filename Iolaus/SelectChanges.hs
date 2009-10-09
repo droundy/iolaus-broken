@@ -49,18 +49,18 @@ import Iolaus.TouchesFiles ( deselect_not_touching, select_not_touching )
 import Iolaus.PrintPatch ( contextualPrintPatch,
                            printFriendly, printPatchPager )
 import Iolaus.SlurpDirectory ( Slurpy )
-import Iolaus.Flags ( IolausFlag( Summary, Verbose ), isInteractive )
+import Iolaus.Flags ( Flag( Summary, Verbose ), isInteractive )
 import Iolaus.Utils ( askUser, promptCharFancy, without_buffering )
 import Iolaus.Printer ( prefix, putDocLn )
 #include "impossible.h"
 
 data WhichChanges = Last | LastReversed | First | FirstReversed deriving (Eq, Show)
 
-type MatchCriterion p = FORALL(u v) WhichChanges -> [IolausFlag] -> (p C(u v)) -> Bool
+type MatchCriterion p = FORALL(u v) WhichChanges -> [Flag] -> (p C(u v)) -> Bool
 
 type WithPatches p a C(x y) =
         String              -- jobname
-     -> [IolausFlag]         -- opts
+     -> [Flag]         -- opts
      -> Slurpy C(x)          -- directory
      -> FL p C(x y)         -- patches to select among
      -> ((FL p :> FL p) C(x y) -> IO a) -- job
@@ -69,7 +69,7 @@ type WithPatches p a C(x y) =
 -- | The only difference with 'WithPatches' is the [FilePath] argument
 type WithPatchesToFiles p a C(x y) =
         String              -- jobname
-     -> [IolausFlag]         -- opts
+     -> [Flag]         -- opts
      -> Slurpy C(x)         -- directory
      -> [FilePath]          -- files
      -> FL p C(x y)         -- patches to select among
@@ -279,7 +279,7 @@ selected_patches_first_reversed other_ps pc =
   fc :> mc :> lc -> invert (mapFL_FL tp_patch lc) :> invert (other_ps +>+ mapFL_FL tp_patch (fc +>+ mc))
 
 text_select :: forall p C(x y z). (Patchy p, Effect p) => String -> WhichChanges
-            ->  MatchCriterion p -> [IolausFlag] -> Int -> Int -> Slurpy C(x)
+            ->  MatchCriterion p -> [Flag] -> Int -> Int -> Slurpy C(x)
             -> RL (TaggedPatch p) C(x y) -> FL (TaggedPatch p) C(y z) -> PatchChoices p C(x z)
             -> IO ((PatchChoices p) C(x z))
 
@@ -400,7 +400,7 @@ text_select jn whichch crit opts n_max n
 
 tentatively_text_select :: (Patchy p, Effect p) =>
                            String -> String -> Noun -> WhichChanges
-                        -> MatchCriterion p -> [IolausFlag]
+                        -> MatchCriterion p -> [Flag]
                         -> Int -> Int -> Slurpy C(x)
                         -> RL (TaggedPatch p) C(x y)
                         -> FL (TaggedPatch p) C(y z)

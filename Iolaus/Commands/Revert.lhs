@@ -26,8 +26,8 @@ import Control.Monad ( when )
 import Data.List ( sort )
 
 import Iolaus.English (englishNum, This(..), Noun(..))
-import Iolaus.Command ( IolausCommand(..), nodefaults )
-import Iolaus.Arguments ( IolausFlag( All ),
+import Iolaus.Command ( Command(..), nodefaults )
+import Iolaus.Arguments ( Flag( All ),
                           working_repo_dir, mergeStrategy,
                         all_interactive,
                         fixSubPaths, areFileArgs )
@@ -67,8 +67,8 @@ revert_help =
  "command if the working copy was not modified in the meantime.\n"
 \end{code}
 \begin{code}
-revert :: IolausCommand
-revert = IolausCommand {command_name = "revert",
+revert :: Command
+revert = Command {command_name = "revert",
                        command_help = revert_help,
                        command_description = revert_description,
                        command_extra_args = -1,
@@ -85,7 +85,7 @@ You can give revert optional arguments indicating files or directories.  If
 you do so it will only prompt you to revert changes in those files or in
 files in those directories.
 \begin{code}
-revert_cmd :: [IolausFlag] -> [String] -> IO ()
+revert_cmd :: [Flag] -> [String] -> IO ()
 revert_cmd opts args =
     do files <- sort `fmap` fixSubPaths opts args
        when (areFileArgs files) $

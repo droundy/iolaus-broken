@@ -17,7 +17,7 @@
 
 \begin{code}
 module Iolaus.Command ( CommandControl( Command_data, Hidden_command, Group_name ),
-                       IolausCommand( IolausCommand, command_name,
+                       Command( Command, command_name,
                                      command_help, command_description,
                                      command_basic_options, command_advanced_options,
                                      command_command,
@@ -43,7 +43,7 @@ module Iolaus.Command ( CommandControl( Command_data, Hidden_command, Group_name
 import System.Console.GetOpt( OptDescr, usageInfo )
 
 import Data.List ( sort, isPrefixOf )
-import Iolaus.Arguments ( IolausFlag, IolausOption, disable, help,
+import Iolaus.Arguments ( Flag, IolausOption, disable, help,
                          any_verbosity, posthook_cmd,
                          prehook_cmd, option_from_darcsoption )
 import Iolaus.RepoPath ( AbsolutePath, rootDirectory )
@@ -114,7 +114,7 @@ put\footnote{Creates a new repository} & no & no\\
 \end{center}
 
 \begin{code}
-extract_commands, extract_hidden_commands :: [CommandControl] -> [IolausCommand]
+extract_commands, extract_hidden_commands :: [CommandControl] -> [Command]
 extract_commands cs = concatMap (\x -> case x of { Command_data cmd_d -> [cmd_d]; _ -> []}) cs
 extract_hidden_commands cs = concatMap (\x -> case x of { Hidden_command cmd_d -> [cmd_d]; _ -> []}) cs
 \end{code}
@@ -122,26 +122,26 @@ extract_hidden_commands cs = concatMap (\x -> case x of { Hidden_command cmd_d -
 \input{Iolaus/Arguments.lhs}
 
 \begin{code}
-data CommandControl = Command_data IolausCommand
-                    | Hidden_command IolausCommand
+data CommandControl = Command_data Command
+                    | Hidden_command Command
                     | Group_name String
 
-data IolausCommand =
-    IolausCommand {command_name, command_help, command_description :: String,
+data Command =
+    Command {command_name, command_help, command_description :: String,
                   command_extra_args :: Int,
                   command_extra_arg_help :: [String],
-                  command_command :: [IolausFlag] -> [String] -> IO (),
-                  command_prereq :: [IolausFlag] -> IO (Either String ()),
+                  command_command :: [Flag] -> [String] -> IO (),
+                  command_prereq :: [Flag] -> IO (Either String ()),
                   command_get_arg_possibilities :: IO [String],
-                  command_argdefaults :: [IolausFlag] -> AbsolutePath -> [String] -> IO [String],
+                  command_argdefaults :: [Flag] -> AbsolutePath -> [String] -> IO [String],
                   command_basic_options :: [IolausOption],
                   command_advanced_options :: [IolausOption]}
   | SuperCommand {command_name, command_help, command_description :: String,
-                  command_prereq :: [IolausFlag] -> IO (Either String ()),
+                  command_prereq :: [Flag] -> IO (Either String ()),
                   command_sub_commands :: [CommandControl]}
 
-command_alloptions :: IolausCommand -> ([IolausOption], [IolausOption])
-command_alloptions IolausCommand { command_basic_options = opts1
+command_alloptions :: Command -> ([IolausOption], [IolausOption])
+command_alloptions Command { command_basic_options = opts1
                                 , command_advanced_options = opts2 }
     = (opts1 ++ [disable, help],
        any_verbosity ++ opts2 ++
@@ -152,20 +152,20 @@ command_alloptions SuperCommand { } = ([help],[])
 
 --  Obtain options suitable as input to
 --  System.Console.Getopt, including the --disable option (which is
---  not listed explicitly in the IolausCommand definitions).
-command_options :: AbsolutePath -> IolausCommand -> ([OptDescr IolausFlag], [OptDescr IolausFlag])
+--  not listed explicitly in the Command definitions).
+command_options :: AbsolutePath -> Command -> ([OptDescr Flag], [OptDescr Flag])
 command_options cwd c = (convert basic, convert advanced)
  where (basic, advanced) = command_alloptions c
        convert = concatMap (option_from_darcsoption cwd)
 
-nodefaults :: [IolausFlag] -> AbsolutePath -> [String] -> IO [String]
+nodefaults :: [Flag] -> AbsolutePath -> [String] -> IO [String]
 nodefaults _ _ xs = return xs
 
-get_subcommands :: IolausCommand -> [CommandControl]
+get_subcommands :: Command -> [CommandControl]
 get_subcommands c@(SuperCommand {}) = command_sub_commands c
 get_subcommands _ = []
 
-command_alias :: String -> IolausCommand -> IolausCommand
+command_alias :: String -> Command -> Command
 command_alias n c =
   c { command_name = n
     , command_description = "Alias for `arcs " ++ command_name c ++ "'."
@@ -174,7 +174,7 @@ command_alias n c =
                      command_help c
     }
 
-command_stub :: String -> String -> String -> IolausCommand -> IolausCommand
+command_stub :: String -> String -> String -> Command -> Command
 command_stub n h d c =
   c { command_name = n
     , command_help = h
@@ -193,7 +193,7 @@ usage cs = "Usage: arcs COMMAND ...\n\nCommands:\n" ++
            "Use 'arcs help --match' for help on patch matching.\n\n" ++
            "Check bug reports at http://bugs.arcs.net/\n"
 
-subusage :: IolausCommand -> String
+subusage :: Command -> String
 subusage super =
     (usageInfo
      ("Usage: arcs "++command_name super++" SUBCOMMAND ... " ++
@@ -216,18 +216,18 @@ chomp_newline s = if last s == '\n' then init s else s
 pad_spaces :: String -> Int -> String
 pad_spaces s n = s ++ replicate (n - length s) ' '
 
-super_name :: Maybe IolausCommand -> String
+super_name :: Maybe Command -> String
 super_name Nothing  = ""
 super_name (Just x) = command_name x ++ " "
 
-get_command_mini_help :: Maybe IolausCommand -> IolausCommand -> String
+get_command_mini_help :: Maybe Command -> Command -> String
 get_command_mini_help msuper cmd =
   get_command_help_core msuper cmd ++
   "\n\nSee arcs help "
   ++ (maybe "" (\c -> command_name c ++ " ") msuper)
   ++ command_name cmd ++ " for details."
 
-get_command_help :: Maybe IolausCommand -> IolausCommand -> String
+get_command_help :: Maybe Command -> Command -> String
 get_command_help msuper cmd =
     unlines (reverse basicR)
     ++ (if null advanced then ""
@@ -249,21 +249,21 @@ get_command_help msuper cmd =
             -- we don't want to list subcommands if we're already specifying them
             Just _  -> ""
 
-get_command_help_core :: Maybe IolausCommand -> IolausCommand -> String
+get_command_help_core :: Maybe Command -> Command -> String
 get_command_help_core msuper cmd =
     "Usage: arcs "++super_name msuper++command_name cmd++
     " [OPTION]... " ++ unwords args_help ++
     "\n"++ command_description cmd
     where args_help = case cmd of
-            (IolausCommand _ _ _ _ _ _ _ _ _ _ _) ->
+            (Command _ _ _ _ _ _ _ _ _ _ _) ->
               command_extra_arg_help cmd
             _ -> []
 \end{code}
 
 \begin{code}
-data CommandArgs = CommandOnly      IolausCommand
-                 | SuperCommandOnly IolausCommand
-                 | SuperCommandSub  IolausCommand IolausCommand
+data CommandArgs = CommandOnly      Command
+                 | SuperCommandOnly Command
+                 | SuperCommandSub  Command Command
 
 -- Parses an arcs command line with potentially abbreviated commands
 disambiguate_commands :: [CommandControl] -> String -> [String]
@@ -278,7 +278,7 @@ disambiguate_commands allcs cmd args =
                                Left _   -> Right (SuperCommandOnly c, args)
                                Right sc -> Right (SuperCommandSub c sc, as)
 
-extract :: String -> [CommandControl] -> Either String IolausCommand
+extract :: String -> [CommandControl] -> Either String Command
 extract cmd cs =
  case [ c | c <- extract_commands cs, cmd `isPrefixOf` command_name c ] ++
       [ h | h <- extract_hidden_commands cs,    cmd == command_name h ] of
@@ -291,7 +291,7 @@ extract cmd cs =
 
 \begin{code}
 -- | Output functions equivalent to (putStrLn, hPutStrLn stderr, putDocLn)
-loggers :: [IolausFlag] -> ( String -> IO ()
+loggers :: [Flag] -> ( String -> IO ()
                           , String -> IO ()
                           , Doc -> IO ())
 loggers _ = (putStrLn, putStrLnError, putDocLn)

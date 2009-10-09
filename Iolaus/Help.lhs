@@ -29,12 +29,12 @@ module Iolaus.Help ( help_cmd, command_control_list, print_version,
                            ) where
 import System.Exit ( ExitCode(..), exitWith )
 
-import Iolaus.Command ( CommandControl(Command_data), IolausCommand(..),
+import Iolaus.Command ( CommandControl(Command_data), Command(..),
                         disambiguate_commands, CommandArgs(..),
                         get_command_help, extract_commands,
                        nodefaults, 
                        usage )
-import Iolaus.Arguments ( IolausFlag(..), help_on_match )
+import Iolaus.Arguments ( Flag(..), help_on_match )
 import Iolaus.Utils ( withCurrentDirectory )
 import Iolaus.RepoPath ( getCurrentDirectory )
 import qualified Iolaus.Commands as TheCommands
@@ -57,8 +57,8 @@ help_help =
 \end{code}
 
 \begin{code}
-help :: IolausCommand
-help = IolausCommand {command_name = "help",
+help :: Command
+help = Command {command_name = "help",
                      command_help = help_help,
                      command_description = help_description,
                      command_extra_args = -1,
@@ -72,7 +72,7 @@ help = IolausCommand {command_name = "help",
 \end{code}
 
 \begin{code}
-help_cmd :: [IolausFlag] -> [String] -> IO ()
+help_cmd :: [Flag] -> [String] -> IO ()
 help_cmd _ [] = do putStrLn $ usage command_control_list
                    exitWith $ ExitSuccess
 help_cmd _ (cmd:args) =

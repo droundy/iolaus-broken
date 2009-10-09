@@ -23,20 +23,20 @@ import Control.Monad ( when )
 import System.Process.Redirects ( system )
 
 import Iolaus.RepoPath ( AbsolutePath )
-import Iolaus.Arguments ( IolausFlag( Quiet ),
+import Iolaus.Arguments ( Flag( Quiet ),
                         get_posthook_cmd, get_prehook_cmd )
 import Iolaus.Progress ( debugMessage )
 import System.IO ( hPutStrLn, stderr )
 
-run_posthook :: [IolausFlag] -> AbsolutePath -> IO ExitCode
+run_posthook :: [Flag] -> AbsolutePath -> IO ExitCode
 run_posthook opts repodir = do let ph = get_posthook_cmd opts
                                withCurrentDirectory repodir $ run_hook opts "Posthook" ph
 
-run_prehook :: [IolausFlag] -> AbsolutePath -> IO ExitCode
+run_prehook :: [Flag] -> AbsolutePath -> IO ExitCode
 run_prehook opts repodir = do let ph = get_prehook_cmd opts
                               withCurrentDirectory repodir $ run_hook opts "Prehook" ph
 
-run_hook :: [IolausFlag] -> String -> Maybe String -> IO ExitCode
+run_hook :: [Flag] -> String -> Maybe String -> IO ExitCode
 run_hook _ _ Nothing = return ExitSuccess
 run_hook opts cname (Just command) =
     do debugMessage $ "About to run "++cname++": " ++ command

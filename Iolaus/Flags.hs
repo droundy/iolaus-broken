@@ -15,13 +15,13 @@
 -- the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 -- Boston, MA 02110-1301, USA.
 
-module Iolaus.Flags ( IolausFlag( .. ), Compression( .. ), compression,
+module Iolaus.Flags ( Flag( .. ), Compression( .. ), compression,
                     want_external_merge, isInteractive ) where
 import Iolaus.RepoPath ( AbsolutePath, AbsolutePathOrStd )
 
--- | The 'IolausFlag' type is a list of all flags that can ever be
+-- | The 'Flag' type is a list of all flags that can ever be
 -- passed to darcs, or to one of its commands.
-data IolausFlag = Help | ListOptions | NoTest | Test
+data Flag = Help | ListOptions | NoTest | Test
                | NoTagOnTest | TagOnTest
                | HelpOnMatch | OnlyChangesToFiles
                | LeaveTestDir | NoLeaveTestDir
@@ -88,16 +88,16 @@ data IolausFlag = Help | ListOptions | NoTest | Test
                  deriving ( Eq, Show )
 
 data Compression = NoCompression | GzipCompression
-compression :: [IolausFlag] -> Compression
+compression :: [Flag] -> Compression
 compression f | NoCompress `elem` f = NoCompression
               | otherwise = GzipCompression
 
-want_external_merge :: [IolausFlag] -> Maybe String
+want_external_merge :: [Flag] -> Maybe String
 want_external_merge [] = Nothing
 want_external_merge (ExternalMerge c:_) = Just c
 want_external_merge (_:fs) = want_external_merge fs
 
-isInteractive :: [IolausFlag] -> Bool
+isInteractive :: [Flag] -> Bool
 isInteractive = isInteractive_ True
     where
       isInteractive_ def [] = def

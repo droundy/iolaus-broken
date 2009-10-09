@@ -25,13 +25,13 @@ import System.Console.GetOpt( ArgOrder( Permute, RequireOrder ),
                               getOpt )
 import System.Exit ( ExitCode ( ExitSuccess ), exitWith )
 
-import Iolaus.Arguments ( IolausFlag(..),
+import Iolaus.Arguments ( Flag(..),
                          help, flagToString,
                          option_from_darcsoption,
                          list_options )
 import Iolaus.ArgumentDefaults ( get_default_flags )
 import Iolaus.Command ( CommandArgs( CommandOnly, SuperCommandOnly, SuperCommandSub ),
-                        IolausCommand,
+                        Command,
                         command_name,
                         command_command,
                         command_prereq,
@@ -100,7 +100,7 @@ run_the_command cmd args =
 -- This is the actual heavy lifter code, which is responsible for parsing the
 -- arguments and then running the command itself.
 
-run_command :: Maybe IolausCommand -> IolausCommand -> [String] -> IO ()
+run_command :: Maybe Command -> Command -> [String] -> IO ()
 
 run_command _ _ args -- Check for "dangerous" typoes...
     | "-all" `elem` args = -- -all indicates --all --look-for-adds!
@@ -123,8 +123,8 @@ run_command msuper cmd args = do
     where addVerboseIfDebug opts | DebugVerbose `elem` opts = Debug:Verbose:opts
                                  | otherwise = opts
 
-consider_running :: Maybe IolausCommand -> IolausCommand
-                 -> [IolausFlag] -> [String] -> IO ()
+consider_running :: Maybe Command -> Command
+                 -> [Flag] -> [String] -> IO ()
 consider_running msuper cmd opts old_extra = do
  cwd <- getCurrentDirectory
  location <- command_prereq cmd opts
@@ -172,23 +172,23 @@ consider_running msuper cmd opts old_extra = do
                           postHookExitCode <- run_posthook os here
                           exitWith postHookExitCode
 
-add_command_defaults :: IolausCommand -> [IolausFlag] -> IO [IolausFlag]
+add_command_defaults :: Command -> [Flag] -> IO [Flag]
 add_command_defaults cmd already = do
   let (opts1, opts2) = command_alloptions cmd
   defaults <- get_default_flags (command_name cmd) (opts1 ++ opts2) already
   return $ already ++ defaults
 
-get_options_options :: [OptDescr IolausFlag] -> String
+get_options_options :: [OptDescr Flag] -> String
 get_options_options [] = ""
 get_options_options (o:os) =
     get_long_option o ++"\n"++ get_options_options os
 
-get_long_option :: OptDescr IolausFlag -> String
+get_long_option :: OptDescr Flag -> String
 get_long_option (Option _ [] _ _) = ""
 get_long_option (Option a (o:os) b c) = "--"++o++
                  get_long_option (Option a os b c)
 
-run_raw_supercommand :: IolausCommand -> [String] -> IO ()
+run_raw_supercommand :: Command -> [String] -> IO ()
 run_raw_supercommand super [] =
     fail $ "Command '"++ command_name super ++"' requires subcommand!\n\n"
              ++ subusage super

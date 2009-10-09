@@ -23,7 +23,7 @@ module Iolaus.Repository ( get_unrecorded_changes,
 
 import Iolaus.Diff ( diff )
 import Iolaus.Patch ( Prim )
-import Iolaus.Flags ( IolausFlag )
+import Iolaus.Flags ( Flag )
 import Iolaus.Ordered ( FL, unsafeCoerceS )
 import Iolaus.SlurpDirectory ( Slurpy )
 import Iolaus.Sealed ( Sealed(..), mapSealM )
@@ -31,7 +31,7 @@ import Iolaus.Sealed ( Sealed(..), mapSealM )
 import Git.Plumbing ( heads, writetree, updateindex )
 import Git.Helpers ( touchedFiles, slurpTree, mergeCommits )
 
-slurp_recorded :: [IolausFlag] -> IO (Slurpy C(RecordedState))
+slurp_recorded :: [Flag] -> IO (Slurpy C(RecordedState))
 slurp_recorded opts = do Sealed r <- heads >>= mergeCommits opts
                          slurpTree $ unsafeCoerceS r
 
@@ -45,13 +45,13 @@ data RecordedState = RecordedState
 data Unrecorded =
     FORALL(x) Unrecorded (FL Prim C(RecordedState x)) (Slurpy C(x))
 
-get_unrecorded :: [IolausFlag] -> IO Unrecorded
+get_unrecorded :: [Flag] -> IO Unrecorded
 get_unrecorded opts =
     do Sealed new <- slurp_working
        old <- slurp_recorded opts
        return $ Unrecorded (diff [] old new) new
 
-get_unrecorded_changes :: [IolausFlag] -> IO (Sealed (FL Prim C(RecordedState)))
+get_unrecorded_changes :: [Flag] -> IO (Sealed (FL Prim C(RecordedState)))
 get_unrecorded_changes opts =
     do Sealed new <- slurp_working
        old <- slurp_recorded opts

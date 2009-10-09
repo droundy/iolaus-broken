@@ -23,8 +23,8 @@ import Data.List ( sort, group, isInfixOf, isPrefixOf )
 import Data.Char ( toLower, isSpace )
 import Text.Regex ( Regex, mkRegexWithOpts, matchRegex )
 
-import Iolaus.Arguments ( IolausFlag(..), working_repo_dir )
-import Iolaus.Command ( IolausCommand(..), nodefaults )
+import Iolaus.Arguments ( Flag(..), working_repo_dir )
+import Iolaus.Command ( Command(..), nodefaults )
 import Git.LocateRepo ( amInRepository )
 import Iolaus.Lock ( readBinFile )
 
@@ -48,8 +48,8 @@ show_authors_help =
 \end{code}
 
 \begin{code}
-show_authors :: IolausCommand
-show_authors = IolausCommand {
+show_authors :: Command
+show_authors = Command {
   command_name = "authors",
   command_help = show_authors_help,
   command_description = show_authors_description,
@@ -62,7 +62,7 @@ show_authors = IolausCommand {
   command_advanced_options = [],
   command_basic_options = [working_repo_dir] }
 
-authors_cmd :: [IolausFlag] -> [String] -> IO ()
+authors_cmd :: [Flag] -> [String] -> IO ()
 authors_cmd opts _ =
     do authors <- (filter ((/="commit") . take 6) . lines)
                   `fmap` revList [Authors]
