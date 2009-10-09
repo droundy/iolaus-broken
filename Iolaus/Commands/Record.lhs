@@ -35,7 +35,7 @@ import Iolaus.Arguments ( IolausFlag( PromptLongComment, NoEditLongComment,
                                   Quiet, EditLongComment, RmLogFile,
                                   LogFile, Pipe,
                                   PatchName, All ),
-                        working_repo_dir,
+                        working_repo_dir, mergeStrategy,
                         fixSubPaths, testByDefault,
                         ask_long_comment,
                         all_pipe_interactive, notest,
@@ -88,7 +88,7 @@ record = IolausCommand {command_name = "record",
                        command_argdefaults = nodefaults,
                        command_advanced_options = [logfile, rmlogfile],
                        command_basic_options = [patchname_option, author]++
-                                               notest++[
+                                               notest++[mergeStrategy,
                                                all_pipe_interactive,
                                                ask_long_comment,
                                                working_repo_dir]}
@@ -98,8 +98,8 @@ record_cmd opts args = do
     check_name_is_not_option opts
     files <- sort `fmap` fixSubPaths opts args
     handleJust only_successful_exits (\_ -> return ()) $ do
-    old <- slurp_recorded
-    Sealed allchs <- get_unrecorded_changes
+    old <- slurp_recorded opts
+    Sealed allchs <- get_unrecorded_changes opts
     with_selected_changes_to_files "record" opts old (map toFilePath files)
                                    allchs $ \ (ch:>_) ->
         do debugMessage "have finished selecting changes..."

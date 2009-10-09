@@ -23,7 +23,7 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       catTree, catBlob, catCommitTree )
 
 import Iolaus.Progress ( debugMessage )
-import Iolaus.Flags ( IolausFlag(Test) )
+import Iolaus.Flags ( IolausFlag(Test, NativeMerge, FirstParentMerge) )
 import Iolaus.FileName ( FileName, fp2fn )
 import Iolaus.IO ( ExecutableBit(..) )
 import Iolaus.SlurpDirectoryInternal
@@ -114,11 +114,22 @@ writeSlurpTree x = writeSlurpTree (Slurpy (fp2fn ".")
 
 data Strategy = FirstParent | Builtin | MergeN
 
-mergeCommits :: Strategy -> [Sealed (Hash Commit)] -> IO (Sealed (Hash Tree))
-mergeCommits _ [] = Sealed `fmap` writeSlurpTree empty_slurpy
-mergeCommits _ [Sealed h] = Sealed `fmap` catCommitTree h
-mergeCommits FirstParent (Sealed h:_) = Sealed `fmap` catCommitTree h
-mergeCommits Builtin [p1,p2] =
+flag2strategy :: [IolausFlag] -> Strategy
+flag2strategy opts = if NativeMerge `elem` opts
+                     then Builtin
+                     else if FirstParentMerge `elem` opts
+                          then FirstParent
+                          else MergeN
+
+mergeCommits :: [IolausFlag] -> [Sealed (Hash Commit)]
+             -> IO (Sealed (Hash Tree))
+mergeCommits opts = mergeCommitsX (flag2strategy opts)
+
+mergeCommitsX :: Strategy -> [Sealed (Hash Commit)] -> IO (Sealed (Hash Tree))
+mergeCommitsX _ [] = Sealed `fmap` writeSlurpTree empty_slurpy
+mergeCommitsX _ [Sealed h] = Sealed `fmap` catCommitTree h
+mergeCommitsX FirstParent (Sealed h:_) = Sealed `fmap` catCommitTree h
+mergeCommitsX Builtin [p1,p2] =
     do -- ancestor <- mergeBase p1 p2
        let ancestor:_ = mergeBases [p1,p2]
        [Sealed ta,Sealed t1,Sealed t2] <-
@@ -126,8 +137,8 @@ mergeCommits Builtin [p1,p2] =
                      [ancestor,p1,p2]
        readTreeMerge ta t1 t2 "merging"
        mergeIndex "merging"
-mergeCommits Builtin _ = fail "Builtin can't do octopi"
-mergeCommits MergeN xs =
+mergeCommitsX Builtin _ = fail "Builtin can't do octopi"
+mergeCommitsX MergeN xs =
     case mergeBases xs of
       [] -> fail "FIXME: need to implement merge with no common ancestor."
       Sealed ancestor:_ ->
@@ -158,10 +169,11 @@ diffDag (Node x ys) =
        let Just old = apply_to_slurpy oldps oldest
        return $ oldps +>+ diff [] old new
 
-diffCommit :: Strategy -> Hash Commit C(x) -> IO (FlippedSeal (FL Prim) C(x))
-diffCommit strat c0 =
+diffCommit :: [IolausFlag] -> Hash Commit C(x)
+           -> IO (FlippedSeal (FL Prim) C(x))
+diffCommit opts c0 =
     do c <- catCommit c0
        new <- slurpTree $ myTree c
-       Sealed oldh <- mergeCommits strat (myParents c)
+       Sealed oldh <- mergeCommits opts (myParents c)
        old <- slurpTree oldh
        return $ FlippedSeal $ diff [] old new
