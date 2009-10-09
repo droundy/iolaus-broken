@@ -16,8 +16,7 @@
 %  Boston, MA 02110-1301, USA.
 
 \begin{code}
-{-# OPTIONS_GHC -cpp -fno-warn-orphans #-}
-#include "gadts.h"
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Iolaus.Patch ( Prim, Named, Patchy, Apply, apply,
                       rmfile, addfile, chmod, rmdir, adddir, move,
                       chunkify, chunk, hunk, description,
@@ -34,7 +33,7 @@ module Iolaus.Patch ( Prim, Named, Patchy, Apply, apply,
                     apply_to_slurpy, patchcontents,
                     patch2patchinfo,
                     summary, summarize,
-                    mergeFL,
+                    mergeFL, mergeN,
                     -- from Permutations
                     module Iolaus.Patch.Permutations,
                   ) where
@@ -60,6 +59,7 @@ import Iolaus.Patch.Prim ( Effect(effect),
                            is_adddir, is_addfile,
                            is_hunk, is_similar,
                            try_to_shrink, try_shrinking_inverse )
+import Iolaus.Patch.Merge ( mergeN )
 
 instance Patchy Prim
 \end{code}

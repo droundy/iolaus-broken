@@ -22,7 +22,7 @@
 #include "gadts.h"
 
 module Iolaus.Arguments ( IolausFlag( .. ), flagToString, optionFlags,
-                         isin, arein,
+                          isin, arein, mergeStrategy,
                          fixFilePathOrStd, fixFilePathOrUrl, fixUrl,
                          fixSubPaths, areFileArgs,
                          IolausOption( .. ), option_from_darcsoption,
@@ -186,6 +186,9 @@ getContent DontGrabDeps = NoContent
 getContent DontPromptForDependencies = NoContent
 getContent PromptForDependencies = NoContent
 getContent Compress = NoContent
+getContent NativeMerge = NoContent
+getContent IolausMerge = NoContent
+getContent FirstParentMerge = NoContent
 getContent NoCompress = NoContent
 getContent UnCompress = NoContent
 getContent MachineReadable = NoContent
@@ -927,9 +930,16 @@ __ephemeral = IolausNoArgOption [] ["ephemeral"] Ephemeral
               "don't save patch files in the repository"
 __complete = IolausNoArgOption [] ["complete"] Complete
              "get a complete copy of the repository"
-\end{code}
 
-\begin{code}
+mergeStrategy :: IolausOption
+mergeStrategy = IolausMultipleChoiceOption 
+                [IolausNoArgOption [] ["git-merge"] NativeMerge
+                 "use git's builtin merge",
+                 IolausNoArgOption [] ["iolaus-merge"] NativeMerge
+                 "use iolaus builtin merge [default]",
+                 IolausNoArgOption [] ["first-parent-merge"] FirstParentMerge
+                 "use silly first-parent merge"]
+
 force_replace = IolausMultipleChoiceOption
                 [IolausNoArgOption ['f'] ["force"] ForceReplace
                  "proceed with replace even if 'new' token already exists",

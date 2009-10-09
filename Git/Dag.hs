@@ -1,8 +1,9 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, GADTs #-}
 #include "gadts.h"
 
 module Git.Dag ( parents, ancestors, isAncestorOf,
                  mergeBases,
+                 makeDag, Dag(..), greatGrandFather,
                  commonAncestors, uncommonAncestors ) where
 
 import qualified Data.Map as M
@@ -10,7 +11,9 @@ import qualified Data.Set as S
 import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
 import System.IO.Unsafe ( unsafePerformIO )
 
-import Iolaus.Sealed ( Sealed(Sealed), unseal )
+import Iolaus.Ordered ( EqCheck(..), unsafeCoerceP )
+import Iolaus.Sealed ( Sealed(Sealed), unseal, mapSeal )
+import Iolaus.Show ( eq1 )
 import Git.Plumbing ( Hash, Commit, catCommit, CommitEntry(..) )
 
 data CommitLinks = CommitLinks { cancestors :: S.Set (Sealed (Hash Commit)),
@@ -78,3 +81,21 @@ findAncestors h@(Sealed hh) =
                        let cl = CommitLinks (S.unions $ S.fromList ps:as) ps
                        modifyIORef genealogy $ M.insert h cl
                        return $ cancestors cl
+
+data Dag C(x y) where
+    Node :: Hash Commit C(y) -> [Sealed (Dag C(x))] -> Dag C(x y)
+    Ancestor :: Hash Commit C(x) -> Dag C(x x)
+
+sameHash :: Hash a C(x) -> Hash a C(y) -> EqCheck C(x y)
+sameHash a b = if eq1 a b then unsafeCoerceP IsEq else NotEq
+
+makeDag :: Hash Commit C(x) -> Hash Commit C(y) -> Dag C(x y)
+makeDag a me =
+    case sameHash a me of
+      IsEq -> Ancestor me
+      NotEq -> Node me $ map (mapSeal (makeDag a)) $ parents me
+
+greatGrandFather :: Dag C(x y) -> Hash Commit C(x)
+greatGrandFather (Ancestor a) = a
+greatGrandFather (Node _ []) = error "guy with no ancestors?"
+greatGrandFather (Node _ (Sealed x:_)) = greatGrandFather x

@@ -98,7 +98,7 @@ showContextStuff s0 ps@(FP f (Chunk c _ _ _) :>: _) =
                                   (unlinesPS $ drop (length prels-3) prels)
                              else (unsafePackedString $ unlinesPS $ take 3 $
                                    linesPS $ B.concat ws) $$
-                                   blueText (show w++":") $$
+                                   formatFileName f<+>blueText (show w++":") $$
                                    unsafePackedString
                                    (unlinesPS $ drop (length prels-3) prels)
                         else unsafePackedString (unlinesPS prels)
