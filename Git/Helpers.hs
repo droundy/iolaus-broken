@@ -137,7 +137,7 @@ mergeCommits MergeN xs =
              Sealed `fmap` writeSlurpTree (fromJust $ apply_to_slurpy ps oldest)
 
 bigDiff :: Hash Commit C(x) -> Hash Commit C(y) -> IO (FL Prim C(x y))
-bigDiff a0 me0 = diffDag $ makeDag a0 me0
+bigDiff a0 me0 = maybe (error "bad bigDiff") diffDag $ makeDag a0 me0
 
 diffDag :: Dag C(x y) -> IO (FL Prim C(x y))
 diffDag (Ancestor _) = return NilFL

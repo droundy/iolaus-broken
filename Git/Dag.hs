@@ -6,13 +6,14 @@ module Git.Dag ( parents, ancestors, isAncestorOf,
                  makeDag, Dag(..), greatGrandFather,
                  commonAncestors, uncommonAncestors ) where
 
+import Data.Maybe ( catMaybes )
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
 import System.IO.Unsafe ( unsafePerformIO )
 
 import Iolaus.Ordered ( EqCheck(..), unsafeCoerceP )
-import Iolaus.Sealed ( Sealed(Sealed), unseal, mapSeal )
+import Iolaus.Sealed ( Sealed(Sealed), unseal )
 import Iolaus.Show ( eq1 )
 import Git.Plumbing ( Hash, Commit, catCommit, CommitEntry(..) )
 
@@ -89,13 +90,17 @@ data Dag C(x y) where
 sameHash :: Hash a C(x) -> Hash a C(y) -> EqCheck C(x y)
 sameHash a b = if eq1 a b then unsafeCoerceP IsEq else NotEq
 
-makeDag :: Hash Commit C(x) -> Hash Commit C(y) -> Dag C(x y)
+makeDag :: Hash Commit C(x) -> Hash Commit C(y) -> Maybe (Dag C(x y))
 makeDag a me =
     case sameHash a me of
-      IsEq -> Ancestor me
-      NotEq -> Node me $ map (mapSeal (makeDag a)) $ parents me
+      IsEq -> Just $ Ancestor me
+      NotEq -> do let mkdag (Sealed h) = do d <- makeDag a h
+                                            Just (Sealed d)
+                  pdags@(_:_) <- Just $ catMaybes $ map mkdag $ parents me
+                  Just $ Node me pdags 
+
 
 greatGrandFather :: Dag C(x y) -> Hash Commit C(x)
 greatGrandFather (Ancestor a) = a
-greatGrandFather (Node _ []) = error "guy with no ancestors?"
+greatGrandFather (Node h []) = error (show h++" has no ancestors?")
 greatGrandFather (Node _ (Sealed x:_)) = greatGrandFather x
