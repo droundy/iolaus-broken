@@ -35,7 +35,7 @@ import Iolaus.Arguments ( Flag( PromptLongComment, NoEditLongComment,
                                   Quiet, EditLongComment, RmLogFile,
                                   LogFile, Pipe,
                                   PatchName, All ),
-                        working_repo_dir, mergeStrategy,
+                        working_repo_dir, mergeStrategy, commitApproach,
                         fixSubPaths, testByDefault,
                         ask_long_comment,
                         all_pipe_interactive, notest,
@@ -48,13 +48,12 @@ import Iolaus.Printer ( ($$), text, hPutDocLn, wrap_text, renderString )
 import Iolaus.SelectChanges ( with_selected_changes_to_files )
 import Iolaus.Ordered ( (:>)(..), FL(NilFL) )
 import Iolaus.Progress ( debugMessage )
-import Iolaus.Repository ( get_unrecorded_changes, slurp_recorded )
+import Iolaus.Repository ( get_unrecorded_changes, slurp_recorded, write_head )
 import Iolaus.Sealed ( Sealed(Sealed) )
 
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( lsfiles, heads,
-                      commitTree, updateref )
-import Git.Helpers ( test, writeSlurpTree )
+import Git.Plumbing ( lsfiles, heads, commitTree )
+import Git.Helpers ( test, writeSlurpTree, simplifyParents )
 
 #include "impossible.h"
 \end{code}
@@ -89,6 +88,7 @@ record = Command {command_name = "record",
                        command_advanced_options = [logfile, rmlogfile],
                        command_basic_options = [patchname_option, author]++
                                                notest++[mergeStrategy,
+                                               commitApproach,
                                                all_pipe_interactive,
                                                ask_long_comment,
                                                working_repo_dir]}
@@ -114,10 +114,11 @@ record_cmd opts args = do
                     (name, my_log, _) <- get_log opts Nothing
                                        (world_readable_temp "iolaus-record")
                     let message = (unlines $ name:my_log)
-                    test (testByDefault opts) newtree
                     hs <- heads
-                    com <- commitTree newtree hs message
-                    updateref "refs/heads/master" com
+                    (hs', Sealed newtree') <- simplifyParents opts hs newtree
+                    test (testByDefault opts) newtree'
+                    com <- commitTree newtree' hs' message
+                    write_head opts com
                     putStrLn ("Finished recording patch '"++ name ++"'")
 
  -- check that what we treat as the patch name is not accidentally a command

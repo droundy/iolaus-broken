@@ -17,19 +17,23 @@
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
 
-module Iolaus.Repository ( get_unrecorded_changes,
+module Iolaus.Repository ( write_head,
+                           get_unrecorded_changes,
                            get_unrecorded, Unrecorded(..),
                            slurp_recorded, slurp_working ) where
 
+import Control.Monad ( zipWithM_ )
+
 import Iolaus.Diff ( diff )
 import Iolaus.Patch ( Prim )
-import Iolaus.Flags ( Flag )
+import Iolaus.Flags ( Flag( CauterizeAllHeads ) )
 import Iolaus.Ordered ( FL, unsafeCoerceS )
 import Iolaus.SlurpDirectory ( Slurpy )
 import Iolaus.Sealed ( Sealed(..), mapSealM )
 
-import Git.Plumbing ( heads, writetree, updateindex )
+import Git.Plumbing ( Hash, Commit, heads, writetree, updateindex, updateref )
 import Git.Helpers ( touchedFiles, slurpTree, mergeCommits )
+import Git.Dag ( cauterizeHeads )
 
 slurp_recorded :: [Flag] -> IO (Slurpy C(RecordedState))
 slurp_recorded opts = do Sealed r <- heads >>= mergeCommits opts
@@ -56,3 +60,15 @@ get_unrecorded_changes opts =
     do Sealed new <- slurp_working
        old <- slurp_recorded opts
        return $ Sealed $ diff [] old new
+
+write_head :: [Flag] -> Hash Commit C(x) -> IO ()
+write_head opts h
+    | CauterizeAllHeads `elem` opts = updateref "refs/heads/master" h
+write_head _ h =
+    do hs <- heads
+       case cauterizeHeads (Sealed h:hs) of
+         [Sealed h'] -> updateref "refs/heads/master" h'
+         hs' -> zipWithM_ (\mm (Sealed hh) -> updateref mm hh) masters hs'
+    where masters = "refs/heads/master" :
+                    map (\n -> "refs/heads/master"++show n) [1 :: Int ..]
+

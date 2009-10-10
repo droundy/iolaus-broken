@@ -22,7 +22,7 @@
 #include "gadts.h"
 
 module Iolaus.Arguments ( Flag( .. ), flagToString, optionFlags,
-                          isin, arein, mergeStrategy,
+                          isin, arein, mergeStrategy, commitApproach,
                          fixFilePathOrStd, fixFilePathOrUrl, fixUrl,
                          fixSubPaths, areFileArgs,
                          IolausOption( .. ), option_from_darcsoption,
@@ -100,6 +100,8 @@ data FlagContent = NoContent | AbsoluteContent AbsolutePath | AbsoluteOrStdConte
 getContent :: Flag -> FlagContent
 getContent (PatchName s) = StringContent s
 getContent (Output s) = AbsoluteOrStdContent s
+getContent NoCauterizeAllHeads = NoContent
+getContent CauterizeAllHeads = NoContent
 getContent Verbose = NoContent
 getContent Help = NoContent
 getContent ListOptions = NoContent
@@ -930,6 +932,13 @@ __ephemeral = IolausNoArgOption [] ["ephemeral"] Ephemeral
               "don't save patch files in the repository"
 __complete = IolausNoArgOption [] ["complete"] Complete
              "get a complete copy of the repository"
+
+commitApproach :: IolausOption
+commitApproach = IolausMultipleChoiceOption 
+    [IolausNoArgOption [] ["cauterize"] CauterizeAllHeads
+     "new commit depends on all existing commits",
+     IolausNoArgOption [] ["no-cauterize"] NoCauterizeAllHeads
+     "commit in minimal context [default]"]
 
 mergeStrategy :: IolausOption
 mergeStrategy = IolausMultipleChoiceOption 
