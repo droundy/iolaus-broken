@@ -23,6 +23,7 @@ module Iolaus.Repository ( write_head,
                            slurp_recorded, slurp_working ) where
 
 import Control.Monad ( zipWithM_ )
+import System.Directory ( removeFile )
 
 import Iolaus.Diff ( diff )
 import Iolaus.Patch ( Prim )
@@ -68,8 +69,10 @@ write_head _ h =
        case cauterizeHeads (Sealed h:hs) of
          hs' -> do zipWithM_ (\mm (Sealed hh) -> updateref mm hh) masters hs'
                    hns <- headNames
-                   putStrLn $ "Extra heads are: "++
-                        unwords (map snd $ filter ((`notElem` hs') . fst) hns)
+                   let extras = map snd $ filter ((`notElem` hs') . fst) hns
+                       rmhead x = removeFile (".git/"++x)
+                   putStrLn $ "Extra heads are: "++ unwords extras
+                   mapM_ rmhead extras
     where masters = "refs/heads/master" :
                     map (\n -> "refs/heads/master"++show n) [1 :: Int ..]
 
