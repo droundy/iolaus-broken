@@ -137,7 +137,7 @@ unrecord_cmd _ _ =
     do revs <- revListHashes
        case revs of
          _:p:_ ->
-             do m <- revList [MaxCount 1, MediumPretty, RelativeDate]
+             do m <- revList "master" [MaxCount 1, MediumPretty, RelativeDate]
                 putStrLn m
                 yorn <- askUser "Shall I unrecord this patch? "
                 case yorn of

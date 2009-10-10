@@ -76,7 +76,7 @@ changes = ArcsCommand {command_name = "changes",
 
 \begin{code}
 changes_cmd :: [ArcsFlag] -> [String] -> IO ()
-changes_cmd opts _ = revList flags >>= putStr
+changes_cmd opts _ = revList "master" flags >>= putStr
     where flags = [MaxCount n | MaxC n <- opts]++
                   [if Summary `elem` opts then OneLine else MediumPretty]++
                   [Graph, RelativeDate]

@@ -196,12 +196,12 @@ instance Flag RevListOption where
     toFlags RelativeDate = ["--date=relative"]
     toFlags (MaxCount n) = ["--max-count="++show n]
 
-revList :: [RevListOption] -> IO String
-revList opts =
+revList :: String -> [RevListOption] -> IO String
+revList version opts =
     do let flags = concatMap toFlags opts
        debugMessage "calling git-rev-list"
        (Nothing, Just stdout, Nothing, pid) <-
-           createProcess (proc "git-rev-list" ("master":flags))
+           createProcess (proc "git-rev-list" (version:flags))
                              { std_out = CreatePipe }
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
@@ -210,7 +210,7 @@ revList opts =
          ExitFailure _ -> fail "git-rev-list failed"
 
 revListHashes :: IO [Hash Commit]
-revListHashes = do x <- revList []
+revListHashes = do x <- revList "master" []
                    return $ map (mkHash Commit) $ words x
 
 -- | FIXME: I believe that clone is porcelain...
