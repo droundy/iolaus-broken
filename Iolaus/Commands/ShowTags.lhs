@@ -20,8 +20,8 @@
 module Iolaus.Commands.ShowTags ( show_tags ) where
 
 import System.Directory ( getDirectoryContents )
-import Iolaus.Arguments ( IolausFlag(..), working_repo_dir )
-import Iolaus.Command ( IolausCommand(..), nodefaults )
+import Iolaus.Arguments ( Flag(..), working_repo_dir )
+import Iolaus.Command ( Command(..), nodefaults )
 
 import Git.LocateRepo ( amInRepository )
 \end{code}
@@ -42,8 +42,8 @@ show_tags_help =
 \end{code}
 
 \begin{code}
-show_tags :: IolausCommand
-show_tags = IolausCommand {
+show_tags :: Command
+show_tags = Command {
   command_name = "tags",
   command_help = show_tags_help,
   command_description = show_tags_description,
@@ -56,7 +56,7 @@ show_tags = IolausCommand {
   command_advanced_options = [],
   command_basic_options = [working_repo_dir] }
 
-tags_cmd :: [IolausFlag] -> [String] -> IO ()
+tags_cmd :: [Flag] -> [String] -> IO ()
 tags_cmd _ _ =
     getDirectoryContents ".git/refs/tags" >>= mapM_ putStrLn
 \end{code}

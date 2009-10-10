@@ -25,8 +25,8 @@ module Iolaus.Commands.Unrevert ( unrevert ) where
 
 import System.Directory ( removeFile )
 
-import Iolaus.Command ( IolausCommand(..), nodefaults )
-import Iolaus.Arguments ( IolausFlag, working_repo_dir, all_interactive )
+import Iolaus.Command ( Command(..), nodefaults )
+import Iolaus.Arguments ( Flag, working_repo_dir, all_interactive )
 
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( gitApply )
@@ -50,8 +50,8 @@ The command makes a best effort to merge the unreversion with any changes
 you have since made.  In fact, unrevert should even work if you've recorded
 changes since reverting.
 \begin{code}
-unrevert :: IolausCommand
-unrevert = IolausCommand {command_name = "unrevert",
+unrevert :: Command
+unrevert = Command {command_name = "unrevert",
                          command_help = unrevert_help,
                          command_description = unrevert_description,
                          command_extra_args = 0,
@@ -65,7 +65,7 @@ unrevert = IolausCommand {command_name = "unrevert",
                                                   working_repo_dir]}
 \end{code}
 \begin{code}
-unrevert_cmd :: [IolausFlag] -> [String] -> IO ()
+unrevert_cmd :: [Flag] -> [String] -> IO ()
 unrevert_cmd _ _ = do gitApply ".git/unrevert"
                       removeFile ".git/unrevert"
 \end{code}

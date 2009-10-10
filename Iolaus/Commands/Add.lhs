@@ -25,7 +25,7 @@ import Git.LocateRepo ( amInRepository )
 import Iolaus.Command
 import Iolaus.Arguments (noskip_boring, allow_problematic_filenames,
                        recursive, working_repo_dir,
-                       IolausFlag, fixSubPaths,
+                       Flag, fixSubPaths,
                       )
 import Iolaus.RepoPath ( toFilePath )
 \end{code}
@@ -49,8 +49,8 @@ add_help =
 \end{code}
 
 \begin{code}
-add :: IolausCommand
-add = IolausCommand {command_name = "add",
+add :: Command
+add = Command {command_name = "add",
                     command_help = add_help,
                     command_description = add_description,
                     command_extra_args = -1,
@@ -82,7 +82,7 @@ By default iolaus will ignore all files that match any of the boring patterns.
 If you want to add such a file anyway you must use the \verb!--boring! option.
 
 \begin{code}
-add_cmd :: [IolausFlag] -> [String] -> IO ()
+add_cmd :: [Flag] -> [String] -> IO ()
 add_cmd opts args =
  do origfiles <- map toFilePath `fmap` fixSubPaths opts args
     updateindex origfiles

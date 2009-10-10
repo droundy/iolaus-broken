@@ -21,8 +21,8 @@ module Iolaus.Commands.ShowContents ( show_contents ) where
 
 import qualified Data.ByteString as B
 
-import Iolaus.Command ( IolausCommand(..), nodefaults )
-import Iolaus.Arguments ( IolausFlag, match_one,
+import Iolaus.Command ( Command(..), nodefaults )
+import Iolaus.Arguments ( Flag, match_one,
                          working_repo_dir, fixSubPaths )
 import Iolaus.RepoPath ( toFilePath )
 import Iolaus.IO ( mReadFilePS )
@@ -48,8 +48,8 @@ show_contents_help =
   "If you give show contents no version arguments, it displays the recorded\n"++
   "version of the file(s).\n"
 
-show_contents :: IolausCommand
-show_contents = IolausCommand {command_name = "contents",
+show_contents :: Command
+show_contents = Command {command_name = "contents",
                               command_help = show_contents_help,
                               command_description = show_contents_description,
                               command_extra_args = -1,
@@ -64,7 +64,7 @@ show_contents = IolausCommand {command_name = "contents",
 \end{code}
 
 \begin{code}
-show_contents_cmd :: [IolausFlag] -> [String] -> IO ()
+show_contents_cmd :: [Flag] -> [String] -> IO ()
 show_contents_cmd opts args =
     do path_list <- fixSubPaths opts args
        Sealed s <- parseRev "HEAD" >>= mapSealM catCommitTree >>=

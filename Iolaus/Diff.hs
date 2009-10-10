@@ -23,7 +23,7 @@
 module Iolaus.Diff ( diff ) where
 
 import Iolaus.SlurpDirectory ( Slurpy )
-import Iolaus.Flags ( IolausFlag(..) )
+import Iolaus.Flags ( Flag(..) )
 import Iolaus.Ordered ( FL(..), unsafeCoerceP, unsafeCoerceS )
 import Data.List ( partition, sort )
 import Data.List ( intersperse )
@@ -45,11 +45,11 @@ import Iolaus.Patch ( Prim, chunk, chunkify,
 
 -- | take a recursive diff of two slurped-up directory trees.
 
-diff :: [IolausFlag]
+diff :: [Flag]
            -> Slurpy C(x) -> Slurpy C(y) -> FL Prim C(x y)
 diff fs a b = unsafeCoerceP (diffHelper fs a (unsafeCoerceS b))
 
-diffHelper :: [IolausFlag]
+diffHelper :: [Flag]
            -> Slurpy C(x) -> Slurpy C(x) -> FL Prim C(x x)
 diffHelper opts s1 s2 = find_mvs xs0
   where summary = Summary `elem` opts && NoSummary `notElem` opts

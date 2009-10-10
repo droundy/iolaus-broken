@@ -19,7 +19,7 @@
 module Iolaus.ArgumentDefaults ( get_default_flags ) where
 import Data.Maybe ( catMaybes, listToMaybe, mapMaybe )
 
-import Iolaus.Arguments ( IolausFlag, optionFlags,
+import Iolaus.Arguments ( Flag, optionFlags,
                          IolausOption( IolausArgOption, IolausNoArgOption, IolausMultipleChoiceOption ),
                          arein, isin )
 import Iolaus.Command ( CommandControl( Command_data ),
@@ -115,7 +115,7 @@ If they conflict with repository-specific options, the repository-specific
 ones will take precedence.
 
 \begin{code}
-get_default_flags :: String -> [IolausOption] -> [IolausFlag] -> IO [IolausFlag]
+get_default_flags :: String -> [IolausOption] -> [Flag] -> IO [Flag]
 get_default_flags com com_opts already = do
     repo_defs   <- default_content (return []) -- $ get_preflist "defaults"
     global_defs <- default_content (return []) -- $ get_global   "defaults"
@@ -124,7 +124,7 @@ get_default_flags com com_opts already = do
                                           (already++repo_flags) global_defs
     return $ repo_flags ++ global_flags
 
-get_flags_from :: String -> [IolausOption] -> [IolausFlag] -> [(String,String,String)] -> [IolausFlag]
+get_flags_from :: String -> [IolausOption] -> [Flag] -> [(String,String,String)] -> [Flag]
 get_flags_from com com_opts already defs =
     options_for com_defs com_opts com_opts ++
     options_for all_defs com_opts all_opts
@@ -139,7 +139,7 @@ get_flags_from com com_opts already defs =
 old_flags :: [String]
 old_flags = ["set-scripts-executable", "dont-set-scripts-executable"]
 
-find_option :: [IolausOption] -> [IolausOption] -> [IolausFlag] -> (String,String,String) -> [IolausFlag]
+find_option :: [IolausOption] -> [IolausOption] -> [Flag] -> (String,String,String) -> [Flag]
 find_option opts all_opts already (c, f, d) =
     case mapMaybe choose_option all_opts of
     [] -> if f `elem` old_flags || f `elem` map ("--"++) old_flags

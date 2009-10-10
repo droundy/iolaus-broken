@@ -25,7 +25,7 @@ import System.Environment ( getArgs )
 import Control.Exception ( Exception( AssertionFailed ), handleJust )
 
 import Iolaus.RunCommand ( run_the_command )
-import Iolaus.Flags ( IolausFlag(Verbose) )
+import Iolaus.Flags ( Flag(Verbose) )
 import Iolaus.Help ( help_cmd, list_available_commands, print_version )
 import Iolaus.SignalHandler ( withSignalsHandled )
 import Iolaus.Global ( with_atexit )

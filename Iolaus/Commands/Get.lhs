@@ -21,8 +21,8 @@
 
 module Iolaus.Commands.Get ( get ) where
 
-import Iolaus.Command ( IolausCommand(..), nodefaults )
-import Iolaus.Arguments ( IolausFlag, working_repo_dir,
+import Iolaus.Command ( Command(..), nodefaults )
+import Iolaus.Arguments ( Flag, working_repo_dir,
                         reponame, lazy, nolinks )
 
 import Git.LocateRepo ( amNotInRepository )
@@ -57,8 +57,8 @@ get_help =
  "Get is used to get a local copy of a repository.\n"
 \end{code}
 \begin{code}
-get :: IolausCommand
-get = IolausCommand {command_name = "get",
+get :: Command
+get = Command {command_name = "get",
                     command_help = get_help,
                     command_description = get_description,
                     command_extra_args = -1,
@@ -73,7 +73,7 @@ get = IolausCommand {command_name = "get",
                                              working_repo_dir]}
 \end{code}
 \begin{code}
-get_cmd :: [IolausFlag] -> [String] -> IO ()
+get_cmd :: [Flag] -> [String] -> IO ()
 get_cmd _ [inrepodir, outname] = clone [inrepodir, outname]
 get_cmd _ [inrepodir] = clone [inrepodir]
 get_cmd _ _ = fail "You must provide 'get' with either one or two arguments."

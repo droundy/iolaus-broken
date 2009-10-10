@@ -22,8 +22,8 @@
 
 module Iolaus.Commands.Unrecord ( unrecord ) where
 
-import Iolaus.Command ( IolausCommand(..), nodefaults )
-import Iolaus.Arguments ( IolausFlag, working_repo_dir,
+import Iolaus.Command ( Command(..), nodefaults )
+import Iolaus.Arguments ( Flag, working_repo_dir,
                         match_several_or_last )
 import Iolaus.Utils ( askUser )
 import Iolaus.Sealed ( unseal )
@@ -118,8 +118,8 @@ unrecord_help =
  "another user may have already pulled the patch.\n"
 \end{code}
 \begin{code}
-unrecord :: IolausCommand
-unrecord = IolausCommand {command_name = "unrecord",
+unrecord :: Command
+unrecord = Command {command_name = "unrecord",
                          command_help = unrecord_help,
                          command_description = unrecord_description,
                          command_extra_args = 0,
@@ -133,7 +133,7 @@ unrecord = IolausCommand {command_name = "unrecord",
                                                   working_repo_dir]}
 \end{code}
 \begin{code}
-unrecord_cmd :: [IolausFlag] -> [String] -> IO ()
+unrecord_cmd :: [Flag] -> [String] -> IO ()
 unrecord_cmd _ _ =
     do revs <- revListHashes
        case revs of

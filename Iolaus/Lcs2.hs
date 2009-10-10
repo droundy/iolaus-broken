@@ -25,21 +25,24 @@ import Data.Array.ST
 import Control.Monad.ST
 import qualified Data.Set as S
 
-import qualified Data.ByteString as B ( ByteString, elem )
+import qualified Data.ByteString as B ( ByteString, elem, null )
+import qualified Data.ByteString.Char8 as BC ( pack )
 
 #include "impossible.h"
 
 nestedChanges :: [B.ByteString] -> [B.ByteString]
               -> [(Int, [B.ByteString], [B.ByteString])]
-nestedChanges o n = nestedChanges0 0 o n
+nestedChanges o n = genNestedChanges [byparagraph,bylines] 0 o n
 
-nestedChanges0 :: Int -> [B.ByteString] -> [B.ByteString]
-               -> [(Int, [B.ByteString], [B.ByteString])]
-nestedChanges0 i (x:o) (x':n) | x == x' = ip1 `seq` nestedChanges0 ip1 o n
-                              where ip1 = i+1
-nestedChanges0 i0 o0 n0 = nc i0 (lcus ol nl) ol nl
-    where nl = bylines n0
-          ol = bylines o0
+genNestedChanges :: [[B.ByteString] -> [[B.ByteString]]]
+                 -> Int -> [B.ByteString] -> [B.ByteString]
+                 -> [(Int, [B.ByteString], [B.ByteString])]
+genNestedChanges br i (x:o) (x':n)
+    | x == x' = ip1 `seq` genNestedChanges br ip1 o n
+    where ip1 = i+1
+genNestedChanges (br:brs) i0 o0 n0 = nc i0 (lcus ol nl) ol nl
+    where nl = br n0
+          ol = br o0
           nc i [] o n = easydiff i o n
           nc i (x:xs) o n =
               case break (==x) o of
@@ -50,8 +53,18 @@ nestedChanges0 i0 o0 n0 = nc i0 (lcus ol nl) ol nl
                              where i' = i + length (concat na) + length x
                       (_,[]) -> impossible
                 (_,[]) -> impossible
-          easydiff i o n = mkdiff i (patientLcs oo nn) oo nn
+          easydiff i o n = genNestedChanges brs i oo nn
               where (oo, nn) = (concat o, concat n)
+genNestedChanges [] i o n = mkdiff i (patientLcs o n) o n
+
+byparagraph :: [B.ByteString] -> [[B.ByteString]]
+byparagraph [] = []
+byparagraph (a:b:c:d)
+    | a == nl && c == nl && B.null b = [a,b,c] : byparagraph d
+    where nl = BC.pack "\n"
+byparagraph (a:b) = case byparagraph b of
+                      c:d -> (a:c) : d
+                      [] -> [[a]]
 
 bylines :: [B.ByteString] -> [[B.ByteString]]
 bylines [] = []
@@ -91,11 +104,29 @@ getChanges o n = mkdiff 0 (lcs o n) o n
 
 mkdiff :: Ord a => Int -> [a] -> [a] -> [a] -> [(Int,[a],[a])]
 mkdiff ny (l:ls) (x:xs) (y:ys) | l == x && l == y = mkdiff (ny+1) ls xs ys
-mkdiff ny (l:ls) xs ys = do let rmd = takeWhile (/= l) xs
-                                add = takeWhile (/= l) ys
-                                restx = drop (length rmd + 1) xs
-                                resty = drop (length add + 1) ys
-                            (ny, rmd, add) : mkdiff (ny+length add+1) ls restx resty
+mkdiff ny (l:ls) xs ys
+    | length lls > 0 && not (null rest) =
+        if rmd == add
+        then error "bug in mkdiff"
+        else (ny, rmd, add) : mkdiff (ny+length add+1) ls restx resty
+    where (lls, rest) = span (==l) (l:ls)
+          l2:_ = rest
+          rmd0 = takels lls xs ++ takeWhile (/= l2) (dropls lls xs)
+          add0 = takels lls ys ++ takeWhile (/= l2) (dropls lls ys)
+          takels zs lis = take (length lis - length (dropls zs lis)) lis
+          dropls (z:zs) lis = dropls zs $ drop 1 $ dropWhile (/=z) lis
+          dropls [] lis = lis
+          rmd = reverse $ dropls lls $ reverse rmd0
+          add = reverse $ dropls lls $ reverse add0
+          restx = drop (length rmd + 1) xs
+          resty = drop (length add + 1) ys
+mkdiff ny (l:ls) xs ys =
+    (ny, rmd, add) : mkdiff (ny+length add+1) ls restx resty
+    where rmd = takeWhile (/= l) xs
+          add = takeWhile (/= l) ys
+          restx = drop (length rmd + 1) xs
+          resty = drop (length add + 1) ys
+       
 mkdiff _ [] [] [] = []
 mkdiff ny [] xs ys = [(ny, xs, ys)]
 

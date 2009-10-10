@@ -2,7 +2,7 @@
 #include "gadts.h"
 
 module Git.Dag ( parents, ancestors, isAncestorOf,
-                 mergeBases,
+                 mergeBases, cauterizeHeads,
                  makeDag, Dag(..), greatGrandFather,
                  commonAncestors, uncommonAncestors ) where
 
@@ -104,3 +104,11 @@ greatGrandFather :: Dag C(x y) -> Hash Commit C(x)
 greatGrandFather (Ancestor a) = a
 greatGrandFather (Node h []) = error (show h++" has no ancestors?")
 greatGrandFather (Node _ (Sealed x:_)) = greatGrandFather x
+
+cauterizeHeads :: [Sealed (Hash Commit)] -> [Sealed (Hash Commit)]
+cauterizeHeads [] = []
+cauterizeHeads [a] = [a]
+cauterizeHeads (Sealed x:xs)
+    | any (unseal (isAncestorOf x)) xs = cauterizeHeads xs
+    | otherwise = Sealed x :
+                  cauterizeHeads (filter (unseal (not . (`isAncestorOf` x))) xs)

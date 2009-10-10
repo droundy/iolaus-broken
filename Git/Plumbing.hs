@@ -5,7 +5,7 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag,
                       catBlob, hashObject,
                       catTree, TreeEntry(..),
                       catCommit, CommitEntry(..),
-                      catCommitTree, parseRev, heads,
+                      catCommitTree, parseRev, heads, headNames,
                       clone, gitInit,
                       checkoutCopy,
                       lsfiles, lssomefiles, lsothers,
@@ -299,6 +299,19 @@ heads =
        case ec of
          ExitSuccess -> return $ map (mkSHash Commit) $ lines out
          ExitFailure _ -> fail "parseRev failed"
+
+headNames :: IO [(Sealed (Hash Commit), String)]
+headNames =
+    do debugMessage "calling git-show-ref"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-show-ref" ["--heads"])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ map parse $ lines out
+         ExitFailure _ -> fail "parseRev failed"
+    where parse l = (mkSHash Commit l, drop 41 l)
 
 parseRev :: String -> IO (Sealed (Hash Commit))
 parseRev s =
