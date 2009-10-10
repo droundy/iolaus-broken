@@ -935,9 +935,9 @@ __complete = IolausNoArgOption [] ["complete"] Complete
 
 commitApproach :: IolausOption
 commitApproach = IolausMultipleChoiceOption 
-    [IolausNoArgOption [] ["cauterize"] CauterizeAllHeads
+    [IolausNoArgOption [] ["cauterize-all"] CauterizeAllHeads
      "new commit depends on all existing commits",
-     IolausNoArgOption [] ["no-cauterize"] NoCauterizeAllHeads
+     IolausNoArgOption [] ["no-cauterize-all"] NoCauterizeAllHeads
      "commit in minimal context [default]"]
 
 mergeStrategy :: IolausOption
