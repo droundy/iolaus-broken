@@ -2,6 +2,7 @@
 #include "gadts.h"
 
 module Git.Helpers ( test, slurpTree, writeSlurpTree, touchedFiles,
+                     simplifyParents,
                      diffCommit, mergeCommits, Strategy(..) ) where
 
 import System.Directory ( getCurrentDirectory, setCurrentDirectory,
@@ -12,7 +13,8 @@ import System.IO.Unsafe ( unsafeInterleaveIO )
 
 import Data.ByteString as B ( hPutStr )
 
-import Git.Dag ( mergeBases, makeDag, Dag(..), greatGrandFather )
+import Git.Dag ( mergeBases, makeDag, Dag(..), greatGrandFather, parents,
+                 cauterizeHeads )
 import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       catCommit, CommitEntry(..),
                       mkTree, hashObject, lsothers,
@@ -31,9 +33,9 @@ import Iolaus.SlurpDirectoryInternal
       slurpies_to_map, map_to_slurpies )
 import Iolaus.Lock ( removeFileMayNotExist )
 import Iolaus.Diff ( diff )
-import Iolaus.Patch ( Prim, apply_to_slurpy, mergeN )
-import Iolaus.Ordered ( FL(..), (+>+) )
-import Iolaus.Sealed ( Sealed(..), FlippedSeal(..), mapSealM )
+import Iolaus.Patch ( Prim, commute, apply_to_slurpy, mergeN )
+import Iolaus.Ordered ( FL(..), (:>)(..), (+>+) )
+import Iolaus.Sealed ( Sealed(..), FlippedSeal(..), mapSealM, unseal )
 
 #include "impossible.h"
 
@@ -120,6 +122,26 @@ flag2strategy opts = if NativeMerge `elem` opts
                      else if FirstParentMerge `elem` opts
                           then FirstParent
                           else MergeN
+
+simplifyParents :: [Flag] -> [Sealed (Hash Commit)] -> Hash Tree C(x)
+                -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
+simplifyParents opts pars0 rec0 = sp [] pars0 rec0
+    where
+      strat = flag2strategy opts
+      sp :: [Sealed (Hash Commit)] -> [Sealed (Hash Commit)] -> Hash Tree C(x)
+         -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
+      sp ps [] t = return (ps,Sealed t)
+      sp kn (p:ps) t =
+          do let nop = cauterizeHeads (kn++ps++unseal parents p)
+             Sealed ptree <- mergeCommitsX strat (kn++p:ps)
+                             >>= mapSealM slurpTree
+             Sealed noptree <- mergeCommitsX strat nop >>= mapSealM slurpTree
+             mys <- slurpTree t
+             case commute (diff opts noptree ptree :> diff opts ptree mys) of
+               Nothing -> sp (p:kn) ps t
+               Just (myp :> _) ->
+                   do t' <- apply_to_slurpy myp noptree >>= writeSlurpTree
+                      sp kn (filter (`notElem` kn) nop) t'
 
 mergeCommits :: [IolausFlag] -> [Sealed (Hash Commit)]
              -> IO (Sealed (Hash Tree))
