@@ -44,8 +44,8 @@ instance Commute p => Commute (Named n p) where
         do (p2' :> p1') <- commute (p1 :> p2)
            return (NamedP n2 p2' :> NamedP n1 p1')
     merge (NamedP n1 p1 :\/: NamedP n2 p2)
-        = case merge (p1 :\/: p2) of
-          (p2' :/\: p1') -> NamedP n2 p2' :/\: NamedP n1 p1'
+        = do p2' :/\: p1' <- merge (p1 :\/: p2)
+             Just $ NamedP n2 p2' :/\: NamedP n1 p1'
     list_touched_files (NamedP _ p) = list_touched_files p
 
 instance Invert p => Invert (Named n p) where

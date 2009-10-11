@@ -485,10 +485,7 @@ everything_else_commute x = eec x
         msum [clever_commute commute_filedir xx]
 
 instance Commute Prim where
-    merge (y :\/: z) =
-        case elegant_merge (y:\/:z) of
-        Just (z' :/\: y') -> z' :/\: y'
-        Nothing -> error "Commute Prim merge"
+    merge = elegant_merge
     commute x = toMaybe $ msum [speedy_commute x,
                                 everything_else_commute x]
     -- Recurse on everything, these are potentially spoofed patches
