@@ -1,3 +1,8 @@
 #!/bin/bash
 
-./Setup.hs build
+set -ev
+
+./Setup.hs test
+
+# now rerun the tests with type witnesses enabled!
+./Setup.hs --with-type-witnesses test

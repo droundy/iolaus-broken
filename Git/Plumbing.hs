@@ -1,15 +1,21 @@
-module Git.Plumbing ( Hash, Tree, Commit, Blob, Tag,
+{-# LANGUAGE CPP #-}
+#include "gadts.h"
+
+module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag,
                       catBlob, hashObject,
                       catTree, TreeEntry(..),
-                      catCommitTree, parseRev,
-                      clone,
+                      catCommit, CommitEntry(..),
+                      catCommitTree, parseRev, heads, headNames,
+                      clone, gitInit,
                       checkoutCopy,
-                      lsfiles, lsothers,
-                      revList, revListHashes, RevListOption(..),
-                      updateindex,
-                      writetree, mkTree, readTree, checkoutIndex,
+                      lsfiles, lssomefiles, lsothers,
+                      revList, revListHashes, RevListOption(..), nameRevs,
+                      updateindex, updateIndexForceRemove, updateIndexCacheInfo,
+                      writetree, mkTree, readTree, readTreeMerge, checkoutIndex,
                       updateref,
-                      diffFiles, DiffOption(..),
+                      diffFiles, diffTrees, DiffOption(..), gitApply,
+                      mergeBase, mergeIndex,
+                      mergeFile, unpackFile,
                       headhash, commitTree ) where
 
 import System.IO ( Handle, hGetContents, hPutStr, hClose )
@@ -18,23 +24,33 @@ import System.Exit ( ExitCode(..) )
 import System.Process.Redirects ( createProcess, waitForProcess, proc,
                                   CreateProcess(..), StdStream(..) )
 import qualified Data.ByteString as B
-import Arcs.FileName ( FileName, fp2fn, fn2fp )
-import Arcs.Progress ( debugMessage )
-import Arcs.Lock ( removeFileMayNotExist )
+import Iolaus.FileName ( FileName, fp2fn, fn2fp )
+import Iolaus.Progress ( debugMessage )
+import Iolaus.Lock ( removeFileMayNotExist )
+import Iolaus.Sealed ( Sealed(Sealed) )
+import Iolaus.Show ( Show1(..), Eq1(..), Ord1(..) )
 
-data Hash a = Hash !a !String
-              deriving ( Eq )
-instance Show (Hash a) where
-    show (Hash _ s) = s
-mkHash :: a -> String -> Hash a
+data Hash a C(x) = Hash !a !String
+                   deriving ( Eq, Ord )
+instance Show1 (Hash a) where show1 (Hash _ s) = s
+instance Show (Hash a C(x)) where show = show1
+instance Eq1 (Hash a) where
+    eq1 (Hash _ x) (Hash _ y) = x == y
+instance Ord1 (Hash a) where
+    compare1 (Hash _ x) (Hash _ y) = compare x y
+
+mkHash :: a -> String -> Hash a C(x)
 mkHash a s = Hash a (cleanhash s)
+
+mkSHash :: a -> String -> Sealed (Hash a)
+mkSHash a s = Sealed $ Hash a (cleanhash s)
 
 data Tag = Tag deriving ( Show, Eq, Ord )
 data Blob = Blob deriving ( Show, Eq, Ord )
 data Tree = Tree deriving ( Show, Eq, Ord )
 data Commit = Commit deriving ( Show, Eq, Ord )
 
-readTree :: Hash Tree -> String -> IO ()
+readTree :: Hash Tree C(x) -> String -> IO ()
 readTree t i =
     do removeFileMayNotExist (".git/"++i)
        debugMessage "calling git-read-tree --index-output=..."
@@ -45,6 +61,54 @@ readTree t i =
        case ec of
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-read-tree failed"
+
+mergeBase :: Hash Commit C(x) -> Hash Commit C(y) -> IO (Sealed (Hash Commit))
+mergeBase a b =
+    do debugMessage "calling git-merge-base"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-merge-base" [show a, show b])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ mkSHash Commit out
+         ExitFailure _ -> fail "git-merge-base failed"
+
+mergeIndex :: String -> IO (Sealed (Hash Tree))
+mergeIndex i =
+    do debugMessage ("calling git-merge-index")
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-merge-index" ["git-imof", "-a"])
+                         { env = Just [("GIT_INDEX_FILE",".git/"++i)] }
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-checkout-index failed"
+       debugMessage "calling git-write-tree"
+       (Nothing, Just stdout, Nothing, pid2) <-
+           createProcess (proc "git-write-tree" [])
+                             { std_out = CreatePipe,
+                               env = Just [("GIT_INDEX_FILE",".git/"++i)] }
+       out <- hGetContents stdout
+       ec2 <- length out `seq` waitForProcess pid2
+       case ec2 of
+         ExitSuccess -> return $ mkSHash Tree out
+         ExitFailure _ -> fail "git-write-tree failed in mergeIndex"
+
+readTreeMerge :: Hash Tree C(x) -> Hash Tree C(y) -> Hash Tree C(z)
+              -> String -> IO ()
+readTreeMerge o a b i =
+    do removeFileMayNotExist (".git/"++i)
+       let args = ["--index-output=.git/"++i, "-m","-i",
+                   show o, show a, show b]
+       debugMessage ("calling git-read-tree "++unwords args)
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-read-tree" args)
+                         { env = Just [("GIT_INDEX_FILE",".git/"++i)] }
+       ec2 <- waitForProcess pid
+       case ec2 of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-read-tree -m failed"
 
 checkoutIndex :: FilePath -> FilePath -> IO ()
 checkoutIndex i pfx =
@@ -71,7 +135,22 @@ lsfiles :: IO [String]
 lsfiles =
     do debugMessage "calling git-ls-files"
        (Nothing, Just stdout, Nothing, pid) <-
-           createProcess (proc "git-ls-files" []) { std_out = CreatePipe }
+           createProcess (proc "git-ls-files" ["--exclude-standard",
+                                               "--others","--cached"])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ lines out
+         ExitFailure _ -> fail "git-ls-files failed"
+
+lssomefiles :: [String] -> IO [String]
+lssomefiles [] = return []
+lssomefiles fs =
+    do debugMessage "calling git-ls-files"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-ls-files" ("--":fs))
+                             { std_out = CreatePipe }
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
@@ -93,11 +172,12 @@ lsothers =
 class Flag a where
     toFlags :: a -> [String]
 
-data DiffOption = DiffAll | Stat | DiffPatch
+data DiffOption = DiffAll | Stat | DiffPatch | NameOnly
 instance Flag DiffOption where
     toFlags DiffAll = ["-a"]
     toFlags Stat = ["--stat"]
     toFlags DiffPatch = ["-p"]
+    toFlags NameOnly = ["--name-only"]
 
 diffFiles :: [DiffOption] -> [FilePath] -> IO String
 diffFiles opts fs =
@@ -113,7 +193,22 @@ diffFiles opts fs =
          ExitSuccess -> return out
          ExitFailure _ -> fail "git-diff-files failed"
 
-headhash :: IO (Hash Commit)
+diffTrees :: [DiffOption] -> Hash Tree C(x) -> Hash Tree C(y)
+          -> [FilePath] -> IO String
+diffTrees opts t1 t2 fs =
+    do let flags = case opts of [] -> ["-p"]
+                                _ -> concatMap toFlags opts
+           allflags = flags++show t1:show t2:"--":fs
+       debugMessage ("calling git-diff-tree "++show allflags)
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-diff-tree" allflags) {std_out = CreatePipe}
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return out
+         ExitFailure _ -> fail "git-diff-tree failed"
+
+headhash :: IO (Sealed (Hash Commit))
 headhash =
     do debugMessage "calling git-show-ref -h"
        (Nothing, Just stdout, Nothing, pid) <-
@@ -121,10 +216,58 @@ headhash =
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> return $ mkHash Commit out
+         ExitSuccess -> return $ mkSHash Commit out
          ExitFailure _ -> fail "git-show-ref failed"
 
+updateIndexForceRemove :: FilePath -> IO ()
+updateIndexForceRemove fp =
+    do debugMessage "calling git-update-index --force-remove"
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-update-index" ["--force-remove","--",fp])
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-update-index failed"
+
+updateIndexCacheInfo :: String -> Hash Blob C(x) -> FilePath -> IO ()
+updateIndexCacheInfo mode sha fp =
+    do debugMessage "calling git-update-index"
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-update-index"
+                                   ["--cacheinfo",mode,show sha,fp])
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-update-index failed"
+
+mergeFile :: FilePath -> FilePath -> FilePath -> IO (Hash Blob C(x))
+mergeFile s1 a s2 =
+    do debugMessage "calling git-merge-file"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-merge-file" ["-L","mine","-L","ancestor",
+                                                 "-L","yours","--stdout",
+                                                 s1,a,s2])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitFailure e | e < 0 -> fail "git-merge-file failed"
+         _ -> hashObject (`hPutStr` out)
+
+unpackFile :: Hash Blob C(x) -> IO FilePath
+unpackFile sha =
+    do debugMessage "calling git-unpack-file"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-unpack-file" [show sha])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ init out
+         ExitFailure _ -> fail "git-unpack-file failed"
+
 updateindex :: [String] -> IO ()
+updateindex [] = debugMessage "no need to call git-update-index"
 updateindex fs =
     do debugMessage "calling git-update-index"
        (Nothing, Nothing, Nothing, pid) <-
@@ -134,7 +277,7 @@ updateindex fs =
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-update-index failed"
 
-writetree :: IO (Hash Tree)
+writetree :: IO (Sealed (Hash Tree))
 writetree = 
     do debugMessage "calling git-write-tree"
        (Nothing, Just stdout, Nothing, pid) <-
@@ -142,10 +285,35 @@ writetree =
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> return $ mkHash Tree out
+         ExitSuccess -> return $ mkSHash Tree out
          ExitFailure _ -> fail "git-write-tree failed"
 
-parseRev :: String -> IO (Hash Commit)
+heads :: IO [Sealed (Hash Commit)]
+heads =
+    do debugMessage "calling git-rev-parse"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-rev-parse" ["--branches"])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ map (mkSHash Commit) $ lines out
+         ExitFailure _ -> fail "parseRev failed"
+
+headNames :: IO [(Sealed (Hash Commit), String)]
+headNames =
+    do debugMessage "calling git-show-ref"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-show-ref" ["--heads"])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ map parse $ lines out
+         ExitFailure _ -> fail "parseRev failed"
+    where parse l = (mkSHash Commit l, drop 41 l)
+
+parseRev :: String -> IO (Sealed (Hash Commit))
 parseRev s =
     do debugMessage "calling git-rev-parse"
        (Nothing, Just stdout, Nothing, pid) <-
@@ -154,10 +322,10 @@ parseRev s =
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> return $ mkHash Commit out
+         ExitSuccess -> return $ mkSHash Commit out
          ExitFailure _ -> fail "parseRev failed"
 
-updateref :: String -> Hash Commit -> IO ()
+updateref :: String -> Hash Commit C(x) -> IO ()
 updateref r h =
     do debugMessage "calling git-update-ref"
        (Nothing, Nothing, Nothing, pid) <-
@@ -167,7 +335,8 @@ updateref r h =
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-update-ref failed"
 
-commitTree :: Hash Tree -> [Hash Commit] -> String -> IO (Hash Commit)
+commitTree :: Hash Tree C(x) -> [Sealed (Hash Commit)] -> String
+           -> IO (Hash Commit C(x))
 commitTree t pars m =
     do let pflags = concatMap (\p -> ["-p",show p]) pars
        debugMessage "calling git-commit-tree"
@@ -186,21 +355,39 @@ commitTree t pars m =
 cleanhash :: String -> String
 cleanhash = take 40
 
-data RevListOption = MediumPretty | OneLine
+data RevListOption = MediumPretty | OneLine | Authors
                    | Graph | RelativeDate | MaxCount Int
 instance Flag RevListOption where
     toFlags MediumPretty = ["--pretty=medium"]
     toFlags OneLine = ["--pretty=oneline"]
+    toFlags Authors = ["--pretty=format:%an"]
     toFlags Graph = ["--graph"]
     toFlags RelativeDate = ["--date=relative"]
     toFlags (MaxCount n) = ["--max-count="++show n]
 
-revList :: [RevListOption] -> IO String
-revList opts =
+nameRevs :: IO [String]
+nameRevs =
+    do debugMessage "calling git-name-rev"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-name-rev" ["--all"])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ concatMap pretty $ lines out
+         ExitFailure _ -> fail "git-rev-list failed"
+    where pretty s = case words s of
+                       [_,"undefined"] -> []
+                       [sha,n] | '~' `elem` n -> [sha]
+                               | otherwise -> [sha,n]
+                       _ -> error "bad stuff in nameRevs"
+
+revList :: String -> [RevListOption] -> IO String
+revList version opts =
     do let flags = concatMap toFlags opts
        debugMessage "calling git-rev-list"
        (Nothing, Just stdout, Nothing, pid) <-
-           createProcess (proc "git-rev-list" ("master":flags))
+           createProcess (proc "git-rev-list" (version:flags))
                              { std_out = CreatePipe }
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
@@ -208,9 +395,9 @@ revList opts =
          ExitSuccess -> return out
          ExitFailure _ -> fail "git-rev-list failed"
 
-revListHashes :: IO [Hash Commit]
-revListHashes = do x <- revList []
-                   return $ map (mkHash Commit) $ words x
+revListHashes :: IO [Sealed (Hash Commit)]
+revListHashes = do x <- revList "master" []
+                   return $ map (mkSHash Commit) $ words x
 
 -- | FIXME: I believe that clone is porcelain...
 
@@ -224,7 +411,19 @@ clone args =
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-clone failed"
 
-catBlob :: Hash Blob -> IO B.ByteString
+-- | FIXME: I believe that init is porcelain...
+
+gitInit :: [String] -> IO ()
+gitInit args =
+    do debugMessage "calling git-init"
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-init" args)
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-init failed"
+
+catBlob :: Hash Blob C(x) -> IO B.ByteString
 catBlob (Hash Blob h) =
     do debugMessage "calling git-cat-file blob"
        (Nothing, Just stdout, Nothing, pid) <-
@@ -236,15 +435,18 @@ catBlob (Hash Blob h) =
          ExitSuccess -> return out
          ExitFailure _ -> fail "git-cat-file blob failed"
 
-data TreeEntry = Subtree (Hash Tree)
-               | File (Hash Blob)
-               | Executable (Hash Blob)
-instance Show TreeEntry where
-    show (Subtree (Hash Tree h)) = "040000 tree "++h
-    show (File (Hash Blob h)) = "100644 blob "++h
-    show (Executable (Hash Blob h)) = "100755 blob "++h
+data TreeEntry C(x) = Subtree (Hash Tree C(x))
+                    | File (Hash Blob C(x))
+                    | Executable (Hash Blob C(x))
+                    | Symlink (Hash Blob C(x))
+instance Show1 TreeEntry where
+    show1 (Subtree (Hash Tree h)) = "040000 tree "++h
+    show1 (File (Hash Blob h)) = "100644 blob "++h
+    show1 (Executable (Hash Blob h)) = "100755 blob "++h
+    show1 (Symlink (Hash Blob h)) = "120000 blob "++h
+instance Show (TreeEntry C(x)) where show = show1
 
-catTree :: Hash Tree -> IO [(FileName, TreeEntry)]
+catTree :: Hash Tree C(x) -> IO [(FileName, TreeEntry C(x))]
 catTree (Hash Tree h) =
     do debugMessage "calling git-cat-file tree"
        (Nothing, Just stdout, Nothing, pid) <-
@@ -269,25 +471,60 @@ catTree (Hash Tree h) =
                     case splitAt 40 x' of
                       (z, _:fp) -> return (fp2fn fp, File $ Hash Blob z)
                       (_,[]) -> fail "error blob"
+                ("120000 blob ",x') ->
+                    case splitAt 40 x' of
+                      (z, _:fp) -> return (fp2fn fp, Symlink $ Hash Blob z)
+                      (_,[]) -> fail "error blob exec"
                 _ -> fail "weird line in tree"
 
-catCommitTree :: Hash Commit -> IO (Hash Tree)
-catCommitTree (Hash Commit h) =
+catCommitTree :: Hash Commit C(x) -> IO (Hash Tree C(x))
+catCommitTree c = myTree `fmap` catCommit c
+
+data CommitEntry C(x) = CommitEntry { myParents :: [Sealed (Hash Commit)],
+                                      myTree :: Hash Tree C(x),
+                                      myAuthor :: String,
+                                      myCommitter :: String,
+                                      myMessage :: String }
+
+instance Show (CommitEntry C(x)) where
+    show c = unlines $ ("tree "++show (myTree c)) :
+             map (\p -> "parent "++show p) (myParents c)
+             ++ ["author "++myAuthor c, "committer "++myCommitter c,
+                 "", myMessage c]
+
+catCommit :: Hash Commit C(x) -> IO (CommitEntry C(x))
+catCommit (Hash Commit h0) =
     do debugMessage "calling git-cat-file"
        (Nothing, Just stdout, Nothing, pid) <-
-           createProcess (proc "git-cat-file" ["commit",h])
+           createProcess (proc "git-cat-file" ["commit",h0])
                              { std_out = CreatePipe }
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> parseit out
+         ExitSuccess -> parseit $ lines out
          ExitFailure _ -> fail "git-cat-file blob failed"
-    where parseit x =
-              case splitAt 5 x of
-                ("tree ",x') -> return $ mkHash Tree $ take 40 x'
-                _ -> fail "weird stuff in commitTree"
+    where parseit (x:xs) =
+              case words x of
+              [] -> return $ CommitEntry { myParents = [],
+                                           myAuthor = "",
+                                           myCommitter = "",
+                                           myTree = error "xx234",
+                                           myMessage = unlines xs }
+              ["tree",h] -> do c <- parseit xs
+                               return $ c { myTree = mkHash Tree h }
+              ["parent",h] ->
+                  do c <- parseit xs
+                     return $ c { myParents = mkSHash Commit h : myParents c }
+              "author":_ ->
+                  do c <- parseit xs
+                     return $ c { myAuthor = drop 7 x }
+              "committer":_ ->
+                  do c <- parseit xs
+                     return $ c { myCommitter = drop 10 x }
+              _ -> fail "weird stuff in commitTree"
+          parseit [] = fail "empty commit in commitTree?"
 
-hashObject :: (Handle -> IO ()) -> IO (Hash Blob)
+hashObject :: (Handle -> IO ()) -> IO (Hash Blob C(x))
 hashObject wr =
     do debugMessage "calling git-hash-object"
        (Just i, Just o, Nothing, pid) <-
@@ -302,7 +539,7 @@ hashObject wr =
          ExitSuccess -> return $ mkHash Blob out
          ExitFailure _ -> fail ("git-hash-object failed\n"++out)
 
-mkTree :: [(FileName, TreeEntry)] -> IO (Hash Tree)
+mkTree :: [(FileName, TreeEntry C(x))] -> IO (Hash Tree C(x))
 mkTree xs =
     do debugMessage "calling git-mk-tree"
        (Just i, Just o, Nothing, pid) <-
@@ -317,3 +554,12 @@ mkTree xs =
          ExitSuccess -> return $ mkHash Tree out
          ExitFailure _ -> fail "git-mk-tree failed"
     where putStuff i (f, te) = hPutStr i (show te++'\t':fn2fp f++"\n")
+
+gitApply :: FilePath -> IO ()
+gitApply p =
+    do debugMessage "calling git-apply"
+       (Nothing, Nothing, Nothing, pid) <- createProcess (proc "git-apply" [p])
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-apply failed"

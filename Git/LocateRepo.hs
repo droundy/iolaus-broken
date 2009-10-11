@@ -1,12 +1,13 @@
-module Git.LocateRepo ( amInRepository, amNotInRepository ) where
+module Git.LocateRepo ( amInRepository, amInRepositoryDirectory,
+                        amNotInRepository ) where
 
 import System.Directory ( getCurrentDirectory, setCurrentDirectory,
                           doesDirectoryExist )
 
-import Arcs.Flags ( ArcsFlag(..) )
-import Arcs.RepoPath ( toFilePath, createDirectoryIfMissing )
+import Iolaus.Flags ( Flag(..) )
+import Iolaus.RepoPath ( toFilePath, createDirectoryIfMissing )
 
-amInRepository :: [ArcsFlag] -> IO (Either String ())
+amInRepository :: [Flag] -> IO (Either String ())
 amInRepository (WorkDir d:_) =
     do setCurrentDirectory d `catch` (const $ fail $ "can't set directory to "++d)
        air <- currentDirIsRepository
@@ -16,6 +17,13 @@ amInRepository (WorkDir d:_) =
 amInRepository (_:fs) = amInRepository fs
 amInRepository [] =
     seekRepo (Left "You need to be in a repository directory to run this command.")
+
+amInRepositoryDirectory :: [Flag] -> IO (Either String ())
+amInRepositoryDirectory opts =
+    do here <- getCurrentDirectory
+       x <- amInRepository opts
+       setCurrentDirectory here
+       return x
 
 -- | hunt upwards for the darcs repository
 -- This keeps changing up one parent directory, testing at each
@@ -37,7 +45,7 @@ seekRepo onFail = getCurrentDirectory >>= helper where
                   else do setCurrentDirectory startpwd
                           return onFail
 
-amNotInRepository :: [ArcsFlag] -> IO (Either String ())
+amNotInRepository :: [Flag] -> IO (Either String ())
 amNotInRepository (WorkDir d:_) = do createDirectoryIfMissing False d
                                      -- note that the above could always fail
                                      setCurrentDirectory d

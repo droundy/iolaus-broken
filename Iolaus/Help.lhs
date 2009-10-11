@@ -1,0 +1,118 @@
+%  Copyright (C) 2002-2004 David Roundy
+%
+%  This program is free software; you can redistribute it and/or modify
+%  it under the terms of the GNU General Public License as published by
+%  the Free Software Foundation; either version 2, or (at your option)
+%  any later version.
+%
+%  This program is distributed in the hope that it will be useful,
+%  but WITHOUT ANY WARRANTY; without even the implied warranty of
+%  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+%  GNU General Public License for more details.
+%
+%  You should have received a copy of the GNU General Public License
+%  along with this program; see the file COPYING.  If not, write to
+%  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+%  Boston, MA 02110-1301, USA.
+
+\subsection{arcs help}
+\label{help}
+
+You could also call \verb|help| as a command.  This is equivalent to calling
+arcs --help.  
+the \verb|--help| to that command.  For example, \verb|arcs help query manifest|
+is equivalent to \verb|arcs query manifest --help|.
+
+\begin{code}
+module Iolaus.Help ( help_cmd, command_control_list, print_version,
+                             list_available_commands
+                           ) where
+import System.Exit ( ExitCode(..), exitWith )
+
+import Iolaus.Command ( CommandControl(Command_data), Command(..),
+                        disambiguate_commands, CommandArgs(..),
+                        get_command_help, extract_commands,
+                       nodefaults, 
+                       usage )
+import Iolaus.Arguments ( Flag(..), help_on_match )
+import Iolaus.Utils ( withCurrentDirectory )
+import Iolaus.RepoPath ( getCurrentDirectory )
+import qualified Iolaus.Commands as TheCommands
+\end{code}
+
+\options{help}
+
+\haskell{help_description}
+\begin{code}
+help_description :: String
+help_description = "Display help for arcs or a single command."
+\end{code}
+\haskell{help_help} 
+
+\begin{code}
+help_help :: String
+help_help =
+ "help displays usage information for arcs in general or for a single\n" ++
+ "command (for example, arcs help query manifest).\n\n"
+\end{code}
+
+\begin{code}
+help :: Command
+help = Command {command_name = "help",
+                     command_help = help_help,
+                     command_description = help_description,
+                     command_extra_args = -1,
+                     command_extra_arg_help = ["[<DARCS_COMMAND> [DARCS_SUBCOMMAND]]  "],
+                     command_command = help_cmd,
+                     command_prereq = \_ -> return $ Right (),
+                     command_get_arg_possibilities = return [],
+                     command_argdefaults = nodefaults,
+                     command_advanced_options = [],
+                     command_basic_options = [help_on_match]}
+\end{code}
+
+\begin{code}
+help_cmd :: [Flag] -> [String] -> IO ()
+help_cmd _ [] = do putStrLn $ usage command_control_list
+                   exitWith $ ExitSuccess
+help_cmd _ (cmd:args) =
+    do let disambiguated = disambiguate_commands command_control_list cmd args
+       case disambiguated of
+         Left err       -> fail err
+         Right (cmds,_) ->
+           let msg = case cmds of
+                     CommandOnly c       -> get_command_help Nothing  c
+                     SuperCommandOnly c  -> get_command_help Nothing  c
+                     SuperCommandSub c s -> get_command_help (Just c) s
+           in putStrLn msg
+       exitWith $ ExitSuccess
+
+list_available_commands :: IO ()
+list_available_commands =
+    do here <- getCurrentDirectory
+       is_valid <- sequence $ map
+                   (\c-> withCurrentDirectory here $ (command_prereq c) [])
+                   (extract_commands command_control_list)
+       putStr $ unlines $ map (command_name . fst) $
+                filter (isRight.snd) $
+                zip (extract_commands command_control_list) is_valid
+       putStrLn "--help"
+       putStrLn "--version"
+       putStrLn "--exact-version"
+       putStrLn "--overview"
+    where isRight (Right _) = True
+          isRight _ = False
+\end{code}
+
+\begin{code}
+print_version :: IO () 
+print_version = putStrLn $ "arcs version"
+\end{code}
+
+\begin{code}
+-- avoiding a module import cycle between Help and TheCommands
+command_control_list :: [CommandControl] 
+command_control_list =
+  Command_data help : TheCommands.command_control_list
+\end{code}
+

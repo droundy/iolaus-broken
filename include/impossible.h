@@ -1,5 +1,6 @@
-import qualified Arcs.Bug as Bug_
-import qualified Arcs.RepoPath as RepoPath_
+
+import qualified Iolaus.Bug as Bug_
+import qualified Iolaus.RepoPath as RepoPath_
 
 #define darcsBug (\imp_funny_name -> imp_funny_name (__FILE__,__LINE__,__TIME__,__DATE__))
 

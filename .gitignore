@@ -7,5 +7,13 @@
 *.hi
 config.d
 *.depend
-arcs
+grit
+iolaus
+git-imof
 *.log
+.package.conf
+.test*
+tmp
+.merge*
+err
+try-*
