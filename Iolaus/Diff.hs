@@ -23,11 +23,11 @@
 module Iolaus.Diff ( diff ) where
 
 import Iolaus.SlurpDirectory ( Slurpy )
-import Iolaus.Flags ( IolausFlag(..) )
+import Iolaus.Flags ( Flag(..) )
 import Iolaus.Ordered ( FL(..), unsafeCoerceP, unsafeCoerceS )
 import Data.List ( partition, sort )
 import Data.List ( intersperse )
-import qualified Data.ByteString.Char8 as BC ( last, pack )
+import qualified Data.ByteString.Char8 as BC ( pack )
 import qualified Data.ByteString as B (empty, ByteString)
 
 import Iolaus.Ordered ( (+>+) )
@@ -38,18 +38,18 @@ import Iolaus.SlurpDirectory ( slurp_name, is_dir, is_file,
                                get_filehash, get_dirhash, get_fileEbit,
                                get_dircontents, get_filecontents )
 import Iolaus.Patch ( Prim, chunk, chunkify,
-                      apply_to_slurpy, move, hunk, canonize, rmfile, rmdir,
+                      apply_to_slurpy, move, canonize, rmfile, rmdir,
                       addfile, adddir, chmod, invert )
 
 #include "impossible.h"
 
 -- | take a recursive diff of two slurped-up directory trees.
 
-diff :: [IolausFlag]
+diff :: [Flag]
            -> Slurpy C(x) -> Slurpy C(y) -> FL Prim C(x y)
 diff fs a b = unsafeCoerceP (diffHelper fs a (unsafeCoerceS b))
 
-diffHelper :: [IolausFlag]
+diffHelper :: [Flag]
            -> Slurpy C(x) -> Slurpy C(x) -> FL Prim C(x x)
 diffHelper opts s1 s2 = find_mvs xs0
   where summary = Summary `elem` opts && NoSummary `notElem` opts
@@ -179,9 +179,8 @@ diff_from_empty :: (Prim C(x x) -> Prim C(x x)) -> FilePath -> B.ByteString
 diff_from_empty inv f b =
     if b == B.empty
     then id
-    else let p = if BC.last b == '\n'
-                 then chunk f newlines 0 [] $ init $ chunkify newlines b
-                 else chunk f newlines 0 [B.empty] $ chunkify newlines b
+    else let p = chunk f newlines 0 [] $ chunkify newlines b
+                 --if BC.last b == '\n'
                  --then hunk f 1 [] $ init $ linesPS b
                  --else hunk f 1 [B.empty] $ linesPS b
          in (inv p:>:)

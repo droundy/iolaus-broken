@@ -21,8 +21,8 @@
 
 #include "gadts.h"
 
-module Iolaus.Arguments ( IolausFlag( .. ), flagToString, optionFlags,
-                         isin, arein,
+module Iolaus.Arguments ( Flag( .. ), flagToString, optionFlags,
+                          isin, arein, mergeStrategy, commitApproach,
                          fixFilePathOrStd, fixFilePathOrUrl, fixUrl,
                          fixSubPaths, areFileArgs,
                          IolausOption( .. ), option_from_darcsoption,
@@ -81,7 +81,7 @@ import Iolaus.RepoPath ( AbsolutePath, AbsolutePathOrStd, SubPath,
                         makeSubPathOf, simpleSubPath,
                         ioAbsolute, ioAbsoluteOrStd,
                         makeAbsolute, makeAbsoluteOrStd )
-import Iolaus.Flags ( IolausFlag(..) )
+import Iolaus.Flags ( Flag(..) )
 #include "impossible.h"
 \end{code}
 
@@ -97,9 +97,11 @@ data FlagContent = NoContent | AbsoluteContent AbsolutePath | AbsoluteOrStdConte
 -- | 'get_content' returns the content of a flag, if any.
 -- For instance, the content of @Author \"Louis Aragon\"@ is @StringContent
 -- \"Louis Aragon\"@, while the content of @Pipe@ is @NoContent@
-getContent :: IolausFlag -> FlagContent
+getContent :: Flag -> FlagContent
 getContent (PatchName s) = StringContent s
 getContent (Output s) = AbsoluteOrStdContent s
+getContent NoCauterizeAllHeads = NoContent
+getContent CauterizeAllHeads = NoContent
 getContent Verbose = NoContent
 getContent Help = NoContent
 getContent ListOptions = NoContent
@@ -186,6 +188,9 @@ getContent DontGrabDeps = NoContent
 getContent DontPromptForDependencies = NoContent
 getContent PromptForDependencies = NoContent
 getContent Compress = NoContent
+getContent NativeMerge = NoContent
+getContent IolausMerge = NoContent
+getContent FirstParentMerge = NoContent
 getContent NoCompress = NoContent
 getContent UnCompress = NoContent
 getContent MachineReadable = NoContent
@@ -241,14 +246,14 @@ getContent (PrehookCmd s) = StringContent s
 getContent (UMask s) = StringContent s
 getContent AllowUnrelatedRepos = NoContent
 
-get_content :: IolausFlag -> Maybe String
+get_content :: Flag -> Maybe String
 get_content f = do StringContent s <- Just $ getContent f
                    return s
 
 -- | @a `'isa'` b@ tests whether @a@ is flag @b@ with a string argument.
 -- @b@ typically is a Flag constructor expecting a string
 -- For example, @(Author \"Ted Hughes\") `isa` Author@ returns true.
-isa :: IolausFlag -> (String -> IolausFlag) -> Bool
+isa :: Flag -> (String -> Flag) -> Bool
 a `isa` b = case get_content a of
             Nothing -> False
             Just s -> a == b s
@@ -256,7 +261,7 @@ a `isa` b = case get_content a of
 -- | @a `'isAnAbsolute'` b@ tests whether @a@ is flag @b@ with an absolute path argument.
 -- @b@ typically is a Flag constructor expecting an absolute path argument
 -- For example, @(Context contextfile) `isAnAbsolute` Context@ returns true.
-isAnAbsolute :: IolausFlag -> (AbsolutePath -> IolausFlag) -> Bool
+isAnAbsolute :: Flag -> (AbsolutePath -> Flag) -> Bool
 isAnAbsolute f x = case getContent f of
                   AbsoluteContent s -> f == x s
                   _ -> False
@@ -264,15 +269,15 @@ isAnAbsolute f x = case getContent f of
 -- | @a `'isAnAbsoluteOrStd'` b@ tests whether @a@ is flag @b@ with a path argument.
 -- @b@ typically is a Flag constructor expecting a path argument
 -- For example, @(Output o) `isAnAbsoluteOrStd` @ returns true.
-isAnAbsoluteOrStd :: IolausFlag -> (AbsolutePathOrStd -> IolausFlag) -> Bool
+isAnAbsoluteOrStd :: Flag -> (AbsolutePathOrStd -> Flag) -> Bool
 isAnAbsoluteOrStd f x = case getContent f of
                           AbsoluteOrStdContent s -> f == x s
                           _ -> False
 
-isin :: (String->IolausFlag) -> [IolausFlag] -> Bool
+isin :: (String->Flag) -> [Flag] -> Bool
 f `isin` fs = any (`isa` f) fs
 
-arein :: [IolausOption] -> [IolausFlag] -> Bool
+arein :: [IolausOption] -> [Flag] -> Bool
 (IolausNoArgOption _ _ f _ : dos') `arein` fs
     = f `elem` fs || dos' `arein` fs
 (IolausArgOption _ _ f _ _ : dos') `arein` fs
@@ -289,35 +294,35 @@ arein :: [IolausOption] -> [IolausFlag] -> Bool
 
 -- | A type for darcs' options. The value contains the command line
 -- switch(es) for the option, a help string, and a function to build a
--- @IolausFlag@ from the command line arguments.  for each constructor,
+-- @Flag@ from the command line arguments.  for each constructor,
 -- 'shortSwitches' represents the list of short command line switches
 -- which invoke the option, longSwitches the list of long command line
 -- switches, optDescr the description of the option, and argDescr the description
--- of its argument, if any. mkFlag is a function which makes a @IolausFlag@ from
+-- of its argument, if any. mkFlag is a function which makes a @Flag@ from
 -- the arguments of the option.
 data IolausOption
-    = IolausArgOption [Char] [String] (String->IolausFlag) String String
+    = IolausArgOption [Char] [String] (String->Flag) String String
     -- ^ @IolausArgOption shortSwitches longSwitches mkFlag ArgDescr OptDescr@
     -- The constructor for options with a string argument, such as
     -- @--tag@
 
-    | IolausAbsPathOption [Char] [String] (AbsolutePath -> IolausFlag) String String
+    | IolausAbsPathOption [Char] [String] (AbsolutePath -> Flag) String String
     -- ^ @IolausAbsPathOption shortSwitches longSwitches mkFlag ArgDescr OptDescr@
     -- The constructor for options with an absolute path argument, such as
     -- @--sibling@
 
-    | IolausAbsPathOrStdOption [Char] [String] (AbsolutePathOrStd -> IolausFlag) String String
+    | IolausAbsPathOrStdOption [Char] [String] (AbsolutePathOrStd -> Flag) String String
     -- ^ @IolausAbsPathOrStdOption shortSwitches longSwitches mkFlag ArgDescr OptDescr@
     -- The constructor for options with a path argument, such as @-o@
 
-    | IolausOptAbsPathOption [Char] [String] String (AbsolutePath -> IolausFlag) String String
+    | IolausOptAbsPathOption [Char] [String] String (AbsolutePath -> Flag) String String
     -- ^ @IolausOptAbsPathOrStdOption shortSwitches longSwitches defaultPath
     -- mkFlag ArgDescr OptDescr@ where defaultPath is a default value
     -- for the Path, as a string to be parsed as if it had been given
     -- on the command line.
     -- The constructor for options with an optional path argument, such as @-O@
 
-    | IolausNoArgOption [Char] [String] IolausFlag String
+    | IolausNoArgOption [Char] [String] Flag String
     -- ^ @IolausNoArgOption shortSwitches longSwitches mkFlag optDescr@
     -- The constructon fon options with no arguments.
 
@@ -333,7 +338,7 @@ optionFlags (IolausOptAbsPathOption _ fs _ _ _ _) = fs
 optionFlags (IolausNoArgOption _ fs _ _) = fs
 optionFlags (IolausMultipleChoiceOption os) = concatMap optionFlags os
 
-option_from_darcsoption :: AbsolutePath -> IolausOption -> [OptDescr IolausFlag]
+option_from_darcsoption :: AbsolutePath -> IolausOption -> [OptDescr Flag]
 option_from_darcsoption _ (IolausNoArgOption a b c h) = [Option a b (NoArg c) h]
 option_from_darcsoption _ (IolausArgOption a b c n h) = [Option a b (ReqArg c n) h]
 option_from_darcsoption wd (IolausMultipleChoiceOption os) = concatMap (option_from_darcsoption wd) os
@@ -351,34 +356,34 @@ concat_options os = IolausMultipleChoiceOption $ concatMap from_option os
 \end{code}
 
 \begin{code}
-extract_fix_path :: [IolausFlag] -> Maybe (AbsolutePath, AbsolutePath)
+extract_fix_path :: [Flag] -> Maybe (AbsolutePath, AbsolutePath)
 extract_fix_path [] = Nothing
 extract_fix_path ((FixFilePath repo orig):_)  = Just (repo, orig)
 extract_fix_path (_:fs) = extract_fix_path fs
 
-fixFilePath :: [IolausFlag] -> FilePath -> IO AbsolutePath
+fixFilePath :: [Flag] -> FilePath -> IO AbsolutePath
 fixFilePath opts f = case extract_fix_path opts of
                        Nothing -> bug "Can't fix path in fixFilePath"
                        Just (_,o) -> withCurrentDirectory o $ ioAbsolute f
 
-fixFilePathOrStd :: [IolausFlag] -> FilePath -> IO AbsolutePathOrStd
+fixFilePathOrStd :: [Flag] -> FilePath -> IO AbsolutePathOrStd
 fixFilePathOrStd opts f =
     case extract_fix_path opts of
       Nothing -> bug "Can't fix path in fixFilePathOrStd"
       Just (_,o) -> withCurrentDirectory o $ ioAbsoluteOrStd f
 
-fixFilePathOrUrl :: [IolausFlag] -> String -> IO AbsoluteOrRemotePath
+fixFilePathOrUrl :: [Flag] -> String -> IO AbsoluteOrRemotePath
 fixFilePathOrUrl opts f =
     case extract_fix_path opts of
       Nothing -> bug "Can't fix path in fixFilePathOrUrl"
       Just (_,o) -> withCurrentDirectory o $ ioAbsoluteOrRemote f
 
-fixUrl :: [IolausFlag] -> String -> IO String
+fixUrl :: [Flag] -> String -> IO String
 fixUrl opts f = if is_file f
                 then toFilePath `fmap` fixFilePath opts f
                 else return f
 
-fixSubPaths :: [IolausFlag] -> [FilePath] -> IO [SubPath]
+fixSubPaths :: [Flag] -> [FilePath] -> IO [SubPath]
 fixSubPaths flags fs =
     withCurrentDirectory o $
     do fixedfs <- mapM fixit $ filter (not.null) fs
@@ -410,7 +415,7 @@ list_options :: IolausOption
 list_options = IolausNoArgOption [] ["list-options"] ListOptions
                "simply list the command's arguments"
 
-flagToString :: [IolausOption] -> IolausFlag -> Maybe String
+flagToString :: [IolausOption] -> Flag -> Maybe String
 flagToString x f = maybeHead $ catMaybes $ map f2o x
     where f2o (IolausArgOption _ (s:_) c _ _) =
               do arg <- get_content f
@@ -541,7 +546,7 @@ possibly_remote_repo_dir = IolausArgOption [] ["repo"] RepoDir "URL"
 -- | 'get_repourl' takes a list of flags and returns the url of the
 -- repository specified by @Repodir \"directory\"@ in that list of flags, if any.
 -- This flag is present if darcs was invoked with @--repodir=DIRECTORY@
-get_repourl :: [IolausFlag] -> Maybe String
+get_repourl :: [Flag] -> Maybe String
 get_repourl [] = Nothing
 get_repourl (RepoDir d:_) | not (is_file d) = Just d
 get_repourl (_:fs) = get_repourl fs
@@ -686,7 +691,7 @@ tag_on_test = IolausMultipleChoiceOption
                IolausNoArgOption [] ["no-tag-on-test"]
                NoTagOnTest "don't tag version when test is passed [DEFAULT]"]
 
-testByDefault :: [IolausFlag] -> [IolausFlag]
+testByDefault :: [Flag] -> [Flag]
 testByDefault o = if NoTest `elem` o then o else Test:o
 
 pristine_tree =
@@ -780,7 +785,7 @@ cc = IolausArgOption [] ["cc"] Cc "EMAIL" "mail results to additional EMAIL(s). 
 -- the patch bundle to when using @darcs send@.
 -- looks for a cc address specified by @Cc \"address\"@ in that list of flags.
 -- Returns the addresses as a comma separated string.
-get_cc :: [IolausFlag] -> String
+get_cc :: [Flag] -> String
 get_cc fs = lt $ catMaybes $ map whatcc fs
             where whatcc (Cc t) = Just t
                   whatcc _ = Nothing
@@ -797,7 +802,7 @@ subject = IolausArgOption [] ["subject"] Subject "SUBJECT" "specify mail subject
 -- to be sent by @darcs send@. Looks for a subject specified by
 -- @Subject \"subject\"@ in that list of flags, if any.
 -- This flag is present if darcs was invoked with @--subject=SUBJECT@
-get_subject :: [IolausFlag] -> Maybe String
+get_subject :: [Flag] -> Maybe String
 get_subject (Subject s:_) = Just s
 get_subject (_:fs) = get_subject fs
 get_subject [] = Nothing
@@ -805,7 +810,7 @@ get_subject [] = Nothing
 
 \begin{code}
 in_reply_to = IolausArgOption [] ["in-reply-to"] InReplyTo "EMAIL" "specify in-reply-to header"
-get_in_reply_to :: [IolausFlag] -> Maybe String
+get_in_reply_to :: [Flag] -> Maybe String
 get_in_reply_to (InReplyTo s:_) = Just s
 get_in_reply_to (_:fs) = get_in_reply_to fs
 get_in_reply_to [] = Nothing
@@ -927,9 +932,23 @@ __ephemeral = IolausNoArgOption [] ["ephemeral"] Ephemeral
               "don't save patch files in the repository"
 __complete = IolausNoArgOption [] ["complete"] Complete
              "get a complete copy of the repository"
-\end{code}
 
-\begin{code}
+commitApproach :: IolausOption
+commitApproach = IolausMultipleChoiceOption 
+    [IolausNoArgOption [] ["cauterize-all"] CauterizeAllHeads
+     "new commit depends on all existing commits",
+     IolausNoArgOption [] ["no-cauterize-all"] NoCauterizeAllHeads
+     "commit in minimal context [default]"]
+
+mergeStrategy :: IolausOption
+mergeStrategy = IolausMultipleChoiceOption 
+                [IolausNoArgOption [] ["git-merge"] NativeMerge
+                 "use git's builtin merge",
+                 IolausNoArgOption [] ["iolaus-merge"] NativeMerge
+                 "use iolaus builtin merge [default]",
+                 IolausNoArgOption [] ["first-parent-merge"] FirstParentMerge
+                 "use silly first-parent merge"]
+
 force_replace = IolausMultipleChoiceOption
                 [IolausNoArgOption ['f'] ["force"] ForceReplace
                  "proceed with replace even if 'new' token already exists",
@@ -1112,7 +1131,7 @@ sibling = IolausAbsPathOption [] ["sibling"] Sibling "URL"
           "specify a sibling directory"
 
 -- | 'flagsToSiblings' collects the contents of all @Sibling@ flags in a list of flags.
-flagsToSiblings :: [IolausFlag] -> [AbsolutePath]
+flagsToSiblings :: [Flag] -> [AbsolutePath]
 flagsToSiblings ((Sibling s) : l) = s : (flagsToSiblings l)
 flagsToSiblings (_ : l) = flagsToSiblings l
 flagsToSiblings [] = []
@@ -1149,7 +1168,7 @@ sendmail_cmd = IolausArgOption [] ["sendmail-command"] SendmailCmd "COMMAND" "sp
 -- @SendmailCmd \"command\"@ in that list of flags, if any.
 -- This flag is present if darcs was invoked with @--sendmail-command=COMMAND@
 -- Alternatively the user can set @$SENDMAIL@ which will be used as a fallback if present.
-get_sendmail_cmd :: [IolausFlag] -> IO String 
+get_sendmail_cmd :: [Flag] -> IO String 
 get_sendmail_cmd (SendmailCmd a:_) = return a
 get_sendmail_cmd (_:flags) = get_sendmail_cmd flags
 get_sendmail_cmd [] = do easy_sendmail <- firstJustIO [ maybeGetEnv "SENDMAIL" ]
@@ -1215,7 +1234,7 @@ posthook_cmd = IolausMultipleChoiceOption
 
 -- | 'get_posthook_cmd' takes a list of flags and returns the posthook command
 --  specified by @PosthookCmd a@ in that list of flags, if any.
-get_posthook_cmd :: [IolausFlag] -> Maybe String
+get_posthook_cmd :: [Flag] -> Maybe String
 get_posthook_cmd (PosthookCmd a:_) = Just a
 get_posthook_cmd (_:flags) = get_posthook_cmd flags
 get_posthook_cmd [] = Nothing
@@ -1238,7 +1257,7 @@ prehook_cmd = IolausMultipleChoiceOption
 
 -- | 'get_prehook_cmd' takes a list of flags and returns the prehook command
 --  specified by @PrehookCmd a@ in that list of flags, if any.
-get_prehook_cmd :: [IolausFlag] -> Maybe String
+get_prehook_cmd :: [Flag] -> Maybe String
 get_prehook_cmd (PrehookCmd a:_) = Just a
 get_prehook_cmd (_:flags) = get_prehook_cmd flags
 get_prehook_cmd [] = Nothing
@@ -1259,7 +1278,7 @@ allow_unrelated_repos =
 \begin{code}
 -- | @'patch_select_flag' f@ holds whenever @f@ is a way of selecting
 -- patches such as @PatchName n@.
-patch_select_flag :: IolausFlag -> Bool
+patch_select_flag :: Flag -> Bool
 patch_select_flag All = True
 patch_select_flag (PatchName _) = True
 patch_select_flag (OnePatch _) = True

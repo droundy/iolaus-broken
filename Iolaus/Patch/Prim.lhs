@@ -45,7 +45,7 @@ import Control.Monad ( MonadPlus, msum, mzero, mplus )
 import Data.Map ( elems, fromListWith, mapWithKey )
 #endif
 
-import qualified Data.ByteString as B ( ByteString, length, head )
+import qualified Data.ByteString as B ( ByteString, length, head, concat )
 
 import Iolaus.FileName ( FileName, fn2fp, fp2fn, norm_path,
                               movedirfilename, encode_white )
@@ -57,9 +57,8 @@ import Iolaus.Ordered ( EqCheck(..), MyEq(..),
 import Iolaus.Patch.Patchy ( Invert(..), Commute(..) )
 import Iolaus.Patch.Permutations () -- for Invert instance of FL
 import Iolaus.Show
-import Iolaus.Lcs2 ( patientChanges )
-import Iolaus.Printer ( Doc, vcat, hcat,
-                        Color(Red,Green,Cyan,Magenta), lineColor,
+import Iolaus.Lcs2 ( nestedChanges )
+import Iolaus.Printer ( Doc, vcat, Color(Red,Green,Cyan,Magenta), lineColor,
                         text, blueText, colorPS,
                         ($$), (<+>), (<>), prefix, userchunkPS )
 import Iolaus.IO ( ExecutableBit(IsExecutable, NotExecutable) )
@@ -235,7 +234,7 @@ instance Show (Prim C(x y))  where
 -}
 
 formatFileName :: FileName -> Doc
-formatFileName = text . drop 2 . encode_white . toFilePath
+formatFileName = blueText . drop 2 . encode_white . toFilePath
 
 showPrim :: Prim C(a b) -> Doc
 showPrim (FP f AddFile) = showAddFile f
@@ -329,8 +328,8 @@ showChunk :: FileName -> B.ByteString
 showChunk f chs word old new =
            blueText "chunk" <+> userchunkPS chs <+> formatFileName f
                         <+> text (show word) $$
-              (hcat $ map (colorPS Red) old) <>
-              (hcat $ map (colorPS Green) new)
+              (colorPS Red $ B.concat old) <>
+              (colorPS Green $ B.concat new)
 
 try_to_shrink :: FL Prim C(x y) -> FL Prim C(x y)
 try_to_shrink = mapPrimFL try_harder_to_shrink
@@ -522,10 +521,7 @@ everything_else_commute x = eec x
         msum [clever_commute commute_filedir xx]
 
 instance Commute Prim where
-    merge (y :\/: z) =
-        case elegant_merge (y:\/:z) of
-        Just (z' :/\: y') -> z' :/\: y'
-        Nothing -> error "Commute Prim merge"
+    merge = elegant_merge
     commute x = toMaybe $ msum [speedy_commute x,
                                 everything_else_commute x]
     -- Recurse on everything, these are potentially spoofed patches
@@ -597,9 +593,7 @@ commute_filedir (Move f f' :> Move d d')
           f1' = movedirfilename d d' f'
 
 commute_filedir _ = Unknown
-\end{code}
 
-\begin{code}
 type CommuteFunction = FORALL(x y) (Prim :> Prim) C(x y)
                      -> Perhaps ((Prim :> Prim) C(x y))
 subcommutes :: [(String, CommuteFunction)]
@@ -690,6 +684,10 @@ commuteFP f (Hunk line1 [] [] :> p2) =
     seq f $ Succeeded (FP f (unsafeCoerceP p2) :> FP f (Hunk line1 [] []))
 commuteFP f (Hunk line2 old2 new2 :> Hunk line1 old1 new1) = seq f $
   toPerhaps $ commuteHunk f (Hunk line2 old2 new2 :> Hunk line1 old1 new1)
+commuteFP f (Chunk c w1 o1 n1 :> Chunk c2 w2 o2 n2)
+    | c == c2 =
+        toPerhaps $ commuteChunk f (Chunk c w1 o1 n1 :> Chunk c2 w2 o2 n2)
+-- FIXME: add commmute for chunks
 commuteFP _ _ = Unknown
 \end{code}
 
@@ -698,8 +696,8 @@ coalesceFilePrim :: FileName -> (FilePatchType :> FilePatchType) C(x y)
                   -> Maybe (Prim C(x y))
 coalesceFilePrim f (Hunk line2 old2 new2 :> Hunk line1 old1 new1)
     = coalesceHunk f line1 old1 new1 line2 old2 new2
--- Token replace patches operating right after (or before) AddFile (RmFile)
--- is an identity patch, as far as coalescing is concerned.
+coalesceFilePrim f (Chunk c1 w1 o1 n1 :> Chunk c2 w2 o2 n2)
+    | c1 == c2 = coalesceChunk f c1 w1 o1 n1 w2 o2 n2
 coalesceFilePrim _ _ = Nothing
 \end{code}
 
@@ -732,12 +730,63 @@ commuteHunk f (Hunk line1 old1 new1 :> Hunk line2 old2 new2)
         lengthold1 = length old1
         lengthold2 = length old2
 commuteHunk _ _ = impossible
+
+commuteChunk :: FileName -> (FilePatchType :> FilePatchType) C(x y)
+             -> Maybe ((Prim :> Prim) C(x y))
+commuteChunk f (Chunk c line1 old1 new1 :> Chunk _ line2 old2 new2)
+  | seq f $ line1 + lengthnew1 < line2 =
+      Just (FP f (Chunk c (line2 - lengthnew1 + lengthold1) old2 new2) :>
+            FP f (Chunk c line1 old1 new1))
+  | line2 + lengthold2 < line1 =
+      Just (FP f (Chunk c line2 old2 new2) :>
+            FP f (Chunk c (line1+ lengthnew2 - lengthold2) old1 new1))
+  | line1 + lengthnew1 == line2 &&
+    lengthold2 /= 0 && lengthold1 /= 0 && lengthnew2 /= 0 && lengthnew1 /= 0 =
+      Just (FP f (Chunk c (line2 - lengthnew1 + lengthold1) old2 new2) :>
+            FP f (Chunk c line1 old1 new1))
+  | line2 + lengthold2 == line1 &&
+    lengthold2 /= 0 && lengthold1 /= 0 && lengthnew2 /= 0 && lengthnew1 /= 0 =
+      Just (FP f (Chunk c line2 old2 new2) :>
+            FP f (Chunk c (line1 + lengthnew2 - lengthold2) old1 new1))
+  | otherwise = Nothing
+  where lengthnew1 = length new1
+        lengthnew2 = length new2
+        lengthold1 = length old1
+        lengthold2 = length old2
+commuteChunk _ _ = impossible
 \end{code}
 Hunks, of course, can be coalesced if they have any overlap.  Note that
 coalesce code doesn't check if the two patches are conflicting.  If you are
 coalescing two conflicting hunks, you've already got a bug somewhere.
 
 \begin{code}
+coalesceChunk :: FileName -> B.ByteString
+             -> Int -> [B.ByteString] -> [B.ByteString]
+             -> Int -> [B.ByteString] -> [B.ByteString]
+             -> Maybe (Prim C(x y))
+coalesceChunk f c line1 old1 new1 line2 old2 new2
+    | line1 == line2 && lengthold1 < lengthnew2 =
+        if take lengthold1 new2 /= old1
+        then Nothing
+        else case drop lengthold1 new2 of
+        extranew -> Just (FP f (Chunk c line1 old2 (new1 ++ extranew)))
+    | line1 == line2 && lengthold1 > lengthnew2 =
+        if take lengthnew2 old1 /= new2
+        then Nothing
+        else case drop lengthnew2 old1 of
+        extraold -> Just (FP f (Chunk c line1 (old2 ++ extraold) new1))
+    | line1 == line2 = if new2 == old1 then Just (FP f (Chunk c line1 old2 new1))
+                       else Nothing
+    | line1 < line2 && lengthold1 >= line2 - line1 =
+        case take (line2 - line1) old1 of
+        extra-> coalesceChunk f c line1 old1 new1 line1 (extra ++ old2) (extra ++ new2)
+    | line1 > line2 && lengthnew2 >= line1 - line2 =
+        case take (line1 - line2) new2 of
+        extra-> coalesceChunk f c line2 (extra ++ old1) (extra ++ new1) line2 old2 new2
+    | otherwise = Nothing
+    where lengthold1 = length old1
+          lengthnew2 = length new2
+
 coalesceHunk :: FileName
              -> Int -> [B.ByteString] -> [B.ByteString]
              -> Int -> [B.ByteString] -> [B.ByteString]
@@ -781,7 +830,7 @@ canonizeChunk :: FileName -> B.ByteString -> Int
 canonizeChunk f c w old new
     | null old || null new
         = FP f (Chunk c w old new) :>: NilFL
-canonizeChunk f c w old new = make_chs $ patientChanges old new
+canonizeChunk f c w old new = make_chs $ nestedChanges old new
     where make_chs ((l,o,n):cs) = FP f (Chunk c (l+w) o n) :>: make_chs cs
           make_chs [] = unsafeCoerceP NilFL
 
@@ -790,7 +839,7 @@ canonizeHunk :: FileName -> Int
 canonizeHunk f line old new
     | null old || null new
         = FP f (Hunk line old new) :>: NilFL
-canonizeHunk f line old new = make_holey f line $ patientChanges old new
+canonizeHunk f line old new = make_holey f line $ nestedChanges old new
 
 make_holey :: FileName -> Int -> [(Int,[B.ByteString], [B.ByteString])]
            -> FL Prim C(x y)

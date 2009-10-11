@@ -19,8 +19,9 @@
 \begin{code}
 module Iolaus.Commands.ShowCommit ( show_commit ) where
 
-import Iolaus.Arguments ( IolausFlag(..), summary, working_repo_dir )
-import Iolaus.Command ( IolausCommand(..), nodefaults )
+import Iolaus.Arguments ( Flag(..), mergeStrategy,
+                          summary, working_repo_dir )
+import Iolaus.Command ( Command(..), nodefaults )
 import Iolaus.Printer ( putDocLnWith )
 import Iolaus.ColorPrinter ( fancyPrinters )
 import Iolaus.Patch ( showContextPatch, summarize, invert, apply_to_slurpy )
@@ -28,7 +29,7 @@ import Iolaus.Sealed ( Sealed(Sealed), FlippedSeal(FlippedSeal) )
 
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( parseRev, nameRevs, catCommit, CommitEntry(myTree) )
-import Git.Helpers ( slurpTree, diffCommit, Strategy( Builtin ) )
+import Git.Helpers ( slurpTree, diffCommit, Strategy( .. ) )
 \end{code}
 
 \options{show commit}
@@ -47,8 +48,8 @@ show_commit_help =
 \end{code}
 
 \begin{code}
-show_commit :: IolausCommand
-show_commit = IolausCommand {
+show_commit :: Command
+show_commit = Command {
   command_name = "commit",
   command_help = show_commit_help,
   command_description = show_commit_description,
@@ -59,16 +60,15 @@ show_commit = IolausCommand {
   command_get_arg_possibilities = nameRevs,
   command_argdefaults = nodefaults,
   command_advanced_options = [],
-  command_basic_options = [summary, working_repo_dir] }
+  command_basic_options = [mergeStrategy, summary, working_repo_dir] }
 
-commit_cmd :: [IolausFlag] -> [String] -> IO ()
+commit_cmd :: [Flag] -> [String] -> IO ()
 commit_cmd opts cs = mapM_ showc cs
     where showc c =
-              do let mystrategy = Builtin
-                 Sealed x <- parseRev c
+              do Sealed x <- parseRev c
                  commit <- catCommit x
                  putStr $ show commit
-                 FlippedSeal ch <- diffCommit mystrategy x
+                 FlippedSeal ch <- diffCommit opts x
                  new <- slurpTree (myTree commit)
                  let Just old = apply_to_slurpy (invert ch) new
                  if Summary `elem` opts

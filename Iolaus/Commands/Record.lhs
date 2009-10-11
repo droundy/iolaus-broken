@@ -30,12 +30,12 @@ import System.IO ( hPutStrLn )
 
 import Iolaus.Lock ( readBinFile, writeBinFile, world_readable_temp,
                    appendToFile, removeFileMayNotExist )
-import Iolaus.Command ( IolausCommand(..), nodefaults )
-import Iolaus.Arguments ( IolausFlag( PromptLongComment, NoEditLongComment,
+import Iolaus.Command ( Command(..), nodefaults )
+import Iolaus.Arguments ( Flag( PromptLongComment, NoEditLongComment,
                                   Quiet, EditLongComment, RmLogFile,
                                   LogFile, Pipe,
                                   PatchName, All ),
-                        working_repo_dir,
+                        working_repo_dir, mergeStrategy, commitApproach,
                         fixSubPaths, testByDefault,
                         ask_long_comment,
                         all_pipe_interactive, notest,
@@ -48,13 +48,12 @@ import Iolaus.Printer ( ($$), text, hPutDocLn, wrap_text, renderString )
 import Iolaus.SelectChanges ( with_selected_changes_to_files )
 import Iolaus.Ordered ( (:>)(..), FL(NilFL) )
 import Iolaus.Progress ( debugMessage )
-import Iolaus.Repository ( get_unrecorded_changes, slurp_recorded )
+import Iolaus.Repository ( get_unrecorded_changes, slurp_recorded, add_heads )
 import Iolaus.Sealed ( Sealed(Sealed) )
 
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( lsfiles, heads,
-                      commitTree, updateref )
-import Git.Helpers ( test, writeSlurpTree )
+import Git.Plumbing ( lsfiles, heads, commitTree )
+import Git.Helpers ( test, writeSlurpTree, simplifyParents )
 
 #include "impossible.h"
 \end{code}
@@ -76,8 +75,8 @@ record_help = renderString $ wrap_text 80 $
  "repository."
 \end{code}
 \begin{code}
-record :: IolausCommand
-record = IolausCommand {command_name = "record",
+record :: Command
+record = Command {command_name = "record",
                        command_help = record_help,
                        command_description = record_description,
                        command_extra_args = -1,
@@ -88,18 +87,19 @@ record = IolausCommand {command_name = "record",
                        command_argdefaults = nodefaults,
                        command_advanced_options = [logfile, rmlogfile],
                        command_basic_options = [patchname_option, author]++
-                                               notest++[
+                                               notest++[mergeStrategy,
+                                               commitApproach,
                                                all_pipe_interactive,
                                                ask_long_comment,
                                                working_repo_dir]}
 
-record_cmd :: [IolausFlag] -> [String] -> IO ()
+record_cmd :: [Flag] -> [String] -> IO ()
 record_cmd opts args = do
     check_name_is_not_option opts
     files <- sort `fmap` fixSubPaths opts args
     handleJust only_successful_exits (\_ -> return ()) $ do
-    old <- slurp_recorded
-    Sealed allchs <- get_unrecorded_changes
+    old <- slurp_recorded opts
+    Sealed allchs <- get_unrecorded_changes opts
     with_selected_changes_to_files "record" opts old (map toFilePath files)
                                    allchs $ \ (ch:>_) ->
         do debugMessage "have finished selecting changes..."
@@ -114,15 +114,16 @@ record_cmd opts args = do
                     (name, my_log, _) <- get_log opts Nothing
                                        (world_readable_temp "iolaus-record")
                     let message = (unlines $ name:my_log)
-                    test (testByDefault opts) newtree
                     hs <- heads
-                    com <- commitTree newtree hs message
-                    updateref "refs/heads/master" com
+                    (hs', Sealed newtree') <- simplifyParents opts hs newtree
+                    test (testByDefault opts) newtree'
+                    com <- commitTree newtree' hs' message
+                    add_heads opts [Sealed com]
                     putStrLn ("Finished recording patch '"++ name ++"'")
 
  -- check that what we treat as the patch name is not accidentally a command
  -- line flag
-check_name_is_not_option :: [IolausFlag] -> IO ()
+check_name_is_not_option :: [Flag] -> IO ()
 check_name_is_not_option opts = do
     let putInfo = if Quiet `elem` opts then const (return ()) else putStrLn
         patchNames = [n | PatchName n <- opts]
@@ -174,7 +175,7 @@ override the \verb!--patch-name! option.
 \begin{code}
 data PName = FlagPatchName String | PriorPatchName String | NoPatchName
 
-get_log :: [IolausFlag] -> Maybe (String, [String]) -> IO String ->
+get_log :: [Flag] -> Maybe (String, [String]) -> IO String ->
            IO (String, [String], Maybe String)
 get_log opts m_old make_log = gl opts
     where patchname_specified = patchname_helper opts

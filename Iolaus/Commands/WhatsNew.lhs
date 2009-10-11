@@ -25,8 +25,9 @@
 
 module Iolaus.Commands.WhatsNew ( whatsnew ) where
 
-import Iolaus.Command ( IolausCommand(..), nodefaults )
-import Iolaus.Arguments ( IolausFlag(Summary), working_repo_dir, summary )
+import Iolaus.Command ( Command(..), nodefaults )
+import Iolaus.Arguments ( Flag(Summary), mergeStrategy,
+                          working_repo_dir, summary )
 
 import Iolaus.Patch ( showContextPatch, summarize )
 import Iolaus.Printer ( putDocLnWith )
@@ -61,8 +62,8 @@ whatsnew_help =
 \end{code}
 
 \begin{code}
-whatsnew :: IolausCommand
-whatsnew = IolausCommand {command_name = "whatsnew",
+whatsnew :: Command
+whatsnew = Command {command_name = "whatsnew",
                          command_help = whatsnew_help,
                          command_description = whatsnew_description,
                          command_extra_args = -1,
@@ -72,14 +73,15 @@ whatsnew = IolausCommand {command_name = "whatsnew",
                          command_get_arg_possibilities = lsfiles,
                          command_argdefaults = nodefaults,
                          command_advanced_options = [],
-                         command_basic_options = [summary,working_repo_dir]}
+                         command_basic_options = [summary, mergeStrategy,
+                                                  working_repo_dir]}
 \end{code}
 
 \begin{code}
-whatsnew_cmd :: [IolausFlag] -> [String] -> IO ()
+whatsnew_cmd :: [Flag] -> [String] -> IO ()
 whatsnew_cmd opts _ =
-    do old <- slurp_recorded
-       Unrecorded chs _ <- get_unrecorded
+    do old <- slurp_recorded opts
+       Unrecorded chs _ <- get_unrecorded opts
        if Summary `elem` opts
           then putDocLnWith fancyPrinters $ summarize chs
           else putDocLnWith fancyPrinters $ showContextPatch old chs

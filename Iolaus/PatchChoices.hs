@@ -55,9 +55,9 @@ module Iolaus.PatchChoices ( PatchChoices, patch_choices, patch_choices_tps,
 
 import System.IO.Unsafe ( unsafePerformIO )
 import Data.IORef ( newIORef, writeIORef, readIORef )
-import Iolaus.Patch ( Patchy, commuteWhatWeCanRL,
-                     Commute, commute, merge, list_touched_files,
-                     Invert, invert, identity )
+import Iolaus.Patch ( Patchy, commuteWhatWeCanRL, Apply, apply,
+                      Commute, commute, merge, list_touched_files,
+                      Invert, invert, identity )
 import Iolaus.Ordered ( FL(..), RL(..), MyEq, unsafeCompare,
                              (:>)(..), (:\/:)(..), (:/\:)(..),
                              zipWithFL, mapFL_FL, mapFL,
@@ -96,8 +96,11 @@ instance Commute p => Commute (TaggedPatch p) where
     commute (TP t1 p1 :> TP t2 p2) = do p2' :> p1' <- commute (p1 :> p2)
                                         return (TP t2 p2' :> TP t1 p1')
     list_touched_files (TP _ p) = list_touched_files p
-    merge (TP t1 p1 :\/: TP t2 p2) = case merge (p1 :\/: p2) of
-                                     p2' :/\: p1' -> TP t2 p2' :/\: TP t1 p1'
+    merge (TP t1 p1 :\/: TP t2 p2) = do p2' :/\: p1' <- merge (p1 :\/: p2)
+                                        Just $ TP t2 p2' :/\: TP t1 p1'
+
+instance Apply p => Apply (TaggedPatch p) where
+    apply (TP _ p) = apply p
 
 patch_choices :: Patchy p => FL p C(x y) -> PatchChoices p C(x y)
 patch_choices = fst . patch_choices_tps
@@ -119,9 +122,8 @@ instance Commute p => Commute (PatchChoice p) where
     commute (PC t1 x1 :> PC t2 x2)
         = do t2' :> t1' <- commute (t1 :> t2)
              return (PC t2' x2 :> PC t1' x1)
-    merge (PC t1 x1 :\/: PC t2 x2)
-        = case merge (t1 :\/: t2) of
-          t2' :/\: t1' -> PC t2' x2 :/\: PC t1' x1
+    merge (PC t1 x1 :\/: PC t2 x2) = do t2' :/\: t1' <- merge (t1 :\/: t2)
+                                        Just $ PC t2' x2 :/\: PC t1' x1
     list_touched_files (PC t _) = list_touched_files t
 
 invertSeq :: (Invert p, Invert q) => (p :> q) C(x y) -> (q :> p) C(y x)

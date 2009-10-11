@@ -18,8 +18,8 @@
 \subsection{iolaus initialize}\label{initialize}
 \begin{code}
 module Iolaus.Commands.Init ( initialize, initialize_cmd ) where
-import Iolaus.Command ( IolausCommand(..), nodefaults )
-import Iolaus.Arguments ( IolausFlag, working_repo_dir )
+import Iolaus.Command ( Command(..), nodefaults )
+import Iolaus.Arguments ( Flag, working_repo_dir )
 
 import Git.LocateRepo ( amNotInRepository )
 import Git.Plumbing ( gitInit )
@@ -49,8 +49,8 @@ initialize_help =
 \end{code}
 
 \begin{code}
-initialize :: IolausCommand
-initialize = IolausCommand {command_name = "initialize",
+initialize :: Command
+initialize = Command {command_name = "initialize",
                          command_help = initialize_help,
                          command_description = initialize_description,
                          command_extra_args = 0,
@@ -64,7 +64,7 @@ initialize = IolausCommand {command_name = "initialize",
 \end{code}
 
 \begin{code}
-initialize_cmd :: [IolausFlag] -> [String] -> IO ()
+initialize_cmd :: [Flag] -> [String] -> IO ()
 initialize_cmd _ _ = gitInit []
 \end{code}
 

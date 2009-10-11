@@ -18,16 +18,73 @@
 --  Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 module Iolaus.Lcs2 ( getChanges, patientChanges, smartChanges,
-                         patientLcs ) where
+                     patientLcs, nestedChanges ) where
 
 import Data.List ( sort )
 import Data.Array.ST
 import Control.Monad.ST
 import qualified Data.Set as S
 
-import qualified Data.ByteString as B (ByteString)
+import qualified Data.ByteString as B ( ByteString, elem, null )
+import qualified Data.ByteString.Char8 as BC ( pack )
 
 #include "impossible.h"
+
+nestedChanges :: [B.ByteString] -> [B.ByteString]
+              -> [(Int, [B.ByteString], [B.ByteString])]
+nestedChanges o n = genNestedChanges [byparagraph,bylines] 0 o n
+
+genNestedChanges :: [[B.ByteString] -> [[B.ByteString]]]
+                 -> Int -> [B.ByteString] -> [B.ByteString]
+                 -> [(Int, [B.ByteString], [B.ByteString])]
+genNestedChanges br i (x:o) (x':n)
+    | x == x' = ip1 `seq` genNestedChanges br ip1 o n
+    where ip1 = i+1
+genNestedChanges (br:brs) i0 o0 n0 = nc i0 (lcus ol nl) ol nl
+    where nl = br n0
+          ol = br o0
+          nc i [] o n = easydiff i o n
+          nc i (x:xs) o n =
+              case break (==x) o of
+                (oa, _:ob) ->
+                    case break (==x) n of
+                      (na, _:nb) ->
+                         i' `seq` easydiff i oa na ++ nc i' xs ob nb
+                             where i' = i + length (concat na) + length x
+                      (_,[]) -> impossible
+                (_,[]) -> impossible
+          easydiff i o n = genNestedChanges brs i oo nn
+              where (oo, nn) = (concat o, concat n)
+genNestedChanges [] i o n = mkdiff i (patientLcs o n) o n
+
+byparagraph :: [B.ByteString] -> [[B.ByteString]]
+byparagraph [] = []
+byparagraph (a:b:c:d)
+    | a == nl && c == nl && B.null b = [a,b,c] : byparagraph d
+    where nl = BC.pack "\n"
+byparagraph (a:b) = case byparagraph b of
+                      c:d -> (a:c) : d
+                      [] -> [[a]]
+
+bylines :: [B.ByteString] -> [[B.ByteString]]
+bylines [] = []
+bylines xs = case break (B.elem nl) xs of
+               (_,[]) -> [xs]
+               (a,n:b) -> (a++[n]) : bylines b
+    where nl = 10 -- '\n'
+
+
+-- | the longest common subsequence of unique items
+
+lcus :: Ord a => [a] -> [a] -> [a]
+lcus xs0 ys0 = lcs (filter (`S.member`u) xs0) (filter (`S.member`u) ys0)
+    where uxs = findUnique xs0
+          uys = findUnique ys0
+          u = S.intersection uxs uys
+          findUnique xs = S.fromList $ gru $ sort xs
+          gru (x:x':xs) | x == x' = gru (dropWhile (==x) xs)
+          gru (x:xs) = x : gru xs
+          gru [] = []
 
 {-# SPECIALIZE smartChanges :: [B.ByteString] -> [B.ByteString]
                               -> [(Int, [B.ByteString], [B.ByteString])] #-}
@@ -47,11 +104,29 @@ getChanges o n = mkdiff 0 (lcs o n) o n
 
 mkdiff :: Ord a => Int -> [a] -> [a] -> [a] -> [(Int,[a],[a])]
 mkdiff ny (l:ls) (x:xs) (y:ys) | l == x && l == y = mkdiff (ny+1) ls xs ys
-mkdiff ny (l:ls) xs ys = do let rmd = takeWhile (/= l) xs
-                                add = takeWhile (/= l) ys
-                                restx = drop (length rmd + 1) xs
-                                resty = drop (length add + 1) ys
-                            (ny, rmd, add) : mkdiff (ny+length add+1) ls restx resty
+mkdiff ny (l:ls) xs ys
+    | length lls > 0 && not (null rest) =
+        if rmd == add
+        then error "bug in mkdiff"
+        else (ny, rmd, add) : mkdiff (ny+length add+1) ls restx resty
+    where (lls, rest) = span (==l) (l:ls)
+          l2:_ = rest
+          rmd0 = takels lls xs ++ takeWhile (/= l2) (dropls lls xs)
+          add0 = takels lls ys ++ takeWhile (/= l2) (dropls lls ys)
+          takels zs lis = take (length lis - length (dropls zs lis)) lis
+          dropls (z:zs) lis = dropls zs $ drop 1 $ dropWhile (/=z) lis
+          dropls [] lis = lis
+          rmd = reverse $ dropls lls $ reverse rmd0
+          add = reverse $ dropls lls $ reverse add0
+          restx = drop (length rmd + 1) xs
+          resty = drop (length add + 1) ys
+mkdiff ny (l:ls) xs ys =
+    (ny, rmd, add) : mkdiff (ny+length add+1) ls restx resty
+    where rmd = takeWhile (/= l) xs
+          add = takeWhile (/= l) ys
+          restx = drop (length rmd + 1) xs
+          resty = drop (length add + 1) ys
+       
 mkdiff _ [] [] [] = []
 mkdiff ny [] xs ys = [(ny, xs, ys)]
 

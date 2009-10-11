@@ -18,7 +18,7 @@
 \begin{code}
 module Iolaus.Commands.Show ( show_command ) where
 
-import Iolaus.Command ( IolausCommand(..), CommandControl(Command_data) )
+import Iolaus.Command ( Command(..), CommandControl(Command_data) )
 import Iolaus.Commands.ShowAuthors ( show_authors )
 import Iolaus.Commands.ShowCommit ( show_commit )
 import Iolaus.Commands.ShowContents ( show_contents )
@@ -34,7 +34,7 @@ show_help =
  "Use the --help option with the subcommands to obtain help for\n"++
  "subcommands (for example, \"arcs show files --help\").\n"
 
-show_command :: IolausCommand
+show_command :: Command
 show_command = SuperCommand {
                  command_name = "show",
                  command_help = show_help,

@@ -229,8 +229,8 @@ mark_escape po | poAltColor po  = make_invert
 -- @policy@ is not set to use an alternative to color. In that case,
 -- it makes the text bold instead.
 color :: Policy -> Color -> Doc -> Doc
-color po | poAltColor po = \_ -> make_bold
-         | otherwise     = make_color
+color po c | poAltColor po = make_bold
+           | otherwise     = make_color c
 
 make_color, make_color' :: Color -> Doc -> Doc
 
@@ -242,6 +242,7 @@ make_color Red     = make_color' Red
 make_color Green   = make_color' Green
 make_color Cyan    = make_color' Cyan
 make_color Magenta = make_color' Magenta
+make_color c = make_color' c
 
 set_color :: Color -> String
 set_color Blue    = "\x1B[01;34m" -- bold blue
@@ -249,6 +250,7 @@ set_color Red     = "\x1B[01;31m" -- bold red
 set_color Green   = "\x1B[01;32m" -- bold green
 set_color Cyan    = "\x1B[36m"    -- light cyan
 set_color Magenta = "\x1B[35m"    -- light magenta
+set_color (Underline c) = "\x1B[04m" ++ set_color c
 
 -- | @'make_asciiart' doc@ tries to make @doc@ (usually a
 -- single escaped char) stand out with the help of only plain
@@ -271,7 +273,8 @@ with_color c =
 
 -- | 'make_bold' boldens a doc.
 make_bold :: Doc -> Doc
+make_bold   = with_color "\x1B[01m"
+
 -- | 'make_invert' returns an invert video version of a doc.
 make_invert :: Doc -> Doc
-make_bold   = with_color "\x1B[01m"
 make_invert = with_color "\x1B[07m"

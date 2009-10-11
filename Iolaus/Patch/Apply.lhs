@@ -153,11 +153,17 @@ applyChunk ch w old new = fmap B.concat . appl . chunkify ch
           stripPrefix [] ys = Just ys
           stripPrefix _ _ = Nothing
 
+-- | chunkify creates separate alternating word/delimiter chunks (the
+-- latter always one byte long).  This allows us to do the "right
+-- thing" when words either at the end or the beginning of the line
+-- are edited--i.e. the newline is not marked as changed.
 chunkify :: B.ByteString -> B.ByteString -> [B.ByteString]
 chunkify _ ps | B.null ps = []
 chunkify c ps = case B.findIndex (`B.elem` c) ps of
                 Nothing -> [ps]
-                Just i -> case B.splitAt (i+1) ps of (a,b) -> a : chunkify c b
+                Just i -> case B.splitAt i ps of
+                            (a,b) -> case B.splitAt 1 b of
+                                       (x,y) -> a : x : chunkify c y
 \end{code}
 
 \subsection{Hunk patches}

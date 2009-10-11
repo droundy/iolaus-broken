@@ -28,7 +28,6 @@ module Iolaus.Patch.Patchy ( Patchy,
                             ShowPatch(..),
                             Invert(..), invertFL, invertRL ) where
 
-import Data.Maybe ( fromJust )
 import Data.List ( nub )
 
 import Iolaus.SlurpDirectory ( Slurpy )
@@ -49,7 +48,7 @@ class Apply p where
 
 class Commute p where
     commute :: (p :> p) C(x y) -> Maybe ((p :> p) C(x y))
-    merge :: (p :\/: p) C(x y) -> (p :/\: p) C(x y)
+    merge :: (p :\/: p) C(x y) -> Maybe ((p :/\: p) C(x y))
     list_touched_files :: p C(x y) -> [FilePath]
 
 class Commute p => ShowPatch p where
@@ -84,18 +83,18 @@ instance Commute p => Commute (FL p) where
     commute (x :> NilFL) = Just (NilFL :> x)
     commute (xs :> ys) = do ys' :> rxs' <- commuteRLFL (reverseFL xs :> ys)
                             return $ ys' :> reverseRL rxs'
-    merge (NilFL :\/: x) = x :/\: NilFL
-    merge (x :\/: NilFL) = NilFL :/\: x
-    merge ((x:>:xs) :\/: ys) = fromJust $ do ys' :/\: x' <- return $ mergeFL (x :\/: ys)
-                                             xs' :/\: ys'' <- return $ merge (ys' :\/: xs)
-                                             return (ys'' :/\: (x' :>: xs'))
+    merge (NilFL :\/: x) = Just (x :/\: NilFL)
+    merge (x :\/: NilFL) = Just (NilFL :/\: x)
+    merge ((x:>:xs) :\/: ys) = do ys' :/\: x' <- mergeFL (x :\/: ys)
+                                  xs' :/\: ys'' <- merge (ys' :\/: xs)
+                                  Just (ys'' :/\: (x' :>: xs'))
     list_touched_files xs = nub $ concat $ mapFL list_touched_files xs
 
-mergeFL :: Commute p => (p :\/: FL p) C(x y) -> (FL p :/\: p) C(x y)
-mergeFL (p :\/: NilFL) = NilFL :/\: p
-mergeFL (p :\/: (x :>: xs)) = fromJust $ do x' :/\: p' <- return $ merge (p :\/: x)
-                                            xs' :/\: p'' <- return $ mergeFL (p' :\/: xs)
-                                            return ((x' :>: xs') :/\: p'')
+mergeFL :: Commute p => (p :\/: FL p) C(x y) -> Maybe ((FL p :/\: p) C(x y))
+mergeFL (p :\/: NilFL) = Just (NilFL :/\: p)
+mergeFL (p :\/: (x :>: xs)) = do x' :/\: p' <- merge (p :\/: x)
+                                 xs' :/\: p'' <- mergeFL (p' :\/: xs)
+                                 Just ((x' :>: xs') :/\: p'')
 
 commuteRLFL :: Commute p => (RL p :> FL p) C(x y) -> Maybe ((FL p :> RL p) C(x y))
 commuteRLFL (NilRL :> ys) = Just (ys :> NilRL)
@@ -122,8 +121,8 @@ instance Apply p => Apply (RL p) where
 instance Commute p => Commute (RL p) where
     commute (xs :> ys) = do fys' :> xs' <- commuteRLFL (xs :> reverseRL ys)
                             return (reverseFL fys' :> xs')
-    merge (x :\/: y) = case merge (reverseRL x :\/: reverseRL y) of
-                       (ry' :/\: rx') -> reverseFL ry' :/\: reverseFL rx'
+    merge (x :\/: y) = do ry' :/\: rx' <- merge (reverseRL x :\/: reverseRL y)
+                          Just $ reverseFL ry' :/\: reverseFL rx'
     list_touched_files = list_touched_files . reverseRL
 
 invertFL :: Invert p => FL p C(x y) -> RL p C(y x)

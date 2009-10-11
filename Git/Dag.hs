@@ -1,16 +1,20 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, GADTs #-}
 #include "gadts.h"
 
 module Git.Dag ( parents, ancestors, isAncestorOf,
-                 mergeBases,
+                 mergeBases, cauterizeHeads, dag2commit,
+                 makeDag, Dag(..), greatGrandFather,
                  commonAncestors, uncommonAncestors ) where
 
+import Data.Maybe ( catMaybes )
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
 import System.IO.Unsafe ( unsafePerformIO )
 
+import Iolaus.Ordered ( EqCheck(..), unsafeCoerceP )
 import Iolaus.Sealed ( Sealed(Sealed), unseal )
+import Iolaus.Show ( eq1 )
 import Git.Plumbing ( Hash, Commit, catCommit, CommitEntry(..) )
 
 data CommitLinks = CommitLinks { cancestors :: S.Set (Sealed (Hash Commit)),
@@ -78,3 +82,37 @@ findAncestors h@(Sealed hh) =
                        let cl = CommitLinks (S.unions $ S.fromList ps:as) ps
                        modifyIORef genealogy $ M.insert h cl
                        return $ cancestors cl
+
+data Dag C(x y) where
+    Node :: Hash Commit C(y) -> [Sealed (Dag C(x))] -> Dag C(x y)
+    Ancestor :: Hash Commit C(x) -> Dag C(x x)
+
+dag2commit :: Dag C(x y) -> Hash Commit C(y)
+dag2commit (Node x _) = x
+dag2commit (Ancestor x) = x
+
+sameHash :: Hash a C(x) -> Hash a C(y) -> EqCheck C(x y)
+sameHash a b = if eq1 a b then unsafeCoerceP IsEq else NotEq
+
+makeDag :: Hash Commit C(x) -> Hash Commit C(y) -> Maybe (Dag C(x y))
+makeDag a me =
+    case sameHash a me of
+      IsEq -> Just $ Ancestor me
+      NotEq -> do let mkdag (Sealed h) = do d <- makeDag a h
+                                            Just (Sealed d)
+                  pdags@(_:_) <- Just $ catMaybes $ map mkdag $ parents me
+                  Just $ Node me pdags 
+
+
+greatGrandFather :: Dag C(x y) -> Hash Commit C(x)
+greatGrandFather (Ancestor a) = a
+greatGrandFather (Node h []) = error (show h++" has no ancestors?")
+greatGrandFather (Node _ (Sealed x:_)) = greatGrandFather x
+
+cauterizeHeads :: [Sealed (Hash Commit)] -> [Sealed (Hash Commit)]
+cauterizeHeads [] = []
+cauterizeHeads [a] = [a]
+cauterizeHeads (Sealed x:xs)
+    | any (unseal (isAncestorOf x)) xs = cauterizeHeads xs
+    | otherwise = Sealed x :
+                  cauterizeHeads (filter (unseal (not . (`isAncestorOf` x))) xs)

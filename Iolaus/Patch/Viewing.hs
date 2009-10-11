@@ -25,11 +25,10 @@ import Data.List ( sort )
 
 import Iolaus.SlurpDirectory ( Slurpy, get_slurp, get_filecontents )
 import Iolaus.ByteStringUtils ( linesPS, unlinesPS )
-import qualified Data.ByteString as B (null, concat)
+import qualified Data.ByteString as B ( ByteString, null, concat )
 import Iolaus.FileName ( FileName, fp2fn, fn2fp )
-import Debug.Trace
 import Iolaus.Printer
-    ( Doc, empty, vcat, hcat,
+    ( Doc, empty, vcat,
       text, blueText, Color(Red,Green,Cyan,Magenta), lineColor, colorPS,
       minus, plus, ($$), (<+>), (<>),
       prefix, renderString, userchunkPS, unsafePackedString )
@@ -46,8 +45,8 @@ import Iolaus.Ordered ( RL(..), FL(..), mapFL, reverseRL )
 instance ShowPatch Prim where
     showPatch = showPrim
     showContextPatch s p@(FP _ (Hunk _ _ _)) = showContextHunk s p
-    showContextPatch s p@(FP _ (Chunk _ _ _ _)) = trace "starting showContexChunk"
-                                                  showContextChunk s p
+    showContextPatch s p@(FP _ (Chunk _ _ _ _)) = 
+        showContextStuff s (p :>: NilFL)
     showContextPatch _ p = showPatch p
     summary = gen_summary . (:>: NilFL)
     thing _ = "change"
@@ -75,22 +74,46 @@ showContextSeries slur patches = scs slur identity patches
                         fromJust $ apply_to_slurpy p s
           scs _ _ NilFL = empty
 
-showContextChunk :: Slurpy C(x) -> Prim C(x y) -> Doc
-showContextChunk s p@(FP f (Chunk c w o n)) =
-    case (chunkify c . get_filecontents) `fmap` get_slurp f s of
-      Nothing -> showPatch p -- This is a weird error...
-      Just ws ->
-          blueText "chunk" <+> userchunkPS c <+> formatFileName f
-                       <+> text (show w) $$
-              unsafePackedString precontext <>
-              (hcat $ map (colorPS Red) o) <>
-              (hcat $ map (colorPS Green) n) <>
-              unsafePackedString postcontext
-          where precontext = unlinesPS $ last3 $ linesPS $ B.concat $ take w ws
-                last3 xs = drop (max 0 (length xs-3)) xs
-                postcontext = unlinesPS $ take 3 $ linesPS $ B.concat $
-                              drop (w+length o) ws
-showContextChunk _ _ = impossible
+showContextStuff :: Slurpy C(x) -> FL Prim C(x y) -> Doc
+showContextStuff _ NilFL = empty
+showContextStuff s0 ps@(FP f (Chunk c _ _ _) :>: _) =
+    case (chunkify c . get_filecontents) `fmap` get_slurp f s0 of
+      Nothing -> error "bad slurp showContextStuff"
+      Just zs -> blueText "chunk" <+> formatFileName f $$
+                 scc 0 zs s0 ps
+    where scc :: Int -> [B.ByteString] -> Slurpy C(x) -> FL Prim C(x y)
+              -> Doc
+          scc w0 ws s (FP f' (Chunk c' w o n) :>: xs)
+              | f' == f && c' == c =
+                  precontext <> 
+                  (colorPS Red $ B.concat o) <>
+                  (colorPS Green $ B.concat n) <>
+                  scc (w+length n) (drop (w+length o-w0) ws)
+                      (fromJust $ apply_to_slurpy (FP f' (Chunk c' w o n)) s) xs
+              where precontext =
+                        if length prels > 6
+                        then if w0 == 0
+                             then formatFileName f <+> blueText (show w++":") $$
+                                  unsafePackedString
+                                  (unlinesPS $ drop (length prels-3) prels)
+                             else (unsafePackedString $ unlinesPS $ take 3 $
+                                   linesPS $ B.concat ws) $$
+                                   formatFileName f<+>blueText (show w++":") $$
+                                   unsafePackedString
+                                   (unlinesPS $ drop (length prels-3) prels)
+                        else unsafePackedString (unlinesPS prels)
+                    prels = linesPS $ B.concat $ take (w-w0) ws
+          scc _ ws s xs = case reverse first3 of
+                          x:_ | B.null x ->
+                                  (unsafePackedString $ unlinesPS first3) <>
+                                  showContextStuff s xs
+                          _ -> (unsafePackedString $ unlinesPS first3) $$
+                               showContextStuff s xs
+                  where first3 = take 3 $ linesPS $ B.concat ws
+
+showContextStuff s (p :>: ps) = showContextPatch s p $$
+                                showContextStuff snew ps
+    where snew = fromJust $ apply_to_slurpy p s
 
 showContextHunk :: (Apply p, ShowPatch p, Effect p) =>
                    Slurpy C(x) -> p C(x y) -> Doc
@@ -193,7 +216,7 @@ instance (Effect p, Show n, ShowPatch p) => Show (Named n p C(x y)) where
 
 instance (Apply p, Effect p, ShowPatch p) => ShowPatch (FL p) where
     showPatch xs = vcat (mapFL showPatch xs)
-    showContextPatch = showContextSeries
+    showContextPatch s = showContextStuff s . effect -- showContextSeries
     description = vcat . mapFL description
     summary = vcat . mapFL summary
     thing x = thing (helperx x) ++ "s"

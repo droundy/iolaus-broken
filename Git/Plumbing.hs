@@ -5,8 +5,9 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag,
                       catBlob, hashObject,
                       catTree, TreeEntry(..),
                       catCommit, CommitEntry(..),
-                      catCommitTree, parseRev, heads,
-                      clone, gitInit,
+                      catCommitTree, parseRev,
+                      heads, remoteHeads, headNames, remoteHeadNames,
+                      clone, gitInit, fetchPack,
                       checkoutCopy,
                       lsfiles, lssomefiles, lsothers,
                       revList, revListHashes, RevListOption(..), nameRevs,
@@ -300,6 +301,44 @@ heads =
          ExitSuccess -> return $ map (mkSHash Commit) $ lines out
          ExitFailure _ -> fail "parseRev failed"
 
+remoteHeads :: String -> IO [Sealed (Hash Commit)]
+remoteHeads repo =
+    do debugMessage "calling git-show-ref"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-ls-remote" ["--heads",repo])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ map (mkSHash Commit) $ lines out
+         ExitFailure _ -> fail "parseRev failed"
+
+headNames :: IO [(Sealed (Hash Commit), String)]
+headNames =
+    do debugMessage "calling git-show-ref"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-show-ref" ["--heads"])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ map parse $ lines out
+         ExitFailure _ -> fail "parseRev failed"
+    where parse l = (mkSHash Commit l, drop 41 l)
+
+remoteHeadNames :: String -> IO [(Sealed (Hash Commit), String)]
+remoteHeadNames repo =
+    do debugMessage "calling git-show-ref"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-ls-remote" ["--heads",repo])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ map parse $ lines out
+         ExitFailure _ -> fail "parseRev failed"
+    where parse l = (mkSHash Commit l, drop 41 l)
+
 parseRev :: String -> IO (Sealed (Hash Commit))
 parseRev s =
     do debugMessage "calling git-rev-parse"
@@ -369,12 +408,12 @@ nameRevs =
                                | otherwise -> [sha,n]
                        _ -> error "bad stuff in nameRevs"
 
-revList :: [RevListOption] -> IO String
-revList opts =
+revList :: String -> [RevListOption] -> IO String
+revList version opts =
     do let flags = concatMap toFlags opts
        debugMessage "calling git-rev-list"
        (Nothing, Just stdout, Nothing, pid) <-
-           createProcess (proc "git-rev-list" ("master":flags))
+           createProcess (proc "git-rev-list" (version:flags))
                              { std_out = CreatePipe }
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
@@ -383,7 +422,7 @@ revList opts =
          ExitFailure _ -> fail "git-rev-list failed"
 
 revListHashes :: IO [Sealed (Hash Commit)]
-revListHashes = do x <- revList []
+revListHashes = do x <- revList "master" []
                    return $ map (mkSHash Commit) $ words x
 
 -- | FIXME: I believe that clone is porcelain...
@@ -550,3 +589,13 @@ gitApply p =
        case ec of
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-apply failed"
+
+fetchPack :: String -> IO ()
+fetchPack repo =
+    do debugMessage "calling git-fetch-pack"
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-fetch-pack" ["--all", repo])
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-fetch-pack failed"
