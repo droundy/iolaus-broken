@@ -14,7 +14,7 @@ import System.Exit ( ExitCode(..) )
 import System.IO ( hPutStrLn )
 import System.IO.Unsafe ( unsafeInterleaveIO )
 import Data.List ( sort )
-import Data.IORef ( IORef, newIORef, writeIORef, readIORef, modifyIORef )
+import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
 import Data.Map as M ( Map, insert, empty, lookup, keys )
 import Data.ByteString as B ( hPutStr )
 
@@ -122,6 +122,7 @@ writeSlurpTree x = writeSlurpTree (Slurpy (fp2fn ".")
                                     (SlurpDir Nothing $ slurpies_to_map [x]))
 
 data Strategy = FirstParent | Builtin | MergeN
+                deriving ( Show )
 
 flag2strategy :: [Flag] -> Strategy
 flag2strategy opts = if NativeMerge `elem` opts
@@ -155,11 +156,11 @@ mergeCommits :: [Flag] -> [Sealed (Hash Commit)]
              -> IO (Sealed (Hash Tree))
 mergeCommits opts hs0 =
     do let hs = cauterizeHeads hs0
-       mt <- readCached hs0
+       mt <- readCached (flag2strategy opts) hs0
        case mt of
          Just t -> return t
          Nothing -> do Sealed t <- mergeCommitsX (flag2strategy opts) hs
-                       cacheTree hs t
+                       cacheTree (flag2strategy opts) hs t
                        return (Sealed t)
 
 mergeCommitsX :: Strategy -> [Sealed (Hash Commit)] -> IO (Sealed (Hash Tree))
@@ -185,16 +186,17 @@ mergeCommitsX MergeN xs =
              oldest <- catCommitTree ancestor >>= slurpTree
              Sealed `fmap` writeSlurpTree (fromJust $ apply_to_slurpy ps oldest)
 
-cacheTree :: [Sealed (Hash Commit)] -> Hash Tree C(x) -> IO ()
-cacheTree x t =
-    do k <- hashObject (`hPutStrLn` show (sort x))
+cacheTree :: Strategy -> [Sealed (Hash Commit)] -> Hash Tree C(x) -> IO ()
+cacheTree s x t =
+    do k <- hashObject (`hPutStrLn` show (s, sort x))
        commitTree t (sort x) (show $ sort x)
                       >>= updateref ("refs/merges/"++show k) 
        return ()
 
-readCached :: [Sealed (Hash Commit)] -> IO (Maybe (Sealed (Hash Tree)))
-readCached x =
-    do k <- hashObject (`hPutStrLn` show (sort x))
+readCached :: Strategy -> [Sealed (Hash Commit)]
+           -> IO (Maybe (Sealed (Hash Tree)))
+readCached s x =
+    do k <- hashObject (`hPutStrLn` show (s, sort x))
        Just `fmap`
                 (parseRev ("refs/merges/"++show k) >>= mapSealM catCommitTree)
     `catch` \_ -> return Nothing
@@ -227,7 +229,14 @@ diffDagHelper c (Node x [Sealed y@(Node yy _)]) =
        new <- catCommitTree x >>= slurpTree
        oldps <- diffDag c y
        return $ oldps +>+ diff [] old new
-diffDagHelper c (Node x ys@(Sealed y0:_)) =
+diffDagHelper c (Node x ys) =
+    do oldest <- catCommitTree (greatGrandFather (Node x ys)) >>= slurpTree
+       new <- catCommitTree x >>= slurpTree
+       tracks <- mapM (mapSealM (diffDag c)) ys
+       Sealed oldps <- return $ mergeN tracks
+       let Just old = apply_to_slurpy oldps oldest
+       return $ oldps +>+ diff [] old new
+diffDagHelper c (Node x ys@(Sealed y0:_)) = -- this version is buggy!!!
     do Sealed merged <- mergeCommits [] (map (mapSeal dag2commit) ys)
                         >>= mapSealM slurpTree
        ps0 <- diffDag c y0
