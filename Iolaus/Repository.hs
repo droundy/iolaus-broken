@@ -17,7 +17,7 @@
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
 
-module Iolaus.Repository ( write_head,
+module Iolaus.Repository ( add_heads, remove_head,
                            get_unrecorded_changes,
                            get_unrecorded, Unrecorded(..),
                            slurp_recorded, slurp_working ) where
@@ -27,7 +27,7 @@ import System.Directory ( removeFile )
 
 import Iolaus.Diff ( diff )
 import Iolaus.Patch ( Prim )
-import Iolaus.Flags ( Flag( CauterizeAllHeads ) )
+import Iolaus.Flags ( Flag )
 import Iolaus.Ordered ( FL, unsafeCoerceS )
 import Iolaus.SlurpDirectory ( Slurpy )
 import Iolaus.Sealed ( Sealed(..), mapSealM )
@@ -35,7 +35,7 @@ import Iolaus.Sealed ( Sealed(..), mapSealM )
 import Git.Plumbing ( Hash, Commit, heads, headNames,
                       writetree, updateindex, updateref )
 import Git.Helpers ( touchedFiles, slurpTree, mergeCommits )
-import Git.Dag ( cauterizeHeads )
+import Git.Dag ( parents, cauterizeHeads )
 
 slurp_recorded :: [Flag] -> IO (Slurpy C(RecordedState))
 slurp_recorded opts = do Sealed r <- heads >>= mergeCommits opts
@@ -63,16 +63,29 @@ get_unrecorded_changes opts =
        old <- slurp_recorded opts
        return $ Sealed $ diff [] old new
 
-write_head :: [Flag] -> Hash Commit C(x) -> IO ()
-write_head _ h =
+add_heads :: [Flag] -> [Sealed (Hash Commit)] -> IO ()
+add_heads _ h =
     do hs <- heads
-       case cauterizeHeads (Sealed h:hs) of
+       case cauterizeHeads (h++hs) of
          hs' -> do zipWithM_ (\mm (Sealed hh) -> updateref mm hh) masters hs'
-                   hns <- headNames
-                   let extras = map snd $ filter ((`notElem` hs') . fst) hns
-                       rmhead x = removeFile (".git/"++x)
-                   putStrLn $ "Extra heads are: "++ unwords extras
-                   mapM_ rmhead extras
-    where masters = "refs/heads/master" :
-                    map (\n -> "refs/heads/master"++show n) [1 :: Int ..]
+                   cleanup_all_but hs'
 
+remove_head :: [Flag] -> Hash Commit C(x) -> IO ()
+remove_head _ h =
+    do hs <- heads
+       case cauterizeHeads (parents h++filter (/= Sealed h) hs) of
+         hs' -> do zipWithM_ (\mm (Sealed hh) -> updateref mm hh) masters hs'
+                   cleanup_all_but hs'
+
+cleanup_all_but :: [Sealed (Hash Commit)] -> IO ()
+cleanup_all_but hs =
+    do hns <- headNames
+       let rmhead x = removeFile (".git/"++x)
+       case map snd $ filter ((`notElem` hs) . fst) hns of
+         [] -> return ()
+         extras -> do putStrLn $ "Extra heads are: "++ unwords extras
+                      mapM_ rmhead extras
+
+masters :: [String]
+masters = "refs/heads/master" :
+          map (\n -> "refs/heads/master"++show n) [1 :: Int ..]

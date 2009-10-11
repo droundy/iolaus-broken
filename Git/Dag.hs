@@ -2,7 +2,7 @@
 #include "gadts.h"
 
 module Git.Dag ( parents, ancestors, isAncestorOf,
-                 mergeBases, cauterizeHeads,
+                 mergeBases, cauterizeHeads, dag2commit,
                  makeDag, Dag(..), greatGrandFather,
                  commonAncestors, uncommonAncestors ) where
 
@@ -86,6 +86,10 @@ findAncestors h@(Sealed hh) =
 data Dag C(x y) where
     Node :: Hash Commit C(y) -> [Sealed (Dag C(x))] -> Dag C(x y)
     Ancestor :: Hash Commit C(x) -> Dag C(x x)
+
+dag2commit :: Dag C(x y) -> Hash Commit C(y)
+dag2commit (Node x _) = x
+dag2commit (Ancestor x) = x
 
 sameHash :: Hash a C(x) -> Hash a C(y) -> EqCheck C(x y)
 sameHash a b = if eq1 a b then unsafeCoerceP IsEq else NotEq

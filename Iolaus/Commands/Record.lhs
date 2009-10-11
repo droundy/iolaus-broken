@@ -48,7 +48,7 @@ import Iolaus.Printer ( ($$), text, hPutDocLn, wrap_text, renderString )
 import Iolaus.SelectChanges ( with_selected_changes_to_files )
 import Iolaus.Ordered ( (:>)(..), FL(NilFL) )
 import Iolaus.Progress ( debugMessage )
-import Iolaus.Repository ( get_unrecorded_changes, slurp_recorded, write_head )
+import Iolaus.Repository ( get_unrecorded_changes, slurp_recorded, add_heads )
 import Iolaus.Sealed ( Sealed(Sealed) )
 
 import Git.LocateRepo ( amInRepository )
@@ -118,7 +118,7 @@ record_cmd opts args = do
                     (hs', Sealed newtree') <- simplifyParents opts hs newtree
                     test (testByDefault opts) newtree'
                     com <- commitTree newtree' hs' message
-                    write_head opts com
+                    add_heads opts [Sealed com]
                     putStrLn ("Finished recording patch '"++ name ++"'")
 
  -- check that what we treat as the patch name is not accidentally a command

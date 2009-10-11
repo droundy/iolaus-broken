@@ -5,18 +5,24 @@ module Git.Helpers ( test, slurpTree, writeSlurpTree, touchedFiles,
                      simplifyParents,
                      diffCommit, mergeCommits, Strategy(..) ) where
 
+import Prelude hiding ( catch )
+import Control.Exception ( catch )
 import System.Directory ( getCurrentDirectory, setCurrentDirectory,
                           doesFileExist )
 import System.Process.Redirects ( system )
 import System.Exit ( ExitCode(..) )
+import System.IO ( hPutStrLn )
 import System.IO.Unsafe ( unsafeInterleaveIO )
-
+import Data.List ( sort )
+import Data.IORef ( IORef, newIORef, writeIORef, readIORef, modifyIORef )
+import Data.Map as M ( Map, insert, empty, lookup, keys )
 import Data.ByteString as B ( hPutStr )
 
 import Git.Dag ( mergeBases, makeDag, Dag(..), greatGrandFather, parents,
-                 cauterizeHeads )
+                 cauterizeHeads, dag2commit )
 import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       catCommit, CommitEntry(..),
+                      commitTree, updateref, parseRev,
                       mkTree, hashObject, lsothers,
                       diffFiles, DiffOption( NameOnly ),
                       readTree, checkoutIndex,
@@ -35,8 +41,8 @@ import Iolaus.SlurpDirectoryInternal
 import Iolaus.Lock ( removeFileMayNotExist )
 import Iolaus.Diff ( diff )
 import Iolaus.Patch ( Prim, commute, apply_to_slurpy, mergeN )
-import Iolaus.Ordered ( FL(..), (:>)(..), (+>+) )
-import Iolaus.Sealed ( Sealed(..), FlippedSeal(..), mapSealM, unseal )
+import Iolaus.Ordered ( FL(..), (:>)(..), (+>+), unsafeCoerceP )
+import Iolaus.Sealed ( Sealed(..), FlippedSeal(..), mapSeal, mapSealM, unseal )
 
 #include "impossible.h"
 
@@ -130,15 +136,14 @@ simplifyParents opts pars0 rec0
     | CauterizeAllHeads `elem` opts = return (pars0, Sealed rec0)
 simplifyParents opts pars0 rec0 = sp [] (cauterizeHeads pars0) rec0
     where
-      strat = flag2strategy opts
       sp :: [Sealed (Hash Commit)] -> [Sealed (Hash Commit)] -> Hash Tree C(x)
          -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
       sp ps [] t = return (ps,Sealed t)
       sp kn (p:ps) t =
           do let nop = cauterizeHeads (kn++ps++unseal parents p)
-             Sealed ptree <- mergeCommitsX strat (kn++p:ps)
+             Sealed ptree <- mergeCommits opts (kn++p:ps)
                              >>= mapSealM slurpTree
-             Sealed noptree <- mergeCommitsX strat nop >>= mapSealM slurpTree
+             Sealed noptree <- mergeCommits opts nop >>= mapSealM slurpTree
              mys <- slurpTree t
              case commute (diff opts noptree ptree :> diff opts ptree mys) of
                Nothing -> sp (p:kn) ps t
@@ -148,7 +153,14 @@ simplifyParents opts pars0 rec0 = sp [] (cauterizeHeads pars0) rec0
 
 mergeCommits :: [Flag] -> [Sealed (Hash Commit)]
              -> IO (Sealed (Hash Tree))
-mergeCommits opts = mergeCommitsX (flag2strategy opts) . cauterizeHeads
+mergeCommits opts hs0 =
+    do let hs = cauterizeHeads hs0
+       mt <- readCached hs0
+       case mt of
+         Just t -> return t
+         Nothing -> do Sealed t <- mergeCommitsX (flag2strategy opts) hs
+                       cacheTree hs t
+                       return (Sealed t)
 
 mergeCommitsX :: Strategy -> [Sealed (Hash Commit)] -> IO (Sealed (Hash Tree))
 mergeCommitsX _ [] = Sealed `fmap` writeSlurpTree empty_slurpy
@@ -167,32 +179,62 @@ mergeCommitsX MergeN xs =
     case mergeBases xs of
       [] -> fail "FIXME: need to implement merge with no common ancestor."
       Sealed ancestor:_ ->
-          do pps <- mapM (mapSealM (bigDiff ancestor)) xs
+          do diffs <- newIORef M.empty
+             pps <- mapM (mapSealM (bigDiff diffs ancestor)) xs
              Sealed ps <- return $ mergeN pps
              oldest <- catCommitTree ancestor >>= slurpTree
              Sealed `fmap` writeSlurpTree (fromJust $ apply_to_slurpy ps oldest)
 
-bigDiff :: Hash Commit C(x) -> Hash Commit C(y) -> IO (FL Prim C(x y))
-bigDiff a0 me0 = maybe (error "bad bigDiff") diffDag $ makeDag a0 me0
+cacheTree :: [Sealed (Hash Commit)] -> Hash Tree C(x) -> IO ()
+cacheTree x t =
+    do k <- hashObject (`hPutStrLn` show (sort x))
+       commitTree t (sort x) (show $ sort x)
+                      >>= updateref ("refs/merges/"++show k) 
+       return ()
 
-diffDag :: Dag C(x y) -> IO (FL Prim C(x y))
-diffDag (Ancestor _) = return NilFL
-diffDag (Node x [Sealed (Ancestor y)]) =
+readCached :: [Sealed (Hash Commit)] -> IO (Maybe (Sealed (Hash Tree)))
+readCached x =
+    do k <- hashObject (`hPutStrLn` show (sort x))
+       Just `fmap`
+                (parseRev ("refs/merges/"++show k) >>= mapSealM catCommitTree)
+    `catch` \_ -> return Nothing
+
+bigDiff :: IORef (M.Map (Sealed (Hash Commit)) (Sealed (FL Prim C(x))))
+        -> Hash Commit C(x) -> Hash Commit C(y) -> IO (FL Prim C(x y))
+bigDiff dags a0 me0 =
+    maybe (error "bad bigDiff") (diffDag dags) $ makeDag a0 me0
+
+diffDag :: IORef (M.Map (Sealed (Hash Commit)) (Sealed (FL Prim C(x))))
+        -> Dag C(x y) -> IO (FL Prim C(x y))
+diffDag _ (Ancestor _) = return NilFL
+diffDag c (Node x ys) =
+    do m <- readIORef c
+       case M.lookup (Sealed x) m of
+         Just (Sealed ps) -> return $ unsafeCoerceP ps
+         Nothing -> do ps <- diffDagHelper c (Node x ys)
+                       modifyIORef c (M.insert (Sealed x) (Sealed ps))
+                       return ps
+
+diffDagHelper :: IORef (M.Map (Sealed (Hash Commit)) (Sealed (FL Prim C(x))))
+              -> Dag C(x y) -> IO (FL Prim C(x y))
+diffDagHelper _ (Ancestor _) = return NilFL
+diffDagHelper _ (Node x [Sealed (Ancestor y)]) =
     do old <- catCommitTree y >>= slurpTree
        new <- catCommitTree x >>= slurpTree
        return $ diff [] old new
-diffDag (Node x [Sealed y@(Node yy _)]) =
+diffDagHelper c (Node x [Sealed y@(Node yy _)]) =
     do old <- catCommitTree yy >>= slurpTree
        new <- catCommitTree x >>= slurpTree
-       oldps <- diffDag y
+       oldps <- diffDag c y
        return $ oldps +>+ diff [] old new
-diffDag (Node x ys) =
-    do oldest <- catCommitTree (greatGrandFather (Node x ys)) >>= slurpTree
+diffDagHelper c (Node x ys@(Sealed y0:_)) =
+    do Sealed merged <- mergeCommits [] (map (mapSeal dag2commit) ys)
+                        >>= mapSealM slurpTree
+       ps0 <- diffDag c y0
+       old <- catCommitTree (dag2commit y0) >>= slurpTree
        new <- catCommitTree x >>= slurpTree
-       tracks <- mapM (mapSealM diffDag) ys
-       Sealed oldps <- return $ mergeN tracks
-       let Just old = apply_to_slurpy oldps oldest
-       return $ oldps +>+ diff [] old new
+       tracks <- mapM (mapSealM (diffDag c)) ys
+       return $ ps0 +>+ diff [] old merged +>+ diff [] merged new
 
 diffCommit :: [Flag] -> Hash Commit C(x)
            -> IO (FlippedSeal (FL Prim) C(x))
