@@ -323,12 +323,12 @@ headNames =
        ec <- length out `seq` waitForProcess pid
        case ec of
          ExitSuccess -> return $ map parse $ lines out
-         ExitFailure _ -> fail "parseRev failed"
+         ExitFailure _ -> fail "git-show-ref failed"
     where parse l = (mkSHash Commit l, drop 41 l)
 
 remoteHeadNames :: String -> IO [(Sealed (Hash Commit), String)]
 remoteHeadNames repo =
-    do debugMessage "calling git-show-ref"
+    do debugMessage "calling git-ls-remote"
        (Nothing, Just stdout, Nothing, pid) <-
            createProcess (proc "git-ls-remote" ["--heads",repo])
                              { std_out = CreatePipe }
@@ -336,20 +336,21 @@ remoteHeadNames repo =
        ec <- length out `seq` waitForProcess pid
        case ec of
          ExitSuccess -> return $ map parse $ lines out
-         ExitFailure _ -> fail "parseRev failed"
+         ExitFailure _ -> fail "git-ls-remote failed"
     where parse l = (mkSHash Commit l, drop 41 l)
 
 parseRev :: String -> IO (Sealed (Hash Commit))
 parseRev s =
     do debugMessage "calling git-rev-parse"
-       (Nothing, Just stdout, Nothing, pid) <-
+       (Nothing, Just stdout, Just stderr, pid) <-
            createProcess (proc "git-rev-parse" ["--verify",s])
-                             { std_out = CreatePipe }
+                   { std_err = Just CreatePipe, std_out = CreatePipe }
        out <- hGetContents stdout
-       ec <- length out `seq` waitForProcess pid
+       err <- hGetContents stderr
+       ec <- length (out++err) `seq` waitForProcess pid
        case ec of
          ExitSuccess -> return $ mkSHash Commit out
-         ExitFailure _ -> fail "parseRev failed"
+         ExitFailure _ -> fail ("git-rev-parse failed: "++err)
 
 updateref :: String -> Hash Commit C(x) -> IO ()
 updateref r h =
