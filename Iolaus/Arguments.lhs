@@ -106,6 +106,7 @@ getContent Verbose = NoContent
 getContent Help = NoContent
 getContent ListOptions = NoContent
 getContent Test = NoContent
+getContent TestParents = NoContent
 getContent NoTest = NoContent
 getContent TagOnTest = NoContent
 getContent NoTagOnTest = NoContent
@@ -672,7 +673,9 @@ section~\ref{defaults}).
 test, notest :: [IolausOption]
 notest = [IolausMultipleChoiceOption
           [IolausNoArgOption [] ["no-test"] NoTest "don't run the test script",
-           IolausNoArgOption [] ["test"] Test "run the test script"],
+           IolausNoArgOption [] ["test"] Test "run the test script",
+           IolausNoArgOption [] ["test-parents"]
+               TestParents "run the test script on all possibilities"],
           leave_test_dir, tag_on_test]
 test = [IolausMultipleChoiceOption
         [IolausNoArgOption [] ["test"] Test "run the test script",

@@ -172,7 +172,7 @@ diff_files f o n = if o == n
 --                   else (canonize (hunk f 1 (linesPS o) (linesPS n)) +>+)
 
 newlines :: B.ByteString
-newlines = BC.pack " ,\n"
+newlines = BC.pack " ,\n()"
 
 diff_from_empty :: (Prim C(x x) -> Prim C(x x)) -> FilePath -> B.ByteString
                 -> (FL Prim C(x x) -> FL Prim C(x x))
