@@ -1,7 +1,8 @@
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
 
-module Git.Helpers ( test, slurpTree, writeSlurpTree, touchedFiles,
+module Git.Helpers ( test, testPredicate, revListHeads,
+                     slurpTree, writeSlurpTree, touchedFiles,
                      simplifyParents,
                      diffCommit, mergeCommits, Strategy(..) ) where
 
@@ -26,12 +27,13 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       mkTree, hashObject, lsothers,
                       diffFiles, DiffOption( NameOnly ),
                       readTree, checkoutIndex,
+                      heads, revList, RevListOption(Skip),
                       -- mergeBase,
                       mergeIndex, readTreeMerge,
                       catTree, catBlob, catCommitTree )
 
 import Iolaus.Progress ( debugMessage )
-import Iolaus.Flags ( Flag( Test, NativeMerge, FirstParentMerge,
+import Iolaus.Flags ( Flag( Test, TestParents, NativeMerge, FirstParentMerge,
                             CauterizeAllHeads ) )
 import Iolaus.FileName ( FileName, fp2fn )
 import Iolaus.IO ( ExecutableBit(..) )
@@ -53,10 +55,16 @@ touchedFiles =
        return (x++lines y)
 
 test :: [Flag] -> Hash Tree C(x) -> IO ()
-test opts t | Test `elem` opts =
+test opts t =
+    do x <- testPredicate opts t
+       if x then return ()
+            else fail "test failed"
+
+testPredicate :: [Flag] -> Hash Tree C(x) -> IO Bool
+testPredicate opts t | Test `elem` opts || TestParents `elem` opts =
  do havet <- doesFileExist ".git-hooks/test"
     if not havet
-     then return ()
+     then return True
      else do
        system "rm -rf /tmp/testing"
        removeFileMayNotExist ".git/index.tmp"
@@ -66,13 +74,12 @@ test opts t | Test `elem` opts =
        here <- getCurrentDirectory
        setCurrentDirectory "/tmp/testing"
        ec <- system "./.git-hooks/test"
-       case ec of
-         ExitFailure _ -> fail "test failed"
-         ExitSuccess -> return ()
        setCurrentDirectory here
-       system "rm -rf /tmp/testing"
-       return ()
-test _ _ = return ()
+       case ec of
+         ExitFailure _ -> return False
+         ExitSuccess -> do system "rm -rf /tmp/testing"
+                           return True
+testPredicate _ _ = return True
 
 slurpTree :: Hash Tree C(x) -> IO (Slurpy C(x))
 slurpTree = slurpTreeHelper (fp2fn ".")
@@ -150,7 +157,22 @@ simplifyParents opts pars0 rec0 = sp [] (cauterizeHeads pars0) rec0
                Nothing -> sp (p:kn) ps t
                Just (myp :> _) ->
                    do t' <- apply_to_slurpy myp noptree >>= writeSlurpTree
-                      sp kn (filter (`notElem` kn) nop) t'
+                      ct <- commitTree t (p:ps) "iolaus:testing"
+                      joined0 <- mergeCommitsX MergeN (Sealed ct:p:nop)
+                      ct' <- commitTree t' nop "iolaus:testing"
+                      joined <- mergeCommitsX MergeN (Sealed ct':p:nop)
+                      ok <-
+                          if joined == joined0
+                          then
+                            if TestParents `elem` opts
+                            then do Sealed x <- mapSealM catCommit p
+                                    putStrLn $ "\n\nRunning test without:\n"++
+                                             myMessage x
+                                    testPredicate opts t'
+                            else return True
+                          else return False
+                      if ok then sp kn (filter (`notElem` kn) nop) t'
+                            else sp (p:kn) ps t
 
 mergeCommits :: [Flag] -> [Sealed (Hash Commit)]
              -> IO (Sealed (Hash Tree))
@@ -178,7 +200,12 @@ mergeCommitsX Builtin [p1,p2] =
 mergeCommitsX Builtin _ = fail "Builtin can't do octopi"
 mergeCommitsX MergeN xs =
     case mergeBases xs of
-      [] -> fail "FIXME: need to implement merge with no common ancestor."
+      [] -> do ts <- mapM (mapSealM catCommitTree) xs
+               sls <- mapM (mapSealM slurpTree) ts
+               Sealed p <- return $ mergeN $
+                           map (mapSeal (diff [] empty_slurpy)) sls
+               Sealed `fmap` writeSlurpTree
+                          (fromJust $ apply_to_slurpy p empty_slurpy)
       Sealed ancestor:_ ->
           do diffs <- newIORef M.empty
              pps <- mapM (mapSealM (bigDiff diffs ancestor)) xs
@@ -229,7 +256,7 @@ diffDagHelper c (Node x [Sealed y@(Node yy _)]) =
        new <- catCommitTree x >>= slurpTree
        oldps <- diffDag c y
        return $ oldps +>+ diff [] old new
-diffDagHelper c (Node x ys) =
+diffDagHelper c (Node x ys) | False =
     do oldest <- catCommitTree (greatGrandFather (Node x ys)) >>= slurpTree
        new <- catCommitTree x >>= slurpTree
        tracks <- mapM (mapSealM (diffDag c)) ys
@@ -253,3 +280,10 @@ diffCommit opts c0 =
        Sealed oldh <- mergeCommits opts (myParents c)
        old <- slurpTree oldh
        return $ FlippedSeal $ diff [] old new
+
+revListHeads :: [Flag] -> [RevListOption] -> IO String
+revListHeads opts revlistopts =
+    do hs <- cauterizeHeads `fmap` heads
+       Sealed t <- mergeCommits opts hs
+       c <- commitTree t hs "iolaus:temp"
+       revList (show c) (Skip 1:revlistopts)

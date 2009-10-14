@@ -383,7 +383,7 @@ cleanhash :: String -> String
 cleanhash = take 40
 
 data RevListOption = MediumPretty | OneLine | Authors
-                   | Graph | RelativeDate | MaxCount Int
+                   | Graph | RelativeDate | MaxCount Int | Skip Int
 instance Flag RevListOption where
     toFlags MediumPretty = ["--pretty=medium"]
     toFlags OneLine = ["--pretty=oneline"]
@@ -391,6 +391,7 @@ instance Flag RevListOption where
     toFlags Graph = ["--graph"]
     toFlags RelativeDate = ["--date=relative"]
     toFlags (MaxCount n) = ["--max-count="++show n]
+    toFlags (Skip n) = ["--skip="++show n]
 
 nameRevs :: IO [String]
 nameRevs =
