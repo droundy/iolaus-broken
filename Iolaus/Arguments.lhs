@@ -191,6 +191,7 @@ getContent PromptForDependencies = NoContent
 getContent Compress = NoContent
 getContent NativeMerge = NoContent
 getContent IolausMerge = NoContent
+getContent IolausSloppyMerge = NoContent
 getContent FirstParentMerge = NoContent
 getContent NoCompress = NoContent
 getContent UnCompress = NoContent
@@ -947,8 +948,10 @@ mergeStrategy :: IolausOption
 mergeStrategy = IolausMultipleChoiceOption 
                 [IolausNoArgOption [] ["git-merge"] NativeMerge
                  "use git's builtin merge",
-                 IolausNoArgOption [] ["iolaus-merge"] NativeMerge
+                 IolausNoArgOption [] ["iolaus-merge"] IolausMerge
                  "use iolaus builtin merge [default]",
+                 IolausNoArgOption [] ["sloppy-merge"] IolausSloppyMerge
+                 "use iolaus sloppy merge",
                  IolausNoArgOption [] ["first-parent-merge"] FirstParentMerge
                  "use silly first-parent merge"]
 
