@@ -29,7 +29,7 @@ import Iolaus.Sealed ( Sealed(Sealed), FlippedSeal(FlippedSeal) )
 
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( parseRev, nameRevs, catCommit, CommitEntry(myTree) )
-import Git.Helpers ( slurpTree, diffCommit, Strategy( .. ) )
+import Git.Helpers ( slurpTree, diffCommit )
 \end{code}
 
 \options{show commit}
