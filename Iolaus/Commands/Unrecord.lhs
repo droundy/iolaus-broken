@@ -23,13 +23,14 @@
 module Iolaus.Commands.Unrecord ( unrecord ) where
 
 import Iolaus.Command ( Command(..), nodefaults )
-import Iolaus.Arguments ( Flag, working_repo_dir,
+import Iolaus.Arguments ( Flag( All ), working_repo_dir, all_interactive,
                         match_several_or_last )
 import Iolaus.Utils ( askUser )
 import Iolaus.Sealed ( unseal )
+import Iolaus.Repository ( remove_head )
 
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( updateref, revListHashes, revList, RevListOption(..) )
+import Git.Plumbing ( heads, revList, RevListOption(..) )
 #include "gadts.h"
 \end{code}
 \begin{code}
@@ -74,39 +75,6 @@ may cause repository corruption.}
 
 \pullwarning{Unrecord}
 
-\begin{options}
---from-match, --from-patch, --from-tag, --last
-\end{options}
-
-Usually you only want to unrecord the latest changes,
-and almost never would you want to unrecord changes before a tag---you
-would have to have unrecorded the tag as well to do that.
-Therefore, and for efficiency, iolaus only prompts you for the latest patches,
-after some optimal tag.
-
-If you do want to unrecord more patches in one go,
-there are the \verb!--from! and \verb!--last! options
-to set the earliest patch selectable to unrecord.
-
-\begin{options}
---matches, --patches, --tags, --no-deps
-\end{options}
-
-The \verb!--patches!, \verb!--matches!, \verb!--tags!, and \verb!--no-deps!
-options can be used to select which patches to unrecord, as described in
-subsection~\ref{selecting}.
-
-With these options you can specify
-what patch or patches to be prompted for by unrecord.
-This is especially useful when you want to unrecord patches with dependencies,
-since all the dependent patches (but no others) will be included in the choices.
-Or if you use \verb!--no-deps! you won't be asked about patches that can't be
-unrecorded due to depending patches.
-
-Selecting patches can be slow, so iolaus cuts the search at the last
-optimized tag. Use the \verb!--from! or \verb!--last! options to search
-more or fewer patches.
-
 \begin{code}
 unrecord_help :: String
 unrecord_help =
@@ -116,8 +84,7 @@ unrecord_help =
  "Beware that you should not use this command if you are going to\n"++
  "re-record the changes in any way and there is a possibility that\n"++
  "another user may have already pulled the patch.\n"
-\end{code}
-\begin{code}
+
 unrecord :: Command
 unrecord = Command {command_name = "unrecord",
                          command_help = unrecord_help,
@@ -130,20 +97,20 @@ unrecord = Command {command_name = "unrecord",
                          command_argdefaults = nodefaults,
                          command_advanced_options = [],
                          command_basic_options = [match_several_or_last,
+                                                  all_interactive,
                                                   working_repo_dir]}
-\end{code}
-\begin{code}
+
 unrecord_cmd :: [Flag] -> [String] -> IO ()
-unrecord_cmd _ _ =
-    do revs <- revListHashes
-       case revs of
-         _:p:_ ->
-             do m <- revList "master" [MaxCount 1, MediumPretty, RelativeDate]
-                putStrLn m
-                yorn <- askUser "Shall I unrecord this patch? "
-                case yorn of
-                  'y':_ -> unseal (updateref "refs/heads/master") p
-                  _ -> putStrLn "Unrecord cancelled."
-         _ -> putStrLn "Sorry, you need two patches to do an unrecord."
+unrecord_cmd opts _ =
+    do h:hs <- heads
+       m <- revList (show h) [MaxCount 1, MediumPretty, RelativeDate]
+       if All `elem` opts
+          then do putStrLn ("Unrecording:\n"++m)
+                  remove_head opts `unseal` h
+          else do putStrLn m
+                  yorn <- askUser "Shall I unrecord this patch? "
+                  case yorn of
+                    'y':_ -> remove_head opts `unseal` h
+                    _ -> putStrLn "Unrecord cancelled."
 \end{code}
 
