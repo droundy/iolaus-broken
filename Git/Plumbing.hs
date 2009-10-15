@@ -5,8 +5,9 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag,
                       catBlob, hashObject,
                       catTree, TreeEntry(..),
                       catCommit, CommitEntry(..),
-                      catCommitTree, parseRev, heads, headNames,
-                      clone, gitInit,
+                      catCommitTree, parseRev,
+                      heads, remoteHeads, headNames, remoteHeadNames,
+                      clone, gitInit, fetchPack, sendPack,
                       checkoutCopy,
                       lsfiles, lssomefiles, lsothers,
                       revList, revListHashes, RevListOption(..), nameRevs,
@@ -300,11 +301,36 @@ heads =
          ExitSuccess -> return $ map (mkSHash Commit) $ lines out
          ExitFailure _ -> fail "parseRev failed"
 
+remoteHeads :: String -> IO [Sealed (Hash Commit)]
+remoteHeads repo =
+    do debugMessage "calling git-show-ref"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-ls-remote" ["--heads",repo])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ map (mkSHash Commit) $ lines out
+         ExitFailure _ -> fail "parseRev failed"
+
 headNames :: IO [(Sealed (Hash Commit), String)]
 headNames =
     do debugMessage "calling git-show-ref"
        (Nothing, Just stdout, Nothing, pid) <-
            createProcess (proc "git-show-ref" ["--heads"])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ map parse $ lines out
+         ExitFailure _ -> fail "parseRev failed"
+    where parse l = (mkSHash Commit l, drop 41 l)
+
+remoteHeadNames :: String -> IO [(Sealed (Hash Commit), String)]
+remoteHeadNames repo =
+    do debugMessage "calling git-show-ref"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-ls-remote" ["--heads",repo])
                              { std_out = CreatePipe }
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
@@ -563,3 +589,23 @@ gitApply p =
        case ec of
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-apply failed"
+
+fetchPack :: String -> IO ()
+fetchPack repo =
+    do debugMessage "calling git-fetch-pack"
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-fetch-pack" ["--all", repo])
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-fetch-pack failed"
+
+sendPack :: String -> IO ()
+sendPack repo =
+    do debugMessage "calling git-send-pack"
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-send-pack" ["--all", repo])
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-send-pack failed"
