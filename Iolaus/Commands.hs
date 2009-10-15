@@ -25,6 +25,7 @@ import Iolaus.Commands.WhatsNew ( whatsnew )
 import Iolaus.Commands.Changes ( changes )
 import Iolaus.Commands.Get ( get )
 import Iolaus.Commands.Pull ( pull )
+import Iolaus.Commands.Push ( push )
 import Iolaus.Commands.Init ( initialize )
 import Iolaus.Commands.Show ( show_command )
 import Iolaus.Commands.Revert ( revert )
@@ -51,5 +52,6 @@ command_control_list =
 
      Group_name "Interacting with other repositories:",
      Command_data get,
+     Command_data push,
      Command_data pull
     ]
