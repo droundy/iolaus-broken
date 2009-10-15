@@ -4,9 +4,11 @@
 module Git.Dag ( parents, ancestors, isAncestorOf,
                  mergeBases, cauterizeHeads, dag2commit,
                  makeDag, Dag(..), greatGrandFather,
-                 commonAncestors, uncommonAncestors ) where
+                 commonAncestors, uncommonAncestors,
+                 Bisection(..), bisect, bisectionPlan ) where
 
 import Data.Maybe ( catMaybes )
+import Data.List ( sort, partition )
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
@@ -116,3 +118,34 @@ cauterizeHeads (Sealed x:xs)
     | any (unseal (isAncestorOf x)) xs = cauterizeHeads xs
     | otherwise = Sealed x :
                   cauterizeHeads (filter (unseal (not . (`isAncestorOf` x))) xs)
+
+data Bisection a = Test a (Bisection a) (Bisection a) | Done a
+
+instance Functor Bisection where
+    f `fmap` Done a = Done (f a)
+    f `fmap` Test a y n = Test (f a) (f `fmap` y) (f `fmap` n)
+
+bisect :: Monad m => (a -> m Bool) -> Bisection a -> m a
+bisect _ (Done a) = return a
+bisect test (Test a iftrue iffalse) =
+    do x <- test a
+       if x then bisect test iftrue
+            else bisect test iffalse
+
+bisectionPlan :: Hash Commit C(x) -> [Sealed (Hash Commit)]
+              -> Bisection (Sealed (Hash Commit))
+bisectionPlan ancestor heads =
+    easyBisection $ S.toList $
+                  S.difference (S.unions $ map (unseal ancestors) heads)
+                               (ancestors ancestor)
+
+easyBisection :: [Sealed (Hash Commit)] -> Bisection (Sealed (Hash Commit))
+easyBisection [] = error "oops in easyBisection"
+easyBisection [c] = Done c
+easyBisection cs =
+    case drop (length cs `div` 2) $ sort (zip ages cs) of
+      (_,pivot):_ -> case partition (ia pivot) cs of
+                       (a,b) -> Test pivot (easyBisection a) (easyBisection b)
+      [] -> error "nothing in easyBisection"
+    where ages = map (\c -> length $ filter (ia c) cs) cs
+          ia (Sealed x) (Sealed y) = isAncestorOf x y

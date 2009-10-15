@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
 
-module Git.Helpers ( test, testPredicate,
+module Git.Helpers ( test, testPredicate, revListHeads,
                      slurpTree, writeSlurpTree, touchedFiles,
                      simplifyParents,
                      diffCommit, mergeCommits, Strategy(..) ) where
@@ -27,6 +27,7 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       mkTree, hashObject, lsothers,
                       diffFiles, DiffOption( NameOnly ),
                       readTree, checkoutIndex,
+                      heads, revList, RevListOption(Skip),
                       -- mergeBase,
                       mergeIndex, readTreeMerge,
                       catTree, catBlob, catCommitTree )
@@ -286,3 +287,10 @@ diffCommit opts c0 =
        Sealed oldh <- mergeCommits opts (myParents c)
        old <- slurpTree oldh
        return $ FlippedSeal $ diff [] old new
+
+revListHeads :: [Flag] -> [RevListOption] -> IO String
+revListHeads opts revlistopts =
+    do hs <- cauterizeHeads `fmap` heads
+       Sealed t <- mergeCommits opts hs
+       c <- commitTree t hs "iolaus:temp"
+       revList (show c) (Skip 1:revlistopts)
