@@ -5,8 +5,9 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag,
                       catBlob, hashObject,
                       catTree, TreeEntry(..),
                       catCommit, CommitEntry(..),
-                      catCommitTree, parseRev, heads, headNames,
-                      clone, gitInit,
+                      catCommitTree, parseRev,
+                      heads, remoteHeads, headNames, remoteHeadNames,
+                      clone, gitInit, fetchPack,
                       checkoutCopy,
                       lsfiles, lssomefiles, lsothers,
                       revList, revListHashes, RevListOption(..), nameRevs,
@@ -300,6 +301,18 @@ heads =
          ExitSuccess -> return $ map (mkSHash Commit) $ lines out
          ExitFailure _ -> fail "parseRev failed"
 
+remoteHeads :: String -> IO [Sealed (Hash Commit)]
+remoteHeads repo =
+    do debugMessage "calling git-show-ref"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-ls-remote" ["--heads",repo])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ map (mkSHash Commit) $ lines out
+         ExitFailure _ -> fail "parseRev failed"
+
 headNames :: IO [(Sealed (Hash Commit), String)]
 headNames =
     do debugMessage "calling git-show-ref"
@@ -310,20 +323,34 @@ headNames =
        ec <- length out `seq` waitForProcess pid
        case ec of
          ExitSuccess -> return $ map parse $ lines out
-         ExitFailure _ -> fail "parseRev failed"
+         ExitFailure _ -> fail "git-show-ref failed"
+    where parse l = (mkSHash Commit l, drop 41 l)
+
+remoteHeadNames :: String -> IO [(Sealed (Hash Commit), String)]
+remoteHeadNames repo =
+    do debugMessage "calling git-ls-remote"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git-ls-remote" ["--heads",repo])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ map parse $ lines out
+         ExitFailure _ -> fail "git-ls-remote failed"
     where parse l = (mkSHash Commit l, drop 41 l)
 
 parseRev :: String -> IO (Sealed (Hash Commit))
 parseRev s =
     do debugMessage "calling git-rev-parse"
-       (Nothing, Just stdout, Nothing, pid) <-
+       (Nothing, Just stdout, Just stderr, pid) <-
            createProcess (proc "git-rev-parse" ["--verify",s])
-                             { std_out = CreatePipe }
+                   { std_err = Just CreatePipe, std_out = CreatePipe }
        out <- hGetContents stdout
-       ec <- length out `seq` waitForProcess pid
+       err <- hGetContents stderr
+       ec <- length (out++err) `seq` waitForProcess pid
        case ec of
          ExitSuccess -> return $ mkSHash Commit out
-         ExitFailure _ -> fail "parseRev failed"
+         ExitFailure _ -> fail ("git-rev-parse failed: "++err)
 
 updateref :: String -> Hash Commit C(x) -> IO ()
 updateref r h =
@@ -356,7 +383,7 @@ cleanhash :: String -> String
 cleanhash = take 40
 
 data RevListOption = MediumPretty | OneLine | Authors
-                   | Graph | RelativeDate | MaxCount Int
+                   | Graph | RelativeDate | MaxCount Int | Skip Int
 instance Flag RevListOption where
     toFlags MediumPretty = ["--pretty=medium"]
     toFlags OneLine = ["--pretty=oneline"]
@@ -364,6 +391,7 @@ instance Flag RevListOption where
     toFlags Graph = ["--graph"]
     toFlags RelativeDate = ["--date=relative"]
     toFlags (MaxCount n) = ["--max-count="++show n]
+    toFlags (Skip n) = ["--skip="++show n]
 
 nameRevs :: IO [String]
 nameRevs =
@@ -563,3 +591,13 @@ gitApply p =
        case ec of
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-apply failed"
+
+fetchPack :: String -> IO ()
+fetchPack repo =
+    do debugMessage "calling git-fetch-pack"
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-fetch-pack" ["--all", repo])
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-fetch-pack failed"

@@ -114,5 +114,6 @@ cauterizeHeads [] = []
 cauterizeHeads [a] = [a]
 cauterizeHeads (Sealed x:xs)
     | any (unseal (isAncestorOf x)) xs = cauterizeHeads xs
+    | Sealed x `elem` xs = cauterizeHeads xs
     | otherwise = Sealed x :
                   cauterizeHeads (filter (unseal (not . (`isAncestorOf` x))) xs)
