@@ -21,6 +21,7 @@ module Iolaus.Commands.Show ( show_command ) where
 import Iolaus.Command ( Command(..), CommandControl(Command_data) )
 import Iolaus.Commands.ShowAuthors ( show_authors )
 import Iolaus.Commands.ShowCommit ( show_commit )
+import Iolaus.Commands.ShowDependencies ( show_dependencies )
 import Iolaus.Commands.ShowContents ( show_contents )
 import Iolaus.Commands.ShowFiles ( show_files, show_manifest )
 import Iolaus.Commands.ShowTags ( show_tags )
@@ -45,6 +46,7 @@ show_command = SuperCommand {
                                          Command_data show_manifest,
                                          Command_data show_authors,
                                          Command_data show_commit,
+                                         Command_data show_dependencies,
                                          Command_data show_tags]
                }
 \end{code}

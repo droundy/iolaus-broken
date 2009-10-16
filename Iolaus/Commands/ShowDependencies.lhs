@@ -15,63 +15,69 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsubsection{arcs show commit}
+\subsubsection{iolaus show dependencies}
 \begin{code}
-module Iolaus.Commands.ShowCommit ( show_commit ) where
+module Iolaus.Commands.ShowDependencies ( show_dependencies ) where
 
 import Iolaus.Arguments ( Flag(..), mergeStrategy,
                           summary, working_repo_dir )
 import Iolaus.Command ( Command(..), nodefaults )
 import Iolaus.Printer ( putDocLnWith )
 import Iolaus.ColorPrinter ( fancyPrinters )
-import Iolaus.Patch ( showContextPatch, summarize, invert, apply_to_slurpy )
+import Iolaus.Patch ( summarize )
 import Iolaus.Sealed ( Sealed(Sealed), FlippedSeal(FlippedSeal) )
+import Iolaus.Repository ( slurp_working )
 
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( parseRev, nameRevs, catCommit, CommitEntry(myTree) )
-import Git.Helpers ( slurpTree, diffCommit )
+import Git.Plumbing ( Hash, Commit,
+                      heads, nameRevs, catCommit )
+import Git.Helpers ( writeSlurpTree, diffCommit, simplifyParents )
 \end{code}
 
-\options{show commit}
+\options{show dependencies}
 
-\haskell{show_commit_help}
-
-\begin{code}
-show_commit_description :: String
-show_commit_description = "Show a given commit."
-\end{code}
+\haskell{show_dependencies_help}
 
 \begin{code}
-show_commit_help :: String
-show_commit_help =
- "The commit command nicely shows a commit."
+show_dependencies_description :: String
+show_dependencies_description = "Show a given dependencies."
 \end{code}
 
 \begin{code}
-show_commit :: Command
-show_commit = Command {
-  command_name = "commit",
-  command_help = show_commit_help,
-  command_description = show_commit_description,
+show_dependencies_help :: String
+show_dependencies_help =
+ "The dependencies command nicely shows a dependencies."
+\end{code}
+
+\begin{code}
+show_dependencies :: Command
+show_dependencies = Command {
+  command_name = "dependencies",
+  command_help = show_dependencies_help,
+  command_description = show_dependencies_description,
   command_extra_args = -1,
-  command_extra_arg_help = ["<commitish>..."],
-  command_command = commit_cmd,
+  command_extra_arg_help = ["[commitish]..."],
+  command_command = dependencies_cmd,
   command_prereq = amInRepository,
   command_get_arg_possibilities = nameRevs,
   command_argdefaults = nodefaults,
   command_advanced_options = [],
   command_basic_options = [mergeStrategy, summary, working_repo_dir] }
 
-commit_cmd :: [Flag] -> [String] -> IO ()
-commit_cmd opts cs = mapM_ showc cs
-    where showc c =
-              do Sealed x <- parseRev c
-                 commit <- catCommit x
-                 putStr $ show commit
-                 FlippedSeal ch <- diffCommit opts x
-                 new <- slurpTree (myTree commit)
-                 let Just old = apply_to_slurpy (invert ch) new
-                 if Summary `elem` opts
-                   then putDocLnWith fancyPrinters $ summarize ch
-                   else putDocLnWith fancyPrinters $ showContextPatch old ch
+dependencies_cmd :: [Flag] -> [String] -> IO ()
+dependencies_cmd opts _ =
+    do Sealed s <- slurp_working
+       t <- writeSlurpTree s
+       hs <- heads
+       (hs', _) <- simplifyParents opts hs t
+       mapM_ (showc opts) hs'
+
+showc :: [Flag] -> Sealed (Hash Commit) -> IO ()
+showc opts (Sealed x) =
+    do commit <- catCommit x
+       putStr $ show commit
+       if Summary `elem` opts
+           then do FlippedSeal ch <- diffCommit opts x
+                   putDocLnWith fancyPrinters $ summarize ch
+           else return ()
 \end{code}
