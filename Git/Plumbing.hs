@@ -7,7 +7,7 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag,
                       catCommit, CommitEntry(..),
                       catCommitTree, parseRev,
                       heads, remoteHeads, headNames, remoteHeadNames,
-                      clone, gitInit, fetchPack, sendPack,
+                      clone, gitInit, fetchPack, sendPack, listRemotes,
                       checkoutCopy,
                       lsfiles, lssomefiles, lsothers,
                       revList, revListHashes, RevListOption(..), nameRevs,
@@ -592,9 +592,45 @@ gitApply p =
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-apply failed"
 
+listConfig :: IO [(String, String)]
+listConfig =
+    do debugMessage "calling git-config"
+       (Nothing, Just o, Nothing, pid) <-
+           createProcess (proc "git-config" ["--null", "--list"])
+                         { std_out = CreatePipe }
+       out <- hGetContents o
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ parse out
+         ExitFailure _ -> fail "git-config failed"
+    where parse "" = []
+          parse x = case break (== '\n') x of
+                      (a,_:b) ->
+                          case break (== '\0') b of
+                            (c,_:d) -> (a,c) : parse d
+                            (c,"") -> [(a,c)]
+                      _ -> []
+
+remoteUrls :: IO [(String,String)]
+remoteUrls = concatMap getrepo `fmap` listConfig
+    where getrepo (x,y) =
+              if take 7 x == "remote." && take 4 (reverse x) == "lru."
+              then [(reverse $ drop 4 $ reverse $ drop 7 x, y)]
+              else []
+
+listRemotes :: IO [String]
+listRemotes = map fst `fmap` remoteUrls
+
+parseRemote :: String -> IO String
+parseRemote r = do xs <- remoteUrls
+                   case lookup r xs of
+                     Just u -> return u
+                     Nothing -> return r
+
 fetchPack :: String -> IO ()
-fetchPack repo =
+fetchPack repo0 =
     do debugMessage "calling git-fetch-pack"
+       repo <- parseRemote repo0
        (Nothing, Nothing, Nothing, pid) <-
            createProcess (proc "git-fetch-pack" ["--all", repo])
        ec <- waitForProcess pid
@@ -603,8 +639,9 @@ fetchPack repo =
          ExitFailure _ -> fail "git-fetch-pack failed"
 
 sendPack :: String -> IO ()
-sendPack repo =
+sendPack repo0 =
     do debugMessage "calling git-send-pack"
+       repo <- parseRemote repo0
        (Nothing, Nothing, Nothing, pid) <-
            createProcess (proc "git-send-pack" ["--all", repo])
        ec <- waitForProcess pid
