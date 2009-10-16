@@ -15,7 +15,7 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsection{arcs record}
+\subsection{iolaus record}
 \label{record}
 \begin{code}
 {-# LANGUAGE CPP, PatternGuards #-}
@@ -32,13 +32,12 @@ import Iolaus.Lock ( readBinFile, writeBinFile, world_readable_temp,
                    appendToFile, removeFileMayNotExist )
 import Iolaus.Command ( Command(..), nodefaults )
 import Iolaus.Arguments ( Flag( PromptLongComment, NoEditLongComment,
-                                  Quiet, EditLongComment, RmLogFile,
-                                  LogFile, Pipe,
-                                  PatchName, All ),
+                                Quiet, EditLongComment, RmLogFile,
+                                LogFile, PatchName, All ),
                         working_repo_dir, mergeStrategy, commitApproach,
                         fixSubPaths, testByDefault,
                         ask_long_comment,
-                        all_pipe_interactive, notest,
+                        all_interactive, notest,
                         author, patchname_option,
                         rmlogfile, logfile )
 import Iolaus.Utils ( askUser, promptYorn, edit_file )
@@ -89,7 +88,7 @@ record = Command {command_name = "record",
                        command_basic_options = [patchname_option, author]++
                                                notest++[mergeStrategy,
                                                commitApproach,
-                                               all_pipe_interactive,
+                                               all_interactive,
                                                ask_long_comment,
                                                working_repo_dir]}
 
@@ -187,13 +186,6 @@ get_log opts m_old make_log = gl opts
           default_log = case m_old of
                           Nothing    -> []
                           Just (_,l) -> l
-          gl (Pipe:_) = do p <- case patchname_specified of
-                                  FlagPatchName p  -> return p
-                                  PriorPatchName p -> return p
-                                  NoPatchName      -> prompt_patchname False
-                           putStrLn "What is the log?"
-                           thelog <- lines `fmap` hGetContents stdin -- ratify hGetContents: stdin not deleted
-                           return (p, thelog, Nothing)
           gl (LogFile f:fs) =
               do -- round 1 (patchname)
                  mlp <- lines `fmap` readBinFile f `catch` (\_ -> return [])
