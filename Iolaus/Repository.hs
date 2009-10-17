@@ -82,10 +82,7 @@ cleanup_all_but :: [Sealed (Hash Commit)] -> IO ()
 cleanup_all_but hs =
     do hns <- headNames
        let rmhead x = removeFile (".git/"++x)
-       case map snd $ filter ((`notElem` hs) . fst) hns of
-         [] -> return ()
-         extras -> do putStrLn $ "Extra heads are: "++ unwords extras
-                      mapM_ rmhead extras
+       mapM_ rmhead $ map snd $ filter ((`notElem` hs) . fst) hns
 
 masters :: [String]
 masters = "refs/heads/master" :

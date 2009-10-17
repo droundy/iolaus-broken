@@ -7,7 +7,7 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag,
                       catCommit, CommitEntry(..),
                       catCommitTree, parseRev,
                       heads, remoteHeads, headNames, remoteHeadNames,
-                      clone, gitInit, fetchPack,
+                      clone, gitInit, fetchPack, sendPack,
                       checkoutCopy,
                       lsfiles, lssomefiles, lsothers,
                       revList, revListHashes, RevListOption(..), nameRevs,
@@ -603,3 +603,13 @@ fetchPack repo =
        case ec of
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git-fetch-pack failed"
+
+sendPack :: String -> IO ()
+sendPack repo =
+    do debugMessage "calling git-send-pack"
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git-send-pack" ["--all", "--force", repo])
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git-send-pack failed"
