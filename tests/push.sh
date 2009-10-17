@@ -19,7 +19,7 @@ diff -u foo ../temp/foo
 
 echo hello world > bar
 iolaus record -am addbar
-iolaus push ../temp && exit 1
+iolaus push ../temp # we now force things... should we?
 cd ..
 
 true

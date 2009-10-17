@@ -606,7 +606,7 @@ sendPack :: String -> IO ()
 sendPack repo =
     do debugMessage "calling git-send-pack"
        (Nothing, Nothing, Nothing, pid) <-
-           createProcess (proc "git-send-pack" ["--all", repo])
+           createProcess (proc "git-send-pack" ["--all", "--force", repo])
        ec <- waitForProcess pid
        case ec of
          ExitSuccess -> return ()
