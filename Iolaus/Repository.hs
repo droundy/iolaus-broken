@@ -17,7 +17,7 @@
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
 
-module Iolaus.Repository ( add_heads, remove_head,
+module Iolaus.Repository ( add_heads, decapitate,
                            get_unrecorded_changes,
                            get_unrecorded, Unrecorded(..),
                            slurp_recorded, slurp_working ) where
@@ -30,7 +30,7 @@ import Iolaus.Patch ( Prim )
 import Iolaus.Flags ( Flag )
 import Iolaus.Ordered ( FL, unsafeCoerceS )
 import Iolaus.SlurpDirectory ( Slurpy )
-import Iolaus.Sealed ( Sealed(..), mapSealM )
+import Iolaus.Sealed ( Sealed(..), mapSealM, unseal )
 
 import Git.Plumbing ( Hash, Commit, heads, headNames,
                       writetree, updateindex, updateref )
@@ -70,10 +70,11 @@ add_heads _ h =
          hs' -> do zipWithM_ (\mm (Sealed hh) -> updateref mm hh) masters hs'
                    cleanup_all_but hs'
 
-remove_head :: [Flag] -> Hash Commit C(x) -> IO ()
-remove_head _ h =
+decapitate :: [Flag] -> [Sealed (Hash Commit)] -> IO ()
+decapitate _ xs =
     do hs <- heads
-       case cauterizeHeads (parents h++filter (/= Sealed h) hs) of
+       let pars = concatMap (unseal parents) xs
+       case cauterizeHeads (filter (`notElem` xs) (hs++pars)) of
          hs' -> do zipWithM_ (\mm (Sealed hh) -> updateref mm hh) masters hs'
                    cleanup_all_but hs'
 

@@ -514,11 +514,13 @@ data CommitEntry C(x) = CommitEntry { myParents :: [Sealed (Hash Commit)],
                                       myCommitter :: String,
                                       myMessage :: String }
 
-instance Show (CommitEntry C(x)) where
-    show c = unlines $ ("tree "++show (myTree c)) :
+instance Show1 CommitEntry where
+    show1 c = unlines $ ("tree "++show (myTree c)) :
              map (\p -> "parent "++show p) (myParents c)
              ++ ["author "++myAuthor c, "committer "++myCommitter c,
                  "", myMessage c]
+instance Show (CommitEntry C(x)) where
+    show = show1
 
 catCommit :: Hash Commit C(x) -> IO (CommitEntry C(x))
 catCommit (Hash Commit h0) =

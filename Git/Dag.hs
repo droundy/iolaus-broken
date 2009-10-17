@@ -1,14 +1,14 @@
 {-# LANGUAGE CPP, GADTs #-}
 #include "gadts.h"
 
-module Git.Dag ( parents, ancestors, isAncestorOf,
+module Git.Dag ( parents, ancestors, allAncestors, isAncestorOf,
                  mergeBases, cauterizeHeads, dag2commit,
                  makeDag, Dag(..), greatGrandFather,
                  commonAncestors, uncommonAncestors,
                  Bisection(..), bisect, bisectionPlan ) where
 
 import Data.Maybe ( catMaybes )
-import Data.List ( sort, partition )
+import Data.List ( sort, partition, nub )
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
@@ -62,6 +62,11 @@ mergeBases (h:hs) = mb (unseal ancestors h) hs
 
 ancestors :: Hash Commit C(x) -> S.Set (Sealed (Hash Commit))
 ancestors h = unsafePerformIO $ findAncestors $ Sealed h
+
+allAncestors :: [Sealed (Hash Commit)] -> [Sealed (Hash Commit)]
+allAncestors hs = nub (hs ++ concatMap (unseal parents) hs ++
+                       newestFirst (S.toList s))
+    where s = S.unions $ map (unseal ancestors) hs
 
 parents :: Hash Commit C(x) -> [Sealed (Hash Commit)]
 parents h = unsafePerformIO $
@@ -139,13 +144,17 @@ bisectionPlan ancestor heads =
                   S.difference (S.unions $ map (unseal ancestors) heads)
                                (ancestors ancestor)
 
+newestFirst :: [Sealed (Hash Commit)] -> [Sealed (Hash Commit)]
+newestFirst cs = map snd $ sort (zip ages cs)
+    where ages = map (\c -> length $ filter (ia c) cs) cs
+          ia (Sealed x) (Sealed y) = isAncestorOf x y
+
 easyBisection :: [Sealed (Hash Commit)] -> Bisection (Sealed (Hash Commit))
 easyBisection [] = error "oops in easyBisection"
 easyBisection [c] = Done c
 easyBisection cs =
-    case drop (length cs `div` 2) $ sort (zip ages cs) of
-      (_,pivot):_ -> case partition (ia pivot) cs of
-                       (a,b) -> Test pivot (easyBisection a) (easyBisection b)
+    case drop (length cs `div` 2) $ newestFirst cs of
+      pivot:_ -> case partition (ia pivot) cs of
+                   (a,b) -> Test pivot (easyBisection a) (easyBisection b)
       [] -> error "nothing in easyBisection"
-    where ages = map (\c -> length $ filter (ia c) cs) cs
-          ia (Sealed x) (Sealed y) = isAncestorOf x y
+    where ia (Sealed x) (Sealed y) = isAncestorOf x y
