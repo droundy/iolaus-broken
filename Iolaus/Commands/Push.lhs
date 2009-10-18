@@ -28,7 +28,7 @@ import Iolaus.Command ( Command(..) )
 import Iolaus.Arguments ( Flag, working_repo_dir, summary,
                           match_several, all_interactive, remote_repo )
 
-import Git.Plumbing ( sendPack )
+import Git.Plumbing ( sendPack, listRemotes )
 import Git.LocateRepo ( amInRepository )
 #include "impossible.h"
 
@@ -53,7 +53,7 @@ push = Command {command_name = "push",
                 command_extra_arg_help = ["[REPOSITORY]"],
                 command_command = push_cmd,
                 command_prereq = amInRepository,
-                command_get_arg_possibilities = return [], -- FIXME
+                command_get_arg_possibilities = listRemotes,
                 command_argdefaults = deforigin,
                 command_advanced_options = [remote_repo],
                 command_basic_options = [match_several, all_interactive,

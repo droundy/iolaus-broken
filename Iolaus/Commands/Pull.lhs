@@ -37,7 +37,7 @@ import Iolaus.Sealed ( Sealed(..) )
 import Iolaus.Repository ( add_heads, slurp_working, slurp_recorded )
 
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( heads, remoteHeads, fetchPack )
+import Git.Plumbing ( heads, remoteHeads, listRemotes, fetchPack )
 import Git.Helpers ( test, slurpTree, mergeCommits )
 
 pull_description :: String
@@ -67,7 +67,7 @@ pull = Command {command_name = "pull",
                 command_extra_arg_help = ["[REPOSITORY]..."],
                 command_command = pull_cmd,
                 command_prereq = amInRepository,
-                command_get_arg_possibilities = return ["origin"], -- fixme: list remotes
+                command_get_arg_possibilities = listRemotes,
                 command_argdefaults = deforigin,
                 command_advanced_options = [repo_combinator,
                                             mergeStrategy,remote_repo],
