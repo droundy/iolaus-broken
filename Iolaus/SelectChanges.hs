@@ -16,6 +16,7 @@
 -- Boston, MA 02110-1301, USA.
 
 {-# OPTIONS_GHC -cpp -fglasgow-exts #-}
+{-# OPTIONS_GHC -fglasgow-exts #-}
 {-# LANGUAGE CPP, ForeignFunctionInterface #-}
 -- , ScopedTypeVariables, TypeOperators, PatternGuards #-}
 

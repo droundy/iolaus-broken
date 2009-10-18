@@ -23,7 +23,6 @@
 module Iolaus.Commands.Record ( record, get_log ) where
 import Control.Exception ( handleJust, Exception( ExitException ) )
 import Control.Monad ( when )
-import System.IO ( hGetContents, stdin )
 import Data.List ( sort, isPrefixOf )
 import System.Exit ( exitWith, exitFailure, ExitCode(..) )
 import System.IO ( hPutStrLn )
