@@ -17,7 +17,7 @@
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
 
-module Iolaus.Repository ( add_heads, decapitate,
+module Iolaus.Repository ( add_heads, decapitate, push_heads,
                            get_unrecorded_changes,
                            get_unrecorded, Unrecorded(..),
                            slurp_recorded, slurp_working ) where
@@ -33,7 +33,7 @@ import Iolaus.SlurpDirectory ( Slurpy )
 import Iolaus.Sealed ( Sealed(..), mapSealM, unseal )
 
 import Git.Plumbing ( Hash, Commit, heads, headNames,
-                      writetree, updateindex, updateref )
+                      writetree, updateindex, updateref, sendPack )
 import Git.Helpers ( touchedFiles, slurpTree, mergeCommits )
 import Git.Dag ( parents, cauterizeHeads )
 
@@ -86,6 +86,9 @@ cleanup_all_but hs =
          [] -> return ()
          extras -> do putStrLn $ "Extra heads are: "++ unwords extras
                       mapM_ rmhead extras
+
+push_heads :: String -> [Sealed (Hash Commit)] -> IO ()
+push_heads repo cs = sendPack repo (zip (cauterizeHeads cs) masters)
 
 masters :: [String]
 masters = "refs/heads/master" :

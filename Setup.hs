@@ -7,8 +7,8 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"],
                 (do putS "compiling with type witnesses enabled"
                     define "GADT_WITNESSES"
                     ghcFlags ["-fglasgow-exts"])] $
-       do hcFlags ["-Wall","-Iinclude"]
-          ghcFlags ["-threaded"]
+       do hcFlags ["-Iinclude"]
+          ghcFlags ["-Wall","-threaded"]
           withDirectory "etc" $ etc "bash_completion.d/iolaus"
           withModule "System.Process.Redirects" $ define "HAVE_REDIRECTS"
           executable "iolaus" "iolaus.hs" []

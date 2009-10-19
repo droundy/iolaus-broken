@@ -11,14 +11,15 @@ mkdir temp1
 cd temp1
 iolaus init
 echo hello world > bar
-iolaus pull -a ../temp
+cd ../temp
+iolaus push -a ../temp1
+cd ../temp1
+iolaus revert -a # FIXME this is really hokey
 diff -u foo ../temp/foo
 
+echo hello world > bar
 iolaus record -am addbar
+iolaus push -a ../temp # we now force things... should we?
 cd ..
 
-cd temp
-date > bar
-iolaus pull -a ../temp1 && exit 1
 true
-cd ..

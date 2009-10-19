@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP, GADTs #-}
 #include "gadts.h"
 
-module Git.Dag ( parents, ancestors, allAncestors, isAncestorOf,
+module Git.Dag ( parents, ancestors, allAncestors, isAncestorOf, notIn,
                  mergeBases, cauterizeHeads, dag2commit,
                  makeDag, Dag(..), greatGrandFather,
                  commonAncestors, uncommonAncestors,
@@ -42,6 +42,13 @@ uncommonAncestors xs = S.difference (S.unions axs) com
           com = int S.empty axs
           int i [] = i
           int i (s:ss) = int (S.intersection i s) ss
+
+notIn ::  [Sealed (Hash Commit)] ->  [Sealed (Hash Commit)]
+      -> [Sealed (Hash Commit)]
+notIn them us = newestFirst $ S.toList justhem
+    where allus = S.unions $ S.fromList us : map (unseal ancestors) us
+          allthem = S.unions $ S.fromList them : map (unseal ancestors) them
+          justhem = S.difference allthem allus
 
 findChildren :: Hash Commit C(x) -> S.Set (Sealed (Hash Commit))
              -> S.Set (Sealed (Hash Commit))
