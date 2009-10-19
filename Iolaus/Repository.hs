@@ -17,10 +17,10 @@
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
 
-module Iolaus.Repository ( add_heads, remove_head,
-                           get_unrecorded_changes,
-                           get_unrecorded, Unrecorded(..),
-                           slurp_recorded, slurp_working ) where
+module Iolaus.Repository
+    ( add_heads, remove_head,
+      get_unrecorded_changes, get_recorded_and_unrecorded,
+      get_unrecorded, Unrecorded(..), slurp_recorded, slurp_working ) where
 
 import Control.Monad ( zipWithM_ )
 import System.Directory ( removeFile )
@@ -56,6 +56,13 @@ get_unrecorded opts =
     do Sealed new <- slurp_working
        old <- slurp_recorded opts
        return $ Unrecorded (diff [] old new) new
+
+get_recorded_and_unrecorded :: [Flag]
+                            -> IO (Slurpy C(RecordedState), Unrecorded)
+get_recorded_and_unrecorded opts =
+    do Sealed new <- slurp_working
+       old <- slurp_recorded opts
+       return (old, Unrecorded (diff [] old new) new)
 
 get_unrecorded_changes :: [Flag] -> IO (Sealed (FL Prim C(RecordedState)))
 get_unrecorded_changes opts =

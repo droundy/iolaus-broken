@@ -48,7 +48,8 @@ import Iolaus.Printer ( ($$), text, hPutDocLn, wrap_text, renderString )
 import Iolaus.SelectChanges ( with_selected_changes_to_files )
 import Iolaus.Ordered ( (:>)(..), FL(NilFL) )
 import Iolaus.Progress ( debugMessage )
-import Iolaus.Repository ( get_unrecorded_changes, slurp_recorded, add_heads )
+import Iolaus.Repository ( get_recorded_and_unrecorded, Unrecorded(..),
+                           add_heads )
 import Iolaus.Sealed ( Sealed(Sealed) )
 
 import Git.LocateRepo ( amInRepository )
@@ -56,8 +57,7 @@ import Git.Plumbing ( lsfiles, heads, commitTree )
 import Git.Helpers ( test, writeSlurpTree, simplifyParents )
 
 #include "impossible.h"
-\end{code}
-\begin{code}
+
 record_description :: String
 record_description =
  "Save changes in the working copy to the repository as a patch."
@@ -73,8 +73,7 @@ record_help :: String
 record_help = renderString $ wrap_text 80 $
  "Record is used to name a set of changes and record the patch to the "++
  "repository."
-\end{code}
-\begin{code}
+
 record :: Command
 record = Command {command_name = "record",
                        command_help = record_help,
@@ -98,8 +97,7 @@ record_cmd opts args = do
     check_name_is_not_option opts
     files <- sort `fmap` fixSubPaths opts args
     handleJust only_successful_exits (\_ -> return ()) $ do
-    old <- slurp_recorded opts
-    Sealed allchs <- get_unrecorded_changes opts
+    (old, Unrecorded allchs _) <- get_recorded_and_unrecorded opts
     with_selected_changes_to_files "record" opts old (map toFilePath files)
                                    allchs $ \ (ch:>_) ->
         do debugMessage "have finished selecting changes..."
@@ -283,7 +281,13 @@ only_successful_exits _ = Nothing
 \end{code}
 
 \begin{options}
---no-test,  --test
+--cauterize-all
+\end{options}
+
+Describe this please.
+
+\begin{options}
+--no-test,  --test,  --test-parents
 \end{options}
 
 If you configure iolaus to run a test suite, iolaus will run this test on the
@@ -291,15 +295,21 @@ recorded repository to make sure it is valid.  Iolaus first creates a pristine
 copy of the source tree (in a temporary directory), then it runs the test,
 using its return value to decide if the record is valid.  If it is not valid,
 the record will be aborted.  This is a handy way to avoid making stupid
-mistakes like forgetting to `iolaus add' a new file.  It also can be
+mistakes.  It also can be
 tediously slow, so there is an option (\verb!--no-test!) to skip the test.
 
+You can also use \verb!--test-parents! if iolaus is to fast
+for you, which will cause record to seek out the minimal context in
+which the new patch will pass the test this is currently \emph{very}
+slow, as it doesn't do any bisection at all.
 
 \begin{options}
---interactive
+--interactive, --all
 \end{options}
 
-By default, \verb!record! works interactively. Probably the only thing you need
-to know about using this is that you can press \verb!?! at the prompt to be
-shown a list of the rest of the options and what they do. The rest should be
-clear from there.
+By default, \verb!record! works interactively. Probably the only thing
+you need to know about using this is that you can press \verb!?! at
+the prompt to be shown a list of the rest of the options and what they
+do. The rest should be clear from there.  The opposite is
+\verb!--all!, which causes iolaus not to prompt you, but simply to
+record all changes.
