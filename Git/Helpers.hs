@@ -148,7 +148,7 @@ simplifyParents opts pars0 rec0 = sp [] (cauterizeHeads pars0) rec0
     where
       sp :: [Sealed (Hash Commit)] -> [Sealed (Hash Commit)] -> Hash Tree C(x)
          -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
-      sp ps [] t = return (ps,Sealed t)
+      sp ps [] t = return (cauterizeHeads ps,Sealed t)
       sp kn (p:ps) t =
           do let nop = cauterizeHeads (kn++ps++unseal parents p)
              Sealed ptree <- mergeCommits opts (kn++p:ps)
@@ -159,7 +159,7 @@ simplifyParents opts pars0 rec0 = sp [] (cauterizeHeads pars0) rec0
                Nothing -> sp (p:kn) ps t
                Just (myp :> _) ->
                    do t' <- apply_to_slurpy myp noptree >>= writeSlurpTree
-                      ct <- commitTree t (p:ps) "iolaus:testing"
+                      ct <- commitTree t (p:kn++ps) "iolaus:testing"
                       joined0 <- mergeCommitsX MergeN (Sealed ct:p:nop)
                       ct' <- commitTree t' nop "iolaus:testing"
                       joined <- mergeCommitsX MergeN (Sealed ct':p:nop)

@@ -53,7 +53,7 @@ push :: Command
 push = Command {command_name = "push",
                 command_help = push_help,
                 command_description = push_description,
-                command_extra_args = 1,
+                command_extra_args = -1,
                 command_extra_arg_help = ["[REPOSITORY]"],
                 command_command = push_cmd,
                 command_prereq = amInRepository,
