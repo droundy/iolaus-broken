@@ -22,15 +22,19 @@
 
 module Iolaus.Commands.Unrecord ( unrecord ) where
 
+import Data.List ( isInfixOf )
+import Control.Monad ( filterM )
+
 import Iolaus.Command ( Command(..), nodefaults )
-import Iolaus.Arguments ( Flag, working_repo_dir, all_interactive,
-                          match_several_or_last )
+import Iolaus.Arguments ( Flag( SeveralPatch ), working_repo_dir,
+                          all_interactive, match_several_or_last )
 import Iolaus.Repository ( decapitate )
 import Iolaus.SelectCommits ( select_last_commits )
+import Iolaus.Sealed ( Sealed(Sealed), mapSealM )
 
 import Git.Dag ( allAncestors )
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( heads )
+import Git.Plumbing ( Hash, Commit, heads, catCommit, myMessage )
 #include "gadts.h"
 
 unrecord_description :: String
@@ -101,8 +105,16 @@ unrecord = Command {command_name = "unrecord",
 
 unrecord_cmd :: [Flag] -> [String] -> IO ()
 unrecord_cmd opts _ =
-    do hs <- heads
-       toremove <- select_last_commits "unrecord" opts (allAncestors hs)
+    do hs0 <- heads
+       hs <- filterM (match opts) (allAncestors hs0)
+       toremove <- select_last_commits "unrecord" opts hs
        decapitate opts toremove
+
+match :: [Flag] -> Sealed (Hash Commit) -> IO Bool
+match (SeveralPatch p:_) x =
+    do Sealed ce <- mapSealM catCommit x
+       return (p `isInfixOf` myMessage ce)
+match (_:fs) x = match fs x
+match [] _ = return True
 \end{code}
 

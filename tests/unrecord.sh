@@ -10,9 +10,7 @@ date > bar
 iolaus wh > datebar~
 iolaus record -am addbar
 
-echo yd | iolaus unrecord
-
-exit 0 # work around buggy lack of patch selection in unrecord!
+iolaus unrecord -p addbar -a
 
 iolaus wh > datebar2~
 diff datebar~ datebar2~
