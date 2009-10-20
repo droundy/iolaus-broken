@@ -50,10 +50,6 @@ notIn them us = newestFirst $ S.toList justhem
           allthem = S.unions $ S.fromList them : map (unseal ancestors) them
           justhem = S.difference allthem allus
 
-findChildren :: Hash Commit C(x) -> S.Set (Sealed (Hash Commit))
-             -> S.Set (Sealed (Hash Commit))
-findChildren p = S.filter (elem (Sealed p) . unseal parents)
-
 mergeBases :: [Sealed (Hash Commit)] -> [Sealed (Hash Commit)]
 mergeBases [] = []
 mergeBases (h:hs) = mb (unseal ancestors h) hs
@@ -132,7 +128,8 @@ cauterizeHeads0 [a] = [a]
 cauterizeHeads0 (Sealed x:xs)
   | any (unseal (isAncestorOf x)) xs = cauterizeHeads0 xs
   | Sealed x `elem` xs = cauterizeHeads0 xs
-  | otherwise = Sealed x :
+  | Sealed x `elem` xs = cauterizeHeads xs
+    | otherwise = Sealed x :
                 cauterizeHeads0 (filter (unseal (not . (`isAncestorOf` x))) xs)
 
 data Bisection a = Test a (Bisection a) (Bisection a) | Done a

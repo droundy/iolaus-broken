@@ -102,21 +102,7 @@ fancyPrinters h = Printers { colorP     = colorPrinter (getPolicy h),
                              invisibleP = invisiblePrinter,
                              hiddenP = colorPrinter (getPolicy h) Green,
                              userchunkP  = userchunkPrinter (getPolicy h),
-                             defP       = escapePrinter (getPolicy h),
-                             lineColorT = lineColorTrans (getPolicy h),
-                             lineColorS = lineColorSuffix (getPolicy h)
-                           }
-
--- | @'lineColorTrans' policy@ tries to color a Doc, according to policy po.
--- That is, if @policy@ has @poLineColor@ set, then colors the line, otherwise
--- does nothing.
-lineColorTrans :: Policy -> Color -> Doc -> Doc
-lineColorTrans po | poLineColor po = \c d -> prefix (set_color c) d <?> unsafeBothText reset_color
-                  | otherwise      = const id
-
-lineColorSuffix :: Policy -> [Printable] -> [Printable]
-lineColorSuffix po | poLineColor po = \d -> S reset_color : d
-                   | otherwise      = id
+                             defP       = escapePrinter (getPolicy h) }
 
 colorPrinter :: Policy -> Color -> Printer
 colorPrinter po | poColor po = \c -> unDoc . color po c . Doc . escapePrinter po{poColor=False}
