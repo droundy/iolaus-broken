@@ -54,26 +54,6 @@ instance ShowPatch Prim where
 summarize :: Effect e => e C(x y) -> Doc
 summarize = gen_summary . effect
 
-showContextSeries :: (Apply p, ShowPatch p, Effect p) =>
-                     Slurpy C(x) -> FL p C(x y) -> Doc
-showContextSeries slur patches = scs slur identity patches
-    where scs :: (Apply p, ShowPatch p, Effect p) =>
-                 Slurpy C(x) -> Prim C(w x) -> FL p C(x y) -> Doc
-          scs s pold (p:>:ps) =
-              case isHunk p of
-              Nothing -> showContextPatch s p $$ scs s' identity ps
-              Just hp ->
-                  case ps of
-                  NilFL -> coolContextHunk s pold hp identity
-                  (p2:>:_) ->
-                      case isHunk p2 of
-                      Nothing -> coolContextHunk s pold hp identity $$ scs s' hp ps
-                      Just hp2 -> coolContextHunk s pold hp hp2 $$
-                                  scs s' hp ps
-              where s' =
-                        fromJust $ apply_to_slurpy p s
-          scs _ _ NilFL = empty
-
 showContextStuff :: Slurpy C(x) -> FL Prim C(x y) -> Doc
 showContextStuff _ NilFL = empty
 showContextStuff s0 ps@(FP f (Chunk c _ _ _) :>: _) =

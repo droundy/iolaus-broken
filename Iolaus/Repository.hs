@@ -17,10 +17,10 @@
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
 
-module Iolaus.Repository ( add_heads, decapitate, push_heads,
-                           get_unrecorded_changes,
-                           get_unrecorded, Unrecorded(..),
-                           slurp_recorded, slurp_working ) where
+module Iolaus.Repository
+    ( add_heads, decapitate, push_heads,
+      get_unrecorded_changes, get_recorded_and_unrecorded,
+      get_unrecorded, Unrecorded(..), slurp_recorded, slurp_working ) where
 
 import Control.Monad ( zipWithM_ )
 import System.Directory ( removeFile )
@@ -57,6 +57,13 @@ get_unrecorded opts =
        old <- slurp_recorded opts
        return $ Unrecorded (diff [] old new) new
 
+get_recorded_and_unrecorded :: [Flag]
+                            -> IO (Slurpy C(RecordedState), Unrecorded)
+get_recorded_and_unrecorded opts =
+    do Sealed new <- slurp_working
+       old <- slurp_recorded opts
+       return (old, Unrecorded (diff [] old new) new)
+
 get_unrecorded_changes :: [Flag] -> IO (Sealed (FL Prim C(RecordedState)))
 get_unrecorded_changes opts =
     do Sealed new <- slurp_working
@@ -82,10 +89,7 @@ cleanup_all_but :: [Sealed (Hash Commit)] -> IO ()
 cleanup_all_but hs =
     do hns <- headNames
        let rmhead x = removeFile (".git/"++x)
-       case map snd $ filter ((`notElem` hs) . fst) hns of
-         [] -> return ()
-         extras -> do putStrLn $ "Extra heads are: "++ unwords extras
-                      mapM_ rmhead extras
+       mapM_ rmhead $ map snd $ filter ((`notElem` hs) . fst) hns
 
 push_heads :: String -> [Sealed (Hash Commit)] -> IO ()
 push_heads repo cs = sendPack repo (zip (cauterizeHeads cs) masters)
