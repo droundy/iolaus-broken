@@ -27,7 +27,7 @@ import System.Exit ( exitWith, ExitCode(ExitSuccess) )
 import Iolaus.Workaround ( getCurrentDirectory )
 import Iolaus.Command ( Command(..) )
 import Iolaus.Arguments ( Flag, working_repo_dir, summary,
-                          match_several, all_interactive, remote_repo )
+                          match_several_or_first, all_interactive, remote_repo )
 import Iolaus.Repository ( push_heads )
 import Iolaus.SelectCommits ( select_commits )
 
@@ -53,14 +53,15 @@ push :: Command
 push = Command {command_name = "push",
                 command_help = push_help,
                 command_description = push_description,
-                command_extra_args = 1,
+                command_extra_args = -1,
                 command_extra_arg_help = ["[REPOSITORY]"],
                 command_command = push_cmd,
                 command_prereq = amInRepository,
                 command_get_arg_possibilities = listRemotes,
                 command_argdefaults = deforigin,
                 command_advanced_options = [remote_repo],
-                command_basic_options = [match_several, all_interactive,
+                command_basic_options = [match_several_or_first,
+                                         all_interactive,
                                          summary, working_repo_dir]}
     where deforigin _ _ [] = return ["origin"]
           deforigin _ _ xs = return xs

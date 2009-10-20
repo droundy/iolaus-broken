@@ -10,7 +10,7 @@ date > bar
 iolaus wh > datebar~
 iolaus record -am addbar
 
-echo yd | iolaus unrecord
+iolaus unrecord -p addbar -a
 
 iolaus wh > datebar2~
 diff datebar~ datebar2~

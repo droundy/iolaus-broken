@@ -23,27 +23,38 @@
 module Iolaus.SelectCommits ( select_commits, select_last_commits ) where
 
 import System.IO
-import Data.List ( intersperse, partition )
+import Data.List ( intersperse, partition, isInfixOf )
 import Data.Char ( toUpper )
 import System.Exit ( exitWith, ExitCode(ExitSuccess) )
+import Control.Monad ( filterM )
 
-import Iolaus.Flags ( Flag( All ) )
+import Iolaus.Flags ( Flag( All, SeveralPatch ) )
 import Iolaus.Utils ( promptCharFancy )
 import Iolaus.Sealed ( Sealed( Sealed ), mapSealM )
+import Iolaus.Show ( pretty )
 
 import Git.Dag ( isAncestorOf )
-import Git.Plumbing ( Hash, Commit, catCommit )
+import Git.Plumbing ( Hash, Commit, catCommit, myMessage )
 
 data WhichChanges = Last | First
                     deriving (Eq, Show)
 
+match :: [Flag] -> Sealed (Hash Commit) -> IO Bool
+match (SeveralPatch p:_) x =
+    do Sealed ce <- mapSealM catCommit x
+       return (p `isInfixOf` myMessage ce)
+match (_:fs) x = match fs x
+match [] _ = return True
+
 select_commits :: String -> [Flag] -> [Sealed (Hash Commit)]
                -> IO [Sealed (Hash Commit)]
-select_commits = text_select First []
+select_commits jn opts cs0 = do cs <- filterM (match opts) cs0
+                                text_select First [] jn opts cs
 
 select_last_commits :: String -> [Flag] -> [Sealed (Hash Commit)]
                     -> IO [Sealed (Hash Commit)]
-select_last_commits = text_select Last []
+select_last_commits jn opts cs0 = do cs <- filterM (match opts) cs0
+                                     text_select Last [] jn opts cs
 
 text_select :: WhichChanges -> [Sealed (Hash Commit)]
             -> String -> [Flag] -> [Sealed (Hash Commit)]
@@ -51,7 +62,7 @@ text_select :: WhichChanges -> [Sealed (Hash Commit)]
 text_select _ sofar _ _ [] = return sofar
 text_select _ sofar _ opts cs | All `elem` opts = return (sofar++cs)
 text_select w sofar jn opts (c:cs) =
-    do mapSealM catCommit c >>= (putStr . show)
+    do mapSealM catCommit c >>= (putStr . pretty)
        doKey prompt options
     where
         Sealed a `iao` Sealed b = a `isAncestorOf` b

@@ -23,8 +23,8 @@
 module Iolaus.Commands.Unrecord ( unrecord ) where
 
 import Iolaus.Command ( Command(..), nodefaults )
-import Iolaus.Arguments ( Flag, working_repo_dir, all_interactive,
-                          match_several_or_last )
+import Iolaus.Arguments ( Flag, working_repo_dir,
+                          all_interactive, match_several_or_last )
 import Iolaus.Repository ( decapitate )
 import Iolaus.SelectCommits ( select_last_commits )
 

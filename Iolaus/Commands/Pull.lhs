@@ -27,6 +27,7 @@ import Control.Monad ( when )
 import Iolaus.Command ( Command(..) )
 import Iolaus.Arguments
     ( Flag, pull_conflict_options, all_interactive, repo_combinator,
+      match_several_or_first,
       notest, testByDefault, mergeStrategy, working_repo_dir, remote_repo )
 import Iolaus.Patch ( apply, merge )
 import Iolaus.Ordered ( (:/\:)(..), (:\/:)(..) )
@@ -72,7 +73,8 @@ pull = Command {command_name = "pull",
                 command_advanced_options = [repo_combinator,
                                             mergeStrategy,remote_repo],
                 command_basic_options = [all_interactive,
-                                         pull_conflict_options]++
+                                         pull_conflict_options,
+                                         match_several_or_first]++
                                          notest++[working_repo_dir]}
     where deforigin _ _ [] = return ["origin"]
           deforigin _ _ xs = return xs
