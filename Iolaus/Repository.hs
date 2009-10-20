@@ -94,8 +94,10 @@ cleanup_all_but hs =
 push_heads :: String -> [Sealed (Hash Commit)] -> IO ()
 push_heads repo cs =
     do hs <- remoteHeads repo
-       sendPack repo (zip (cauterizeHeads (hs++cs)++empties) masters)
-    where empties = take 20 $ repeat $ Sealed emptyCommit
+       let newhs = cauterizeHeads (hs++cs)
+           empties = take (length hs - length newhs) $
+                     repeat $ Sealed emptyCommit
+       sendPack repo (zip (newhs++empties) masters)
 
 masters :: [String]
 masters = "refs/heads/master" :
