@@ -29,7 +29,7 @@ import Iolaus.FileName ( FileName, fp2fn, fn2fp )
 import Iolaus.Progress ( debugMessage )
 import Iolaus.Lock ( removeFileMayNotExist )
 import Iolaus.Sealed ( Sealed(Sealed) )
-import Iolaus.Show ( Show1(..), Eq1(..), Ord1(..) )
+import Iolaus.Show ( Show1(..), Eq1(..), Ord1(..), Pretty1(..), Pretty(..) )
 
 data Hash a C(x) = Hash !a !String
                    deriving ( Eq, Ord )
@@ -402,9 +402,9 @@ nameRevs =
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> return $ concatMap pretty $ lines out
+         ExitSuccess -> return $ concatMap prett $ lines out
          ExitFailure _ -> fail "git-rev-list failed"
-    where pretty s = case words s of
+    where prett s = case words s of
                        [_,"undefined"] -> []
                        [sha,n] | '~' `elem` n -> [sha]
                                | otherwise -> [sha,n]
@@ -515,12 +515,26 @@ data CommitEntry C(x) = CommitEntry { myParents :: [Sealed (Hash Commit)],
                                       myMessage :: String }
 
 instance Show1 CommitEntry where
+    show1 c | myAuthor c == myCommitter c =
+                unlines $ ("tree "++show (myTree c)) :
+                        map (\p -> "parent "++show p) (myParents c)
+                ++ ["author "++myAuthor c,"", myMessage c]
     show1 c = unlines $ ("tree "++show (myTree c)) :
              map (\p -> "parent "++show p) (myParents c)
              ++ ["author "++myAuthor c, "committer "++myCommitter c,
                  "", myMessage c]
 instance Show (CommitEntry C(x)) where
     show = show1
+
+instance Pretty1 CommitEntry where
+    pretty1 c | myAuthor c == myCommitter c =
+                  myAuthor c++"\n  * "++n++"\n"++unlines (map ("    "++) cl)
+              where n:cl = lines $ myMessage c
+    pretty1 c = myAuthor c++"\n"++myCommitter c++
+                "\n  * "++n++"\n"++unlines (map ("    "++) cl)
+              where n:cl = lines $ myMessage c
+instance Pretty (CommitEntry C(x)) where
+    pretty = pretty1
 
 catCommit :: Hash Commit C(x) -> IO (CommitEntry C(x))
 catCommit (Hash Commit h0) =

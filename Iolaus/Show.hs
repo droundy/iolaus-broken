@@ -2,6 +2,7 @@
 {-# LANGUAGE CPP #-}
 
 module Iolaus.Show(Show1(..), Show2(..), Eq1(..), Ord1(..),
+                   Pretty(..), Pretty1(..),
                    showOp2, app_prec) where
 
 #include "gadts.h"
@@ -28,3 +29,8 @@ showOp2 prec opstr d x y = showParen (d > prec) $ showsPrec2 (prec + 1) x .
 
 app_prec :: Int
 app_prec = 10
+
+class Pretty a where
+    pretty :: a -> String
+class Pretty1 a where
+    pretty1 :: a C(x) -> String

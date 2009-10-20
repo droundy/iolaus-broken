@@ -61,3 +61,5 @@ instance Eq1 a => Eq (Sealed a) where
     Sealed x == Sealed y = eq1 x y
 instance Ord1 a => Ord (Sealed a) where
     compare (Sealed x) (Sealed y) = compare1 x y
+instance Pretty1 a => Pretty (Sealed a) where
+    pretty = unseal pretty1

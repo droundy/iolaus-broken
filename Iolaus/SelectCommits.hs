@@ -30,6 +30,7 @@ import System.Exit ( exitWith, ExitCode(ExitSuccess) )
 import Iolaus.Flags ( Flag( All ) )
 import Iolaus.Utils ( promptCharFancy )
 import Iolaus.Sealed ( Sealed( Sealed ), mapSealM )
+import Iolaus.Show ( pretty )
 
 import Git.Dag ( isAncestorOf )
 import Git.Plumbing ( Hash, Commit, catCommit )
@@ -51,7 +52,7 @@ text_select :: WhichChanges -> [Sealed (Hash Commit)]
 text_select _ sofar _ _ [] = return sofar
 text_select _ sofar _ opts cs | All `elem` opts = return (sofar++cs)
 text_select w sofar jn opts (c:cs) =
-    do mapSealM catCommit c >>= (putStr . show)
+    do mapSealM catCommit c >>= (putStr . pretty)
        doKey prompt options
     where
         Sealed a `iao` Sealed b = a `isAncestorOf` b
