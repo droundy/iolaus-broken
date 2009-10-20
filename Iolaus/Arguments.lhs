@@ -56,7 +56,7 @@ module Iolaus.Arguments ( Flag( .. ), flagToString, optionFlags,
                          diff_cmd_flag, diffflags, unidiff, xmloutput,
                          match_one, match_several, match_range,
                          match_several_or_range,
-                         match_several_or_last,
+                         match_several_or_last, match_several_or_first,
                          set_default,
                          pristine_tree,
                          sibling, flagsToSiblings, relink, nolinks,
@@ -434,7 +434,7 @@ all_interactive, all_patches, interactive,
   output, output_auto_name, unidiff, repo_combinator,
   unified, summary, uncompress_nocompress, subject, in_reply_to,
   nocompress, match_several_or_range, match_several_or_last,
-  author, help,
+  match_several_or_first, author, help,
   help_on_match, allow_unrelated_repos,
   match_one, match_range, match_several, sendmail_cmd,
   logfile, rmlogfile, from_opt, set_default, pristine_tree
@@ -575,6 +575,7 @@ match_several    = concat_options [__patches, __tags]
 match_range            = concat_options [match_to, match_from, __patch, __last, __indexes]
 match_several_or_range = concat_options [match_to, match_from, __last, __indexes,
                                          __patches, __tags]
+match_several_or_first = concat_options [match_to, __indexes, __patches, __tags]
 match_several_or_last  = concat_options [match_from, __last, __patches, __tags]
 
 match_to, match_from :: IolausOption

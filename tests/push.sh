@@ -20,6 +20,15 @@ diff -u foo ../temp/foo
 echo hello world > bar
 iolaus record -am addbar
 iolaus push -a ../temp # we now force things... should we?
-cd ..
 
-true
+echo feature > code
+iolaus record -am addfeature
+echo bug >> code
+iolaus record -am addbug
+iolaus push -ap addfeature ../temp
+cd ../temp
+
+iolaus revert -a # I'd prefer for push to do this!
+
+grep bug code && exit 1
+grep feature code

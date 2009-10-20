@@ -15,10 +15,15 @@ iolaus pull -a ../temp
 diff -u foo ../temp/foo
 
 iolaus record -am addbar
+
+echo good morning > baz
+iolaus record -am addbaz
 cd ..
 
 cd temp
 date > bar
 iolaus pull -a ../temp1 && exit 1
-true
+
+iolaus pull -ap addbaz ../temp1
+grep morning baz
 cd ..
