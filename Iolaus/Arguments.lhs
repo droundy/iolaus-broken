@@ -100,6 +100,7 @@ getContent (PatchName s) = StringContent s
 getContent (Output s) = AbsoluteOrStdContent s
 getContent NoCauterizeAllHeads = NoContent
 getContent CauterizeAllHeads = NoContent
+getContent (CommutePast n) = StringContent (show n)
 getContent Verbose = NoContent
 getContent Help = NoContent
 getContent ListOptions = NoContent
@@ -907,8 +908,13 @@ commitApproach :: IolausOption
 commitApproach = IolausMultipleChoiceOption 
     [IolausNoArgOption [] ["cauterize-all"] CauterizeAllHeads
      "new commit depends on all existing commits",
+     IolausArgOption [] ["commute-past"] cp "NUMBER"
+     "try commuting past the last NUMBER commits",
      IolausNoArgOption [] ["no-cauterize-all"] NoCauterizeAllHeads
      "commit in minimal context [default]"]
+  where cp s = if all isDigit s
+               then CommutePast (read s)
+               else CommutePast (-1)
 
 mergeStrategy :: IolausOption
 mergeStrategy = IolausMultipleChoiceOption 

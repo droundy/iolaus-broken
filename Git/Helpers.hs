@@ -34,7 +34,8 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
 
 import Iolaus.Progress ( debugMessage )
 import Iolaus.Flags ( Flag( Test, TestParents, NativeMerge, FirstParentMerge,
-                            IolausSloppyMerge, CauterizeAllHeads ) )
+                            IolausSloppyMerge,
+                            CauterizeAllHeads, CommutePast ) )
 import Iolaus.FileName ( FileName, fp2fn )
 import Iolaus.IO ( ExecutableBit(..) )
 import Iolaus.SlurpDirectoryInternal
@@ -142,21 +143,25 @@ flag2strategy opts = if NativeMerge `elem` opts
 
 simplifyParents :: [Flag] -> [Sealed (Hash Commit)] -> Hash Tree C(x)
                 -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
-simplifyParents opts pars0 rec0
-    | CauterizeAllHeads `elem` opts = return (pars0, Sealed rec0)
-simplifyParents opts pars0 rec0 = sp [] (cauterizeHeads pars0) rec0
+simplifyParents opts pars0 rec0 = sp (cpnum opts) [] (cauterizeHeads pars0) rec0
     where
-      sp :: [Sealed (Hash Commit)] -> [Sealed (Hash Commit)] -> Hash Tree C(x)
-         -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
-      sp ps [] t = return (cauterizeHeads ps,Sealed t)
-      sp kn (p:ps) t =
+      cpnum [] = 10000
+      cpnum (CommutePast (-1):fs) = cpnum fs
+      cpnum (CommutePast n:_) = n
+      cpnum (CauterizeAllHeads:_) = 0
+      cpnum (_:fs) = cpnum fs
+      sp :: Int -> [Sealed (Hash Commit)] -> [Sealed (Hash Commit)]
+         -> Hash Tree C(x) -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
+      sp _ ps [] t = return (cauterizeHeads ps,Sealed t)
+      sp 0 kn ps t =  return (kn++ps, Sealed t)
+      sp n kn (p:ps) t =
           do let nop = cauterizeHeads (kn++ps++unseal parents p)
              Sealed ptree <- mergeCommits opts (kn++p:ps)
                              >>= mapSealM slurpTree
              Sealed noptree <- mergeCommits opts nop >>= mapSealM slurpTree
              mys <- slurpTree t
              case commute (diff opts noptree ptree :> diff opts ptree mys) of
-               Nothing -> sp (p:kn) ps t
+               Nothing -> sp (n-1) (p:kn) ps t
                Just (myp :> _) ->
                    do t' <- apply_to_slurpy myp noptree >>= writeSlurpTree
                       ct <- commitTree t (p:kn++ps) "iolaus:testing"
@@ -173,8 +178,8 @@ simplifyParents opts pars0 rec0 = sp [] (cauterizeHeads pars0) rec0
                                     testPredicate opts t'
                             else return True
                           else return False
-                      if ok then sp kn (filter (`notElem` kn) nop) t'
-                            else sp (p:kn) ps t
+                      if ok then sp (n-1) kn (filter (`notElem` kn) nop) t'
+                            else sp (n-1) (p:kn) ps t
 
 mergeCommits :: [Flag] -> [Sealed (Hash Commit)]
              -> IO (Sealed (Hash Tree))
