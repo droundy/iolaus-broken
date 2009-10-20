@@ -76,7 +76,7 @@ push_cmd opts [repodir] =
        -- absolute '.' also taken into account by fix_filepath
        hs <- remoteHeads repodir
        ourhs <- heads
-       topush <- select_commits "push" opts (ourhs `notIn` hs)
+       topush <- select_commits "push" opts (reverse $ ourhs `notIn` hs)
        when (null topush) $ do putStrLn "No patches to push!"
                                exitWith ExitSuccess       
        push_heads repodir topush

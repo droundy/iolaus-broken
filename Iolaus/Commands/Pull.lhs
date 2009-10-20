@@ -89,7 +89,7 @@ pull_cmd opts repodirs@(_:_) =
        mapM_ fetchPack repodirs
        newhs <- concat `fmap` mapM remoteHeads repodirs
        hs <- heads
-       newhs' <- select_commits "pull" opts (newhs `notIn` hs)
+       newhs' <- select_commits "pull" opts (reverse $ newhs `notIn` hs)
        when (null newhs') $ do putStrLn "No patches to pull!"
                                exitWith ExitSuccess
        Sealed newtree <- mergeCommits opts (hs++newhs')
