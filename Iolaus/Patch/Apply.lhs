@@ -24,19 +24,14 @@
 
 module Iolaus.Patch.Apply ( apply_to_slurpy, applyFL, chunkify ) where
 
-import qualified Data.ByteString.Char8 as BC ( singleton )
-import qualified Data.ByteString as B ( ByteString, null, empty, concat,
+import qualified Data.ByteString as B ( ByteString, null, concat,
                                         findIndex, elem, splitAt )
 
-import Iolaus.ByteStringUtils ( unlinesPS,
-                              break_after_nth_newline,
-                              break_before_nth_newline )
 import Iolaus.FileName ( fn2fp )
-import Data.List ( intersperse )
 import Iolaus.Patch.Patchy ( Apply, apply )
 import Iolaus.Patch.Commute ()
 import Iolaus.Patch.Core ( Named(..) )
-import Iolaus.Patch.Prim ( Prim(..), is_hunk, is_chunk,
+import Iolaus.Patch.Prim ( Prim(..), is_chunk,
                            DirPatchType(..), FilePatchType(..) )
 import Iolaus.SlurpDirectory ( Slurpy, withSlurpy )
 import Iolaus.IO ( WriteableDirectory(..) )
@@ -110,7 +105,6 @@ instance Apply Prim where
     apply (FP f RmFile) = mRemoveFile f
     apply (FP f AddFile) = mCreateFile f
     apply (FP f (Chmod x)) = mSetFileExecutable f x
-    apply p@(FP _ (Hunk _ _ _)) = applyFL (p :>: NilFL)
     apply p@(FP _ (Chunk _ _ _ _)) = applyFL (p :>: NilFL)
     apply (DP d AddDir) = mCreateDirectory d
     apply (DP d RmDir) = mRemoveDirectory d
@@ -119,22 +113,17 @@ instance Apply Prim where
 applyFL :: WriteableDirectory m => FL Prim C(x y) -> m ()
 applyFL NilFL = return ()
 applyFL (ppp@(FP f h):>:the_ps)
-    | is_hunk ppp || is_chunk ppp =
+    | is_chunk ppp =
         case spanFL f_hunk the_ps of
           (xs :> ps') ->
               do let foo = h :>: mapFL_FL (\(FP _ h') -> h') xs
                  mModifyFilePS f $ hunkmod foo
                  applyFL ps'
-    where f_hunk (FP f' (Hunk _ _ _)) | f == f' = True
-          f_hunk (FP f' (Chunk _ _ _ _)) | f == f' = True
+    where f_hunk (FP f' (Chunk _ _ _ _)) | f == f' = True
           f_hunk _ = False
           hunkmod :: WriteableDirectory m => FL FilePatchType C(x y)
                   -> B.ByteString -> m B.ByteString
           hunkmod NilFL ps = return ps
-          hunkmod (Hunk line old new:>:hs) ps
-           = case applyHunkLines [(line,old,new)] ps of
-                 Just ps' -> hunkmod hs ps'
-                 Nothing -> fail $ "Error applying hunk to file " ++ fn2fp f
           hunkmod (Chunk ch w old new:>:hs) ps =
               case applyChunk ch w old new ps of
                 Just ps' -> hunkmod hs ps'
@@ -164,55 +153,5 @@ chunkify c ps = case B.findIndex (`B.elem` c) ps of
                 Just i -> case B.splitAt i ps of
                             (a,b) -> case B.splitAt 1 b of
                                        (x,y) -> a : x : chunkify c y
-\end{code}
-
-\subsection{Hunk patches}
-
-Hunks are an example of a complex filepatch.  A hunk is a set of lines of a
-text file to be replaced by a different set of lines.  Either of these sets
-may be empty, which would mean a deletion or insertion of lines.
-\begin{code}
-applyHunks :: [(Int, [B.ByteString], [B.ByteString])]
-           -> B.ByteString -> Maybe [B.ByteString]
-applyHunks [] ps = Just [ps]
-applyHunks ((l, [], n):hs) ps
-    = case break_before_nth_newline (l - 2) ps of
-      (prfix, after_prefix) -> do rest <- applyHunks hs after_prefix
-                                  return $ intersperse nl (prfix:n) ++ rest
-                                       where nl = BC.singleton '\n'
-applyHunks ((l, o, n):hs) ps
-    = case break_before_nth_newline (l - 2) ps of
-      (prfix, after_prefix) ->
-          case break_before_nth_newline (length o) after_prefix of
-          (oo, _) | oo /= unlinesPS (B.empty:o) -> fail "applyHunks error"
-          (_, suffix) ->
-              do rest <- applyHunks hs suffix
-                 return $ intersperse nl (prfix:n) ++ rest
-    where nl = BC.singleton '\n'
-
-applyHunkLines :: [(Int, [B.ByteString], [B.ByteString])]
-               -> B.ByteString -> Maybe B.ByteString
-applyHunkLines [] c = Just c
-applyHunkLines [(1, [], n)] ps | B.null ps = Just $ unlinesPS (n++[B.empty])
-applyHunkLines hs@((l, o, n):hs') ps =
- do pss <- case l of
-           1 -> case break_after_nth_newline (length o) ps of
-                Nothing -> if ps == unlinesPS o
-                           then return $ intersperse nl n
-                           else fail "applyHunkLines: Unexpected hunks"
-                Just (shouldbeo, suffix)
-                    | shouldbeo /= unlinesPS (o++[B.empty]) ->
-                        fail $ "applyHunkLines: Bad patch!"
-                    | null n ->
-                        do x <- applyHunkLines hs' suffix
-                           return [x]
-                    | otherwise ->
-                        do rest <- applyHunks hs' suffix
-                           return $ intersperse nl n ++ nl:rest
-           _ | l < 0 -> bug "Prim.applyHunkLines: After -ve lines?"
-             | otherwise -> applyHunks hs ps
-    let result = B.concat pss
-    return result
-    where nl = BC.singleton '\n'
 \end{code}
 

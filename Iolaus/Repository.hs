@@ -32,7 +32,7 @@ import Iolaus.Ordered ( FL, unsafeCoerceS )
 import Iolaus.SlurpDirectory ( Slurpy )
 import Iolaus.Sealed ( Sealed(..), mapSealM, unseal )
 
-import Git.Plumbing ( Hash, Commit, emptyCommit, heads, headNames,
+import Git.Plumbing ( Hash, Commit, emptyCommit, heads, headNames, remoteHeads,
                       writetree, updateindex, updateref, sendPack )
 import Git.Helpers ( touchedFiles, slurpTree, mergeCommits )
 import Git.Dag ( parents, cauterizeHeads )
@@ -92,8 +92,12 @@ cleanup_all_but hs =
        mapM_ rmhead $ map snd $ filter ((`notElem` hs) . fst) hns
 
 push_heads :: String -> [Sealed (Hash Commit)] -> IO ()
-push_heads repo cs = sendPack repo (zip (cauterizeHeads cs++empties) masters)
-    where empties = take 20 $ repeat $ Sealed emptyCommit
+push_heads repo cs =
+    do hs <- remoteHeads repo
+       let newhs = cauterizeHeads (hs++cs)
+           empties = take (length hs - length newhs) $
+                     repeat $ Sealed emptyCommit
+       sendPack repo (zip (newhs++empties) masters)
 
 masters :: [String]
 masters = "refs/heads/master" :

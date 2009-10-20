@@ -16,7 +16,7 @@ import System.IO ( hPutStrLn )
 import System.IO.Unsafe ( unsafeInterleaveIO )
 import Data.List ( sort )
 import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
-import Data.Map as M ( Map, insert, empty, lookup, keys )
+import Data.Map as M ( Map, insert, empty, lookup )
 import Data.ByteString as B ( hPutStr )
 
 import Git.Dag ( mergeBases, makeDag, Dag(..), greatGrandFather, parents,
@@ -259,6 +259,7 @@ diffDag c s (Node x ys) =
 diffDagHelper :: IORef (M.Map (Sealed (Hash Commit)) (Sealed (FL Prim C(x))))
               -> Strategy -> Dag C(x y) -> IO (FL Prim C(x y))
 diffDagHelper _ _ (Ancestor _) = return NilFL
+diffDagHelper _ _ (Node _ []) = impossible
 diffDagHelper _ _ (Node x [Sealed (Ancestor y)]) =
     do old <- catCommitTree y >>= slurpTree
        new <- catCommitTree x >>= slurpTree
@@ -281,7 +282,6 @@ diffDagHelper c s (Node x ys@(Sealed y0:_)) = -- this version is buggy!!!
        ps0 <- diffDag c s y0
        old <- catCommitTree (dag2commit y0) >>= slurpTree
        new <- catCommitTree x >>= slurpTree
-       tracks <- mapM (mapSealM (diffDag c s)) ys
        return $ ps0 +>+ diff [] old merged +>+ diff [] merged new
 
 diffCommit :: [Flag] -> Hash Commit C(x)
