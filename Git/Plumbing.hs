@@ -14,7 +14,8 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag,
                       updateindex, updateIndexForceRemove, updateIndexCacheInfo,
                       writetree, mkTree, readTree, readTreeMerge, checkoutIndex,
                       updateref,
-                      diffFiles, diffTrees, DiffOption(..), gitApply,
+                      diffFiles, diffTrees, diffTreeCommit, DiffOption(..),
+                      gitApply,
                       mergeBase, mergeIndex,
                       mergeFile, unpackFile,
                       headhash, commitTree ) where
@@ -208,6 +209,21 @@ diffTrees opts t1 t2 fs =
        case ec of
          ExitSuccess -> return out
          ExitFailure _ -> fail "git-diff-tree failed"
+
+diffTreeCommit :: [DiffOption] -> Hash Commit C(x) -> [FilePath] -> IO String
+diffTreeCommit opts c fs =
+    do let flags = case opts of [] -> ["-p"]
+                                _ -> concatMap toFlags opts
+           allflags = flags++show c:"--":fs
+       debugMessage ("calling git diff-tree -c "++show allflags)
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git" ("diff-tree":"-c":allflags))
+                             {std_out = CreatePipe}
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return out
+         ExitFailure _ -> fail "git diff-tree failed"
 
 headhash :: IO (Sealed (Hash Commit))
 headhash =
