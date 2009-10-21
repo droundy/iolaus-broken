@@ -55,7 +55,10 @@ genNestedChanges (br:brs) i0 o0 n0 = nc i0 (lcus ol nl) ol nl
                 (_,[]) -> impossible
           easydiff i o n = genNestedChanges brs i oo nn
               where (oo, nn) = (concat o, concat n)
-genNestedChanges [] i o n = mkdiff i (patientLcs o n) o n
+genNestedChanges [] i o n = mkdiff (`elem` borings) i (patientLcs o n) o n
+
+borings :: [B.ByteString]
+borings = map BC.pack ["", " ", ")", "(", ","]
 
 byparagraph :: [B.ByteString] -> [[B.ByteString]]
 byparagraph [] = []
@@ -95,20 +98,26 @@ smartChanges o n | length o > 10000 = getChanges o n
 {-# SPECIALIZE patientChanges :: [B.ByteString] -> [B.ByteString]
                               -> [(Int, [B.ByteString], [B.ByteString])] #-}
 patientChanges :: Ord a => [a] -> [a] -> [(Int,[a],[a])]
-patientChanges o n = mkdiff 0 (patientLcs o n) o n
+patientChanges o n = mkdiff (const False) 0 (patientLcs o n) o n
 
 {-# SPECIALIZE getChanges :: [B.ByteString] -> [B.ByteString]
                           -> [(Int, [B.ByteString], [B.ByteString])] #-}
 getChanges :: Ord a => [a] -> [a] -> [(Int,[a],[a])]
-getChanges o n = mkdiff 0 (lcs o n) o n
+getChanges o n = mkdiff (const False) 0 (lcs o n) o n
 
-mkdiff :: Ord a => Int -> [a] -> [a] -> [a] -> [(Int,[a],[a])]
-mkdiff ny (l:ls) (x:xs) (y:ys) | l == x && l == y = mkdiff (ny+1) ls xs ys
-mkdiff ny (l:ls) xs ys
+
+mkdiff :: Ord a => (a -> Bool) -> Int -> [a] -> [a] -> [a] -> [(Int,[a],[a])]
+mkdiff b ny (l:ls) (x:xs) (y:ys)
+    | l == x && l == y = mkdiff b (ny+1) ls xs ys
+mkdiff boring ny (l:ls) xs ys
     | length lls > 0 && not (null rest) =
         if rmd == add
         then error "bug in mkdiff"
-        else (ny, rmd, add) : mkdiff (ny+length add+1) ls restx resty
+        else if not (null rmd) && not (null add) && boring l &&
+                take 1 restx /= take 1 resty
+             then mkdiff boring ny ls xs ys
+             else (ny, rmd, add) :
+                  mkdiff boring (ny+length add+1) ls restx resty
     where (lls, rest) = span (==l) (l:ls)
           l2:_ = rest
           rmd0 = takels lls xs ++ takeWhile (/= l2) (dropls lls xs)
@@ -120,15 +129,14 @@ mkdiff ny (l:ls) xs ys
           add = reverse $ dropls lls $ reverse add0
           restx = drop (length rmd + 1) xs
           resty = drop (length add + 1) ys
-mkdiff ny (l:ls) xs ys =
-    (ny, rmd, add) : mkdiff (ny+length add+1) ls restx resty
+mkdiff b ny (l:ls) xs ys =
+    (ny, rmd, add) : mkdiff b (ny+length add+1) ls restx resty
     where rmd = takeWhile (/= l) xs
           add = takeWhile (/= l) ys
           restx = drop (length rmd + 1) xs
           resty = drop (length add + 1) ys
-       
-mkdiff _ [] [] [] = []
-mkdiff ny [] xs ys = [(ny, xs, ys)]
+mkdiff _ _ [] [] [] = []
+mkdiff _ ny [] xs ys = [(ny, xs, ys)]
 
 -- | The patientLcs algorithm is inspired by the "patience" algorithm
 -- (for which I don't have a reference handy), in that it looks for
