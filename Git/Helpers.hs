@@ -26,7 +26,7 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       commitTree, updateref, parseRev,
                       mkTree, hashObject, lsothers,
                       diffFiles, diffTreeCommit,
-                      DiffOption( NameOnly, DiffPatch, DiffRaw ),
+                      DiffOption( NameOnly, DiffRecursive ),
                       readTree, checkoutIndex,
                       heads, revList, RevListOption(Skip),
                       -- mergeBase,
@@ -60,14 +60,7 @@ touchedFiles =
 
 commitTouches :: Sealed (Hash Commit) -> IO [FilePath]
 commitTouches (Sealed c) =
-    do x <- diffTreeCommit [DiffPatch, DiffRaw] c []
-       let fs = concatMap parse $ lines x
-       debugMessage $ unlines fs
-       return fs
-    where parse (':':x) = case dropWhile (/='\t') x of
-                            _:f -> [f]
-                            "" -> []
-          parse _ = []
+    lines `fmap` diffTreeCommit [NameOnly, DiffRecursive] c []
 
 test :: [Flag] -> Hash Tree C(x) -> IO ()
 test opts t =

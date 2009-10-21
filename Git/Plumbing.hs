@@ -179,12 +179,14 @@ class Flag a where
     toFlags :: a -> [String]
 
 data DiffOption = DiffAll | Stat | DiffPatch | NameOnly | DiffRaw
+                | DiffRecursive
 instance Flag DiffOption where
     toFlags DiffAll = ["-a"]
     toFlags Stat = ["--stat"]
     toFlags DiffPatch = ["-p"]
     toFlags DiffRaw = ["--raw"]
     toFlags NameOnly = ["--name-only"]
+    toFlags DiffRecursive = ["-r"]
 
 diffFiles :: [DiffOption] -> [FilePath] -> IO String
 diffFiles opts fs =
