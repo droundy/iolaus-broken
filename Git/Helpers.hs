@@ -164,7 +164,8 @@ simplifyParents opts pars0 rec0 = sp (cpnum opts) [] (cauterizeHeads pars0) rec0
                Nothing -> sp (n-1) (p:kn) ps t
                Just (myp :> _) ->
                    do t' <- apply_to_slurpy myp noptree >>= writeSlurpTree
-                      ct <- commitTree t (p:kn++ps) "iolaus:testing"
+                      ct <- commitTree t
+                                    (cauterizeHeads (p:kn++ps)) "iolaus:testing"
                       joined0 <- mergeCommitsX MergeN (Sealed ct:p:nop)
                       ct' <- commitTree t' nop "iolaus:testing"
                       joined <- mergeCommitsX MergeN (Sealed ct':p:nop)
@@ -297,5 +298,5 @@ revListHeads :: [Flag] -> [RevListOption] -> IO String
 revListHeads opts revlistopts =
     do hs <- cauterizeHeads `fmap` heads
        Sealed t <- mergeCommits opts hs
-       c <- commitTree t hs "iolaus:temp"
+       c <- commitTree t (cauterizeHeads hs) "iolaus:temp"
        revList (show c) (Skip 1:revlistopts)
