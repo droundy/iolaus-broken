@@ -37,9 +37,6 @@ nestedChanges o n = genNestedChanges [byparagraph,bylines] 0 o n
 genNestedChanges :: [[B.ByteString] -> [[B.ByteString]]]
                  -> Int -> [B.ByteString] -> [B.ByteString]
                  -> [(Int, [B.ByteString], [B.ByteString])]
-genNestedChanges br i (x:o) (x':n)
-    | x == x' = ip1 `seq` genNestedChanges br ip1 o n
-    where ip1 = i+1
 genNestedChanges (br:brs) i0 o0 n0 = nc i0 (lcus ol nl) ol nl
     where nl = br n0
           ol = br o0
