@@ -23,7 +23,6 @@
 
 module Iolaus.Arguments ( Flag( .. ), flagToString, optionFlags,
                           isin, arein, mergeStrategy,
-                         fixFilePathOrStd, fixFilePathOrUrl, fixUrl,
                          fixSubPaths, areFileArgs,
                          IolausOption( .. ), option_from_darcsoption,
                          help, list_options,
@@ -32,8 +31,7 @@ module Iolaus.Arguments ( Flag( .. ), flagToString, optionFlags,
                          notest, test, working_repo_dir,
                          testByDefault,
                          remote_repo, lazy,
-                         possibly_remote_repo_dir, get_repourl,
-                         author, get_sendmail_cmd,
+                         possibly_remote_repo_dir, author, get_sendmail_cmd,
                          patchname_option, distname_option,
                          logfile, rmlogfile, from_opt, subject, get_subject,
                          in_reply_to, get_in_reply_to,
@@ -75,12 +73,9 @@ import Control.Monad ( unless )
 import Data.Char ( isDigit )
 
 import Iolaus.Utils ( maybeGetEnv, firstJustIO, withCurrentDirectory )
-import Iolaus.URL ( is_file )
 import Iolaus.RepoPath ( AbsolutePath, AbsolutePathOrStd, SubPath,
-                        AbsoluteOrRemotePath, ioAbsoluteOrRemote, toFilePath,
-                        makeSubPathOf, simpleSubPath,
-                        ioAbsolute, ioAbsoluteOrStd,
-                        makeAbsolute, makeAbsoluteOrStd )
+                         toFilePath, makeSubPathOf, simpleSubPath,
+                         ioAbsolute, makeAbsolute, makeAbsoluteOrStd )
 import Iolaus.Flags ( Flag(..) )
 #include "impossible.h"
 \end{code}
@@ -359,28 +354,6 @@ extract_fix_path [] = Nothing
 extract_fix_path ((FixFilePath repo orig):_)  = Just (repo, orig)
 extract_fix_path (_:fs) = extract_fix_path fs
 
-fixFilePath :: [Flag] -> FilePath -> IO AbsolutePath
-fixFilePath opts f = case extract_fix_path opts of
-                       Nothing -> bug "Can't fix path in fixFilePath"
-                       Just (_,o) -> withCurrentDirectory o $ ioAbsolute f
-
-fixFilePathOrStd :: [Flag] -> FilePath -> IO AbsolutePathOrStd
-fixFilePathOrStd opts f =
-    case extract_fix_path opts of
-      Nothing -> bug "Can't fix path in fixFilePathOrStd"
-      Just (_,o) -> withCurrentDirectory o $ ioAbsoluteOrStd f
-
-fixFilePathOrUrl :: [Flag] -> String -> IO AbsoluteOrRemotePath
-fixFilePathOrUrl opts f =
-    case extract_fix_path opts of
-      Nothing -> bug "Can't fix path in fixFilePathOrUrl"
-      Just (_,o) -> withCurrentDirectory o $ ioAbsoluteOrRemote f
-
-fixUrl :: [Flag] -> String -> IO String
-fixUrl opts f = if is_file f
-                then toFilePath `fmap` fixFilePath opts f
-                else return f
-
 fixSubPaths :: [Flag] -> [FilePath] -> IO [SubPath]
 fixSubPaths flags fs =
     withCurrentDirectory o $
@@ -540,14 +513,6 @@ working_repo_dir = IolausArgOption [] ["repodir"] WorkDir "DIRECTORY"
              "specify the repository directory in which to run"
 possibly_remote_repo_dir = IolausArgOption [] ["repo"] RepoDir "URL"
              "specify the repository URL"
-
--- | 'get_repourl' takes a list of flags and returns the url of the
--- repository specified by @Repodir \"directory\"@ in that list of flags, if any.
--- This flag is present if darcs was invoked with @--repodir=DIRECTORY@
-get_repourl :: [Flag] -> Maybe String
-get_repourl [] = Nothing
-get_repourl (RepoDir d:_) | not (is_file d) = Just d
-get_repourl (_:fs) = get_repourl fs
 \end{code}
 
 \begin{options}

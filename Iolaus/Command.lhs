@@ -24,7 +24,7 @@ module Iolaus.Command
                command_extra_arg_help, command_extra_args, command_argdefaults,
                command_get_arg_possibilities, SuperCommand,
                command_sub_commands ),
-      command_alias, command_stub, command_options, command_alloptions,
+      command_alias, command_options, command_alloptions,
       disambiguate_commands, CommandArgs(..), get_command_help,
       get_command_mini_help, get_subcommands, usage, subusage, extract_commands,
       super_name, nodefaults ) where
@@ -164,16 +164,6 @@ command_alias n c =
                      command_help c
     }
 
-command_stub :: String -> String -> String -> Command -> Command
-command_stub n h d c =
-  c { command_name = n
-    , command_help = h
-    , command_description = d
-    , command_command = \_ _ -> putStr h
-    }
-\end{code}
-
-\begin{code}
 usage :: [CommandControl] -> String
 usage cs = "Usage: arcs COMMAND ...\n\nCommands:\n" ++
            usage_helper cs ++ "\n" ++
