@@ -16,39 +16,26 @@
 %  Boston, MA 02110-1301, USA.
 
 \begin{code}
-module Iolaus.Command ( CommandControl( Command_data, Hidden_command, Group_name ),
-                       Command( Command, command_name,
-                                     command_help, command_description,
-                                     command_basic_options, command_advanced_options,
-                                     command_command,
-                                     command_prereq,
-                                     command_extra_arg_help,
-                                     command_extra_args,
-                                     command_argdefaults,
-                                     command_get_arg_possibilities,
-                                     SuperCommand,
-                                     command_sub_commands ),
-                       command_alias, command_stub,
-                       command_options, command_alloptions,
-                       disambiguate_commands, CommandArgs(..),
-                       get_command_help, get_command_mini_help,
-                       get_subcommands,
-                       usage, subusage, chomp_newline,
-                       extract_commands,
-                       super_name,
-                       nodefaults,
-                       loggers,
-                     ) where
+module Iolaus.Command
+    ( CommandControl( Command_data, Hidden_command, Group_name ),
+      Command( Command, command_name,
+               command_help, command_description, command_basic_options,
+               command_advanced_options, command_command, command_prereq,
+               command_extra_arg_help, command_extra_args, command_argdefaults,
+               command_get_arg_possibilities, SuperCommand,
+               command_sub_commands ),
+      command_alias, command_stub, command_options, command_alloptions,
+      disambiguate_commands, CommandArgs(..), get_command_help,
+      get_command_mini_help, get_subcommands, usage, subusage, extract_commands,
+      super_name, nodefaults ) where
 
 import System.Console.GetOpt( OptDescr, usageInfo )
-
 import Data.List ( sort, isPrefixOf )
+
 import Iolaus.Arguments ( Flag, IolausOption, disable, help,
                          any_verbosity, posthook_cmd,
                          prehook_cmd, option_from_darcsoption )
 import Iolaus.RepoPath ( AbsolutePath, rootDirectory )
-import Iolaus.Utils ( putStrLnError )
-import Iolaus.Printer ( Doc, putDocLn )
 \end{code}
 
 The general format of an arcs command is
@@ -115,8 +102,10 @@ put\footnote{Creates a new repository} & no & no\\
 
 \begin{code}
 extract_commands, extract_hidden_commands :: [CommandControl] -> [Command]
-extract_commands cs = concatMap (\x -> case x of { Command_data cmd_d -> [cmd_d]; _ -> []}) cs
-extract_hidden_commands cs = concatMap (\x -> case x of { Hidden_command cmd_d -> [cmd_d]; _ -> []}) cs
+extract_commands cs =
+    concatMap (\x -> case x of { Command_data cmd_d -> [cmd_d]; _ -> []}) cs
+extract_hidden_commands cs =
+    concatMap (\x -> case x of { Hidden_command cmd_d -> [cmd_d]; _ -> []}) cs
 \end{code}
 
 \input{Iolaus/Arguments.lhs}
@@ -128,14 +117,15 @@ data CommandControl = Command_data Command
 
 data Command =
     Command {command_name, command_help, command_description :: String,
-                  command_extra_args :: Int,
-                  command_extra_arg_help :: [String],
-                  command_command :: [Flag] -> [String] -> IO (),
-                  command_prereq :: [Flag] -> IO (Either String ()),
-                  command_get_arg_possibilities :: IO [String],
-                  command_argdefaults :: [Flag] -> AbsolutePath -> [String] -> IO [String],
-                  command_basic_options :: [IolausOption],
-                  command_advanced_options :: [IolausOption]}
+             command_extra_args :: Int,
+             command_extra_arg_help :: [String],
+             command_command :: [Flag] -> [String] -> IO (),
+             command_prereq :: [Flag] -> IO (Either String ()),
+             command_get_arg_possibilities :: IO [String],
+             command_argdefaults
+                 :: [Flag] -> AbsolutePath -> [String] -> IO [String],
+             command_basic_options :: [IolausOption],
+             command_advanced_options :: [IolausOption]}
   | SuperCommand {command_name, command_help, command_description :: String,
                   command_prereq :: [Flag] -> IO (Either String ()),
                   command_sub_commands :: [CommandControl]}
@@ -205,13 +195,13 @@ subusage super =
 usage_helper :: [CommandControl] -> String
 usage_helper [] = ""
 usage_helper (Hidden_command _:cs) = usage_helper cs
-usage_helper ((Command_data c):cs) = "  "++pad_spaces (command_name c) 15 ++
-                      chomp_newline (command_description c)++"\n"++usage_helper cs
+usage_helper ((Command_data c):cs) =
+    "  "++pad_spaces (command_name c) 15 ++
+    endnewline (command_description c)++usage_helper cs
+    where endnewline "" = "\n"
+          endnewline "\n" = ""
+          endnewline (x:xs) = x : endnewline xs
 usage_helper ((Group_name n):cs) = n ++ "\n" ++ usage_helper cs
-
-chomp_newline :: String -> String
-chomp_newline "" = ""
-chomp_newline s = if last s == '\n' then init s else s
 
 pad_spaces :: String -> Int -> String
 pad_spaces s n = s ++ replicate (n - length s) ' '
@@ -287,12 +277,4 @@ extract cmd cs =
    cs' -> Left $ "Ambiguous command...\n\n" ++
                     "The command '"++cmd++"' could mean one of:\n" ++
                     unwords (sort $ map command_name cs')
-\end{code}
-
-\begin{code}
--- | Output functions equivalent to (putStrLn, hPutStrLn stderr, putDocLn)
-loggers :: [Flag] -> ( String -> IO ()
-                          , String -> IO ()
-                          , Doc -> IO ())
-loggers _ = (putStrLn, putStrLnError, putDocLn)
 \end{code}

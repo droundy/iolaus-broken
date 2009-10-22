@@ -25,30 +25,21 @@ import System.Console.GetOpt( ArgOrder( Permute, RequireOrder ),
                               getOpt )
 import System.Exit ( ExitCode ( ExitSuccess ), exitWith )
 
-import Iolaus.Arguments ( Flag(..),
-                         help, flagToString,
-                         option_from_darcsoption,
-                         list_options )
+import Iolaus.Arguments ( Flag(..), help, flagToString, option_from_darcsoption,
+                          list_options )
 import Iolaus.ArgumentDefaults ( get_default_flags )
-import Iolaus.Command ( CommandArgs( CommandOnly, SuperCommandOnly, SuperCommandSub ),
-                        Command,
-                        command_name,
-                        command_command,
-                        command_prereq,
-                        command_extra_arg_help,
-                        command_extra_args,
-                        command_argdefaults,
+import Iolaus.Command ( CommandArgs( CommandOnly, SuperCommandOnly,
+                                     SuperCommandSub ),
+                        Command, command_name, command_command,
+                        command_prereq, command_extra_arg_help,
+                        command_extra_args, command_argdefaults,
                         command_get_arg_possibilities,
                         command_options, command_alloptions,
-                        disambiguate_commands,
-                        get_command_help, get_command_mini_help,
-                        get_subcommands,
-                        extract_commands,
-                        super_name,
-                        subusage, chomp_newline )
+                        disambiguate_commands, get_command_help,
+                        get_command_mini_help, get_subcommands,
+                        extract_commands, super_name, subusage )
 import Iolaus.Help ( command_control_list )
-import Iolaus.Global ( setDebugMode,
-                      setTimingsMode, setVerboseMode )
+import Iolaus.Global ( setDebugMode, setTimingsMode, setVerboseMode )
 import Iolaus.Progress ( setProgressMode, debugMessage )
 import Iolaus.RepoPath ( getCurrentDirectory )
 import Iolaus.Hooks ( run_posthook, run_prehook )
@@ -119,7 +110,7 @@ run_command msuper cmd args = do
            file_args <- command_get_arg_possibilities cmd
            putStrLn $ get_options_options (opts1++opts2) ++ unlines file_args
       | otherwise -> consider_running msuper cmd (addVerboseIfDebug opts) extra
-    (_,_,ermsgs) -> do fail $ chomp_newline(unlines ermsgs)
+    (_,_,ermsgs) -> fail $ unlines ermsgs
     where addVerboseIfDebug opts | DebugVerbose `elem` opts = Debug:Verbose:opts
                                  | otherwise = opts
 
@@ -208,4 +199,4 @@ run_raw_supercommand super args = do
             then fail $ "Command " ++ (command_name super) ++
                       " disabled with --disable option!"
             else fail $ "Invalid subcommand!\n\n" ++ subusage super
-    (_,_,ermsgs) -> do fail $ chomp_newline(unlines ermsgs)
+    (_,_,ermsgs) -> fail $ unlines ermsgs
