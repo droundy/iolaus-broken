@@ -15,7 +15,7 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsubsection{arcs show commit}
+\subsubsection{iolaus show commit}
 \begin{code}
 module Iolaus.Commands.ShowCommit ( show_commit ) where
 

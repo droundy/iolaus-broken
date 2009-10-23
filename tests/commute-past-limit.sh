@@ -28,7 +28,8 @@ mkdir temp2
 cd temp2
 iolaus init
 iolaus pull ../temp -p addfoo6 -a
-ls foo* | wc -l > foos
+ls foo* | wc -l > numfoos
 ls foo*
+cat numfoos
 
-grep 4 foos
+grep 4 numfoos

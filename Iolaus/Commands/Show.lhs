@@ -33,7 +33,7 @@ show_description = "Show repository information."
 show_help :: String
 show_help =
  "Use the --help option with the subcommands to obtain help for\n"++
- "subcommands (for example, \"arcs show files --help\").\n"
+ "subcommands (for example, \"iolaus show files --help\").\n"
 
 show_command :: Command
 show_command = SuperCommand {
@@ -51,7 +51,7 @@ show_command = SuperCommand {
                }
 \end{code}
 
-\subsection{arcs show}
+\subsection{iolaus show}
 
 The show command provides access to several subcommands which can be
 used to investigate the state of a repository.

@@ -27,7 +27,7 @@ import System.Exit ( ExitCode ( ExitSuccess ), exitWith )
 
 import Iolaus.Arguments ( Flag(..),
                          help, flagToString,
-                         option_from_darcsoption,
+                         option_from_iolausoption,
                          list_options )
 import Iolaus.ArgumentDefaults ( get_default_flags )
 import Iolaus.Command ( CommandArgs( CommandOnly, SuperCommandOnly, SuperCommandSub ),
@@ -110,7 +110,7 @@ run_command msuper cmd args = do
    let options = opts1 ++ opts2
        (opts1, opts2) = command_options cwd cmd
    case getOpt Permute
-             (option_from_darcsoption cwd list_options++options) args of
+             (option_from_iolausoption cwd list_options++options) args of
     (opts,extra,[])
       | Help `elem` opts -> putStrLn $ get_command_help msuper cmd
       | ListOptions `elem` opts  -> do
@@ -195,8 +195,8 @@ run_raw_supercommand super [] =
 run_raw_supercommand super args = do
   cwd <- getCurrentDirectory
   case getOpt RequireOrder
-             (option_from_darcsoption cwd help++
-              option_from_darcsoption cwd list_options) args of
+             (option_from_iolausoption cwd help++
+              option_from_iolausoption cwd list_options) args of
     (opts,_,[])
       | Help `elem` opts ->
             putStrLn $ get_command_help Nothing super

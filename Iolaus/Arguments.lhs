@@ -25,7 +25,7 @@ module Iolaus.Arguments ( Flag( .. ), flagToString, optionFlags,
                           isin, arein, mergeStrategy, commitApproach,
                          fixFilePathOrStd, fixFilePathOrUrl, fixUrl,
                          fixSubPaths, areFileArgs,
-                         IolausOption( .. ), option_from_darcsoption,
+                         IolausOption( .. ), option_from_iolausoption,
                          help, list_options,
                          max_count, help_on_match,
                          any_verbosity, disable,
@@ -283,7 +283,7 @@ arein :: [IolausOption] -> [Flag] -> Bool
     = os `arein` fs || dos' `arein` fs
 [] `arein` _ = False
 
--- | A type for darcs' options. The value contains the command line
+-- | A type for iolaus' options. The value contains the command line
 -- switch(es) for the option, a help string, and a function to build a
 -- @Flag@ from the command line arguments.  for each constructor,
 -- 'shortSwitches' represents the list of short command line switches
@@ -328,13 +328,13 @@ optionFlags (IolausOptAbsPathOption _ fs _ _ _ _) = fs
 optionFlags (IolausNoArgOption _ fs _ _) = fs
 optionFlags (IolausMultipleChoiceOption os) = concatMap optionFlags os
 
-option_from_darcsoption :: AbsolutePath -> IolausOption -> [OptDescr Flag]
-option_from_darcsoption _ (IolausNoArgOption a b c h) = [Option a b (NoArg c) h]
-option_from_darcsoption _ (IolausArgOption a b c n h) = [Option a b (ReqArg c n) h]
-option_from_darcsoption wd (IolausMultipleChoiceOption os) = concatMap (option_from_darcsoption wd) os
-option_from_darcsoption wd (IolausAbsPathOrStdOption a b c n h) = [Option a b (ReqArg (c . makeAbsoluteOrStd wd) n) h]
-option_from_darcsoption wd (IolausAbsPathOption a b c n h) = [Option a b (ReqArg (c . makeAbsolute wd) n) h]
-option_from_darcsoption wd (IolausOptAbsPathOption a b d c n h) = [Option a b (OptArg (c . makeAbsolute wd . fromMaybe d) n) h]
+option_from_iolausoption :: AbsolutePath -> IolausOption -> [OptDescr Flag]
+option_from_iolausoption _ (IolausNoArgOption a b c h) = [Option a b (NoArg c) h]
+option_from_iolausoption _ (IolausArgOption a b c n h) = [Option a b (ReqArg c n) h]
+option_from_iolausoption wd (IolausMultipleChoiceOption os) = concatMap (option_from_iolausoption wd) os
+option_from_iolausoption wd (IolausAbsPathOrStdOption a b c n h) = [Option a b (ReqArg (c . makeAbsoluteOrStd wd) n) h]
+option_from_iolausoption wd (IolausAbsPathOption a b c n h) = [Option a b (ReqArg (c . makeAbsolute wd) n) h]
+option_from_iolausoption wd (IolausOptAbsPathOption a b d c n h) = [Option a b (OptArg (c . makeAbsolute wd . fromMaybe d) n) h]
 
 -- | 'concat_option' creates a IolausMultipleChoiceOption from a list of
 -- option, flattening any IolausMultipleChoiceOption in the list.
@@ -447,7 +447,7 @@ recursive :: String -> IolausOption
 sign, applyas, verify :: IolausOption
 \end{code}
 
-\section{Common options to darcs commands}
+\section{Common options to iolaus commands}
 
 \begin{options}
 --help
@@ -455,11 +455,11 @@ sign, applyas, verify :: IolausOption
 Every \verb|COMMAND| accepts \verb!--help! as an argument, which tells it to
 provide a bit of help.  Among other things, this help always provides an
 accurate listing of the options available with that command, and is
-guaranteed never to be out of sync with the version of darcs you actually
+guaranteed never to be out of sync with the version of iolaus you actually
 have installed (unlike this manual, which could be for an entirely
-different version of darcs).
+different version of iolaus).
 \begin{verbatim}
-% darcs COMMAND --help
+% iolaus COMMAND --help
 \end{verbatim}
 \begin{code}
 help = IolausNoArgOption ['h'] ["help"] Help
@@ -484,7 +484,7 @@ disable = IolausNoArgOption [] ["disable"] Disable
 \begin{options}
 --verbose, --quiet, --normal-verbosity
 \end{options}
-Most commands also accept the \verb!--verbose! option, which tells darcs to
+Most commands also accept the \verb!--verbose! option, which tells iolaus to
 provide additional output.  The amount of verbosity varies from command to
 command.  Commands that accept \verb!--verbose\verb! also accept \verb!--quiet\verb!,
 which surpresses non-error output, and \verb!--normal-verbosity\verb! which can be
@@ -494,9 +494,9 @@ the defaults file.
 \begin{options}
 --debug, --debug-http
 \end{options}
-Many commands also accept the \verb!--debug! option, which causes darcs to generate
+Many commands also accept the \verb!--debug! option, which causes iolaus to generate
 additional output that may be useful for debugging its behavior, but which otherwise
-would not be interesting. Option \verb!--debug-http! makes darcs output debugging
+would not be interesting. Option \verb!--debug-http! makes iolaus output debugging
 info for curl and libwww.
 \begin{code}
 any_verbosity :: [IolausOption]
@@ -524,7 +524,7 @@ specify the directory of the repository in which to perform the command.
 This option is used with commands, such as whatsnew, that ordinarily would
 be performed within a repository directory, and allows you to use those
 commands without actually being in the repository directory when calling the
-command.  This is useful when running darcs in a pipe, as might be the case
+command.  This is useful when running iolaus in a pipe, as might be the case
 when running \verb'apply' from a mailer.
 
 \begin{code}
@@ -535,7 +535,7 @@ possibly_remote_repo_dir = IolausArgOption [] ["repo"] RepoDir "URL"
 
 -- | 'get_repourl' takes a list of flags and returns the url of the
 -- repository specified by @Repodir \"directory\"@ in that list of flags, if any.
--- This flag is present if darcs was invoked with @--repodir=DIRECTORY@
+-- This flag is present if iolaus was invoked with @--repodir=DIRECTORY@
 get_repourl :: [Flag] -> Maybe String
 get_repourl [] = Nothing
 get_repourl (RepoDir d:_) | not (is_file d) = Just d
@@ -640,7 +640,7 @@ If you like, you can configure your repository to be able to run a test
 suite of some sort.  You can do this by using ``setpref'' to set the
 ``test'' value to be a command to run, e.g.
 \begin{verbatim}
-% darcs setpref test "sh configure && make && make test"
+% iolaus setpref test "sh configure && make && make test"
 \end{verbatim}
 Or, if you want to define a test specific to one copy of the repository,
 you could do this by editing the file \verb!.arcs-prefs/prefs!.
@@ -649,11 +649,11 @@ you could do this by editing the file \verb!.arcs-prefs/prefs!.
 --leave-test-directory, --remove-test-directory
 \end{options}
 
-Normally darcs deletes the directory in which the test was run afterwards.
+Normally iolaus deletes the directory in which the test was run afterwards.
 Sometimes (especially when the test fails) you'd prefer to be able to be
 able to examine the test directory after the test is run.  You can do this
 by specifying the \verb!--leave-test-directory! flag.  Alas, there is no
-way to make darcs leave the test directory only if the test fails.  The
+way to make iolaus leave the test directory only if the test fails.  The
 opposite of \verb!--leave-test-directory! is
 \verb!--remove-test-directory!, which could come in handy if you choose to
 make \verb!--leave-test-directory! the default (see
@@ -721,7 +721,7 @@ Or, you could specify the author on a per-repository basis using the
 \verb!.arcs-prefs/author! file as described in section~\ref{author_prefs}.
 
 Also, a global author file can be created in your home directory with the name
-\verb!.darcs/author!.  This file overrides the
+\verb!.iolaus/author!.  This file overrides the
 contents of the environment variables, but a repository-specific author
 file overrides the global author file.
 
@@ -740,9 +740,9 @@ from_opt = IolausArgOption [] ["from"] Author "EMAIL" "specify email address"
 \begin{options}
 --dont-compress, --compress
 \end{options}
-By default, darcs commands that write patches to disk will compress the
+By default, iolaus commands that write patches to disk will compress the
 patch files.  If you don't want this, you can choose the
-\verb!--dont-compress! option, which causes darcs not to compress the patch
+\verb!--dont-compress! option, which causes iolaus not to compress the patch
 file.
 
 \begin{code}
@@ -763,7 +763,7 @@ summary = IolausMultipleChoiceOption
           [IolausNoArgOption ['s'] ["summary"] Summary "summarize changes",
            IolausNoArgOption [] ["no-summary"] NoSummary "don't summarize changes"]
 unified = IolausNoArgOption ['u'] ["unified"] Unified
-          "output patch in a darcs-specific format similar to diff -u"
+          "output patch in a iolaus-specific format similar to diff -u"
 unidiff = IolausNoArgOption ['u'] ["unified"] Unified
           "pass -u option to diff"
 diff_cmd_flag = IolausArgOption [] ["diff-command"]
@@ -775,7 +775,7 @@ target = IolausArgOption [] ["to"] Target "EMAIL" "specify destination email"
 cc = IolausArgOption [] ["cc"] Cc "EMAIL" "mail results to additional EMAIL(s). Requires --reply"
 
 -- |'get_cc' takes a list of flags and returns the addresses to send a copy of
--- the patch bundle to when using @darcs send@.
+-- the patch bundle to when using @iolaus send@.
 -- looks for a cc address specified by @Cc \"address\"@ in that list of flags.
 -- Returns the addresses as a comma separated string.
 get_cc :: [Flag] -> String
@@ -792,9 +792,9 @@ get_cc fs = lt $ catMaybes $ map whatcc fs
 subject = IolausArgOption [] ["subject"] Subject "SUBJECT" "specify mail subject"
 
 -- |'get_subject' takes a list of flags and returns the subject of the mail
--- to be sent by @darcs send@. Looks for a subject specified by
+-- to be sent by @iolaus send@. Looks for a subject specified by
 -- @Subject \"subject\"@ in that list of flags, if any.
--- This flag is present if darcs was invoked with @--subject=SUBJECT@
+-- This flag is present if iolaus was invoked with @--subject=SUBJECT@
 get_subject :: [Flag] -> Maybe String
 get_subject (Subject s:_) = Just s
 get_subject (_:fs) = get_subject fs
@@ -953,7 +953,7 @@ use_external_merge = IolausArgOption [] ["external-merge"]
 \begin{options}
 --dry-run
 \end{options}
-The \verb!--dry-run! option will cause darcs not to actually take the specified
+The \verb!--dry-run! option will cause iolaus not to actually take the specified
 action, but only print what would have happened.  Not all commands accept
 \verb!--dry-run!, but those that do should accept the \verb!--summary!  option.
 
@@ -1123,9 +1123,9 @@ switch given \verb!SENDMAIL! will be used if present.
 sendmail_cmd = IolausArgOption [] ["sendmail-command"] SendmailCmd "COMMAND" "specify sendmail command"
 
 -- |'get_sendmail_cmd' takes a list of flags and returns the sendmail command
--- to be used by @darcs send@. Looks for a command specified by
+-- to be used by @iolaus send@. Looks for a command specified by
 -- @SendmailCmd \"command\"@ in that list of flags, if any.
--- This flag is present if darcs was invoked with @--sendmail-command=COMMAND@
+-- This flag is present if iolaus was invoked with @--sendmail-command=COMMAND@
 -- Alternatively the user can set @$SENDMAIL@ which will be used as a fallback if present.
 get_sendmail_cmd :: [Flag] -> IO String 
 get_sendmail_cmd (SendmailCmd a:_) = return a
@@ -1165,7 +1165,7 @@ nullFlag = IolausNoArgOption ['0'] ["null"] NullFlag
 posthook_cmd :: IolausOption
 posthook_cmd = IolausMultipleChoiceOption
                [IolausArgOption [] ["posthook"] PosthookCmd
-                "COMMAND" "specify command to run after this darcs command",
+                "COMMAND" "specify command to run after this iolaus command",
                 IolausNoArgOption [] ["no-posthook"] NoPosthook
                 "don't run posthook command"]
 
@@ -1179,7 +1179,7 @@ get_posthook_cmd [] = Nothing
 \begin{options}
 --prehook=COMMAND, --no-prehook
 \end{options}
-To provide a command that should be run before a darcs command is executed,
+To provide a command that should be run before a iolaus command is executed,
  use \verb!--prehook! to specify the command.  An example use is
 for people who want to have a command run whenever a patch is to be recorded, such as
 translating line endings before recording patches.  Using
@@ -1188,7 +1188,7 @@ translating line endings before recording patches.  Using
 prehook_cmd :: IolausOption
 prehook_cmd = IolausMultipleChoiceOption
                [IolausArgOption [] ["prehook"] PrehookCmd
-                "COMMAND" "specify command to run before this darcs command",
+                "COMMAND" "specify command to run before this iolaus command",
                 IolausNoArgOption [] ["no-prehook"] NoPrehook
                 "don't run prehook command"]
 
@@ -1203,8 +1203,8 @@ get_prehook_cmd [] = Nothing
 \begin{options}
 --allow-unrelated-repos
 \end{options}
-By default darcs checks and warns user if repositories are unrelated when
-doing pull, push and send. This option makes darcs skip this check.
+By default iolaus checks and warns user if repositories are unrelated when
+doing pull, push and send. This option makes iolaus skip this check.
 
 \begin{code}
 allow_unrelated_repos =

@@ -15,7 +15,7 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsection{arcs get}
+\subsection{iolaus get}
 \begin{code}
 {-# LANGUAGE CPP #-}
 
@@ -42,9 +42,9 @@ hard links for the patch files, which means that the additional
 storage space needed will be minimal.  This is \emph{very} good for
 your disk usage (and for the speed of running get), so if you want
 multiple copies of a repository, I strongly recommend first running
-\verb!arcs get! to get yourself one copy, and then running
-\verb!arcs get! on that copy to make any more you like.  The only
-catch is that the first time you run \verb!arcs push! or \verb!arcs
+\verb!iolaus get! to get yourself one copy, and then running
+\verb!iolaus get! on that copy to make any more you like.  The only
+catch is that the first time you run \verb!iolaus push! or \verb!iolaus
 pull!  from any of these second copies, by default they will access
 your first copy---which may not be what you want.
 

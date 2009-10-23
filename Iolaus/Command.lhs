@@ -45,7 +45,7 @@ import System.Console.GetOpt( OptDescr, usageInfo )
 import Data.List ( sort, isPrefixOf )
 import Iolaus.Arguments ( Flag, IolausOption, disable, help,
                          any_verbosity, posthook_cmd,
-                         prehook_cmd, option_from_darcsoption )
+                         prehook_cmd, option_from_iolausoption )
 import Iolaus.RepoPath ( AbsolutePath, rootDirectory )
 import Iolaus.Utils ( putStrLnError )
 import Iolaus.Printer ( Doc, putDocLn )
@@ -156,7 +156,7 @@ command_alloptions SuperCommand { } = ([help],[])
 command_options :: AbsolutePath -> Command -> ([OptDescr Flag], [OptDescr Flag])
 command_options cwd c = (convert basic, convert advanced)
  where (basic, advanced) = command_alloptions c
-       convert = concatMap (option_from_darcsoption cwd)
+       convert = concatMap (option_from_iolausoption cwd)
 
 nodefaults :: [Flag] -> AbsolutePath -> [String] -> IO [String]
 nodefaults _ _ xs = return xs
@@ -199,7 +199,7 @@ subusage super =
      ("Usage: arcs "++command_name super++" SUBCOMMAND ... " ++
       "\n\n"++ command_description super++
       "\n\nSubcommands:\n" ++ usage_helper (get_subcommands super) ++ "\nOptions:")
-     (option_from_darcsoption rootDirectory help))
+     (option_from_iolausoption rootDirectory help))
     ++ "\n" ++ command_help super
 
 usage_helper :: [CommandControl] -> String

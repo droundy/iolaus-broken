@@ -25,7 +25,8 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       catCommit, CommitEntry(..),
                       commitTree, updateref, parseRev,
                       mkTree, hashObject, lsothers,
-                      diffFiles, DiffOption( NameOnly ),
+                      diffFiles, diffTreeCommit,
+                      DiffOption( NameOnly, DiffPatch, DiffRaw ),
                       readTree, checkoutIndex,
                       heads, revList, RevListOption(Skip),
                       -- mergeBase,
@@ -43,7 +44,9 @@ import Iolaus.SlurpDirectoryInternal
       slurpies_to_map, map_to_slurpies )
 import Iolaus.Lock ( removeFileMayNotExist )
 import Iolaus.Diff ( diff )
-import Iolaus.Patch ( Prim, commute, apply_to_slurpy, mergeN )
+import Iolaus.Patch ( Prim, commute, apply_to_slurpy, mergeN,
+                      list_touched_files )
+import Iolaus.TouchesFiles ( look_touch )
 import Iolaus.Ordered ( FL(..), (:>)(..), (+>+), unsafeCoerceP )
 import Iolaus.Sealed ( Sealed(..), FlippedSeal(..), mapSeal, mapSealM, unseal )
 
@@ -54,6 +57,17 @@ touchedFiles =
     do x <- lsothers
        y <- diffFiles [NameOnly] []
        return (x++lines y)
+
+commitTouches :: Sealed (Hash Commit) -> IO [FilePath]
+commitTouches (Sealed c) =
+    do x <- diffTreeCommit [DiffPatch, DiffRaw] c []
+       let fs = concatMap parse $ lines x
+       debugMessage $ unlines fs
+       return fs
+    where parse (':':x) = case dropWhile (/='\t') x of
+                            _:f -> [f]
+                            "" -> []
+          parse _ = []
 
 test :: [Flag] -> Hash Tree C(x) -> IO ()
 test opts t =
@@ -143,7 +157,15 @@ flag2strategy opts = if NativeMerge `elem` opts
 
 simplifyParents :: [Flag] -> [Sealed (Hash Commit)] -> Hash Tree C(x)
                 -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
-simplifyParents opts pars0 rec0 = sp (cpnum opts) [] (cauterizeHeads pars0) rec0
+simplifyParents opts pars0 rec0 =
+    do Sealed x <- mergeCommits opts (cauterizeHeads pars0)
+                   >>= mapSealM slurpTree
+       y <- slurpTree rec0
+       simpHelp opts (cauterizeHeads pars0) (diff opts x y)
+
+simpHelp :: [Flag] -> [Sealed (Hash Commit)] -> FL Prim C(w x)
+         -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
+simpHelp opts pars0 pat0 = sp (cpnum opts) [] pars0 pat0
     where
       cpnum [] = 10000
       cpnum (CommutePast (-1):fs) = cpnum fs
@@ -151,35 +173,57 @@ simplifyParents opts pars0 rec0 = sp (cpnum opts) [] (cauterizeHeads pars0) rec0
       cpnum (CauterizeAllHeads:_) = 0
       cpnum (_:fs) = cpnum fs
       sp :: Int -> [Sealed (Hash Commit)] -> [Sealed (Hash Commit)]
-         -> Hash Tree C(x) -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
-      sp _ ps [] t = return (cauterizeHeads ps,Sealed t)
-      sp 0 kn ps t =  return (kn++ps, Sealed t)
-      sp n kn (p:ps) t =
-          do let nop = cauterizeHeads (kn++ps++unseal parents p)
-             Sealed ptree <- mergeCommits opts (kn++p:ps)
-                             >>= mapSealM slurpTree
-             Sealed noptree <- mergeCommits opts nop >>= mapSealM slurpTree
-             mys <- slurpTree t
-             case commute (diff opts noptree ptree :> diff opts ptree mys) of
-               Nothing -> sp (n-1) (p:kn) ps t
-               Just (myp :> _) ->
-                   do t' <- apply_to_slurpy myp noptree >>= writeSlurpTree
-                      ct <- commitTree t (p:kn++ps) "iolaus:testing"
-                      joined0 <- mergeCommitsX MergeN (Sealed ct:p:nop)
-                      ct' <- commitTree t' nop "iolaus:testing"
-                      joined <- mergeCommitsX MergeN (Sealed ct':p:nop)
-                      ok <-
-                          if joined == joined0
-                          then
-                            if TestParents `elem` opts
-                            then do Sealed x <- mapSealM catCommit p
-                                    putStrLn $ "\n\nRunning test without:\n"++
-                                             myMessage x
-                                    testPredicate opts t'
-                            else return True
-                          else return False
-                      if ok then sp (n-1) kn (filter (`notElem` kn) nop) t'
-                            else sp (n-1) (p:kn) ps t
+         -> FL Prim C(w x) -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
+      sp _ kn [] patch =
+          do Sealed ptree <- mergeCommits opts kn >>= mapSealM slurpTree
+             debugMessage "In sp, no more parents..."
+             t <- apply_to_slurpy (unsafeCoerceP patch) ptree >>= writeSlurpTree
+             return (cauterizeHeads kn,Sealed t)
+      sp 0 kn ps patch =
+          do Sealed ptree <- mergeCommits opts (kn++ps) >>= mapSealM slurpTree
+             debugMessage "In sp, we've tried enough times..."
+             t <- apply_to_slurpy (unsafeCoerceP patch) ptree >>= writeSlurpTree
+             return (cauterizeHeads (kn++ps),Sealed t)
+      sp n kn (p:ps) patch =
+          do tf <- commitTouches p
+             if not (look_touch tf patch || null (unseal parents p))
+                then -- FIXME: need to handle --test-parents here
+                     do debugMessage "skipping an easy commit..."
+                        debugMessage $ unlines $ list_touched_files patch
+                        sp (n-1) kn (ps++unseal parents p) patch
+                else
+                  do let nop = cauterizeHeads (kn++ps++unseal parents p)
+                     Sealed ptree <- mergeCommits opts (kn++p:ps)
+                                     >>= mapSealM slurpTree
+                     debugMessage "In sp, trying with one less..."
+                     t <- apply_to_slurpy (unsafeCoerceP patch) ptree
+                          >>= writeSlurpTree
+                     Sealed noptree <- mergeCommits opts nop
+                                       >>= mapSealM slurpTree
+                     case commute (diff opts noptree ptree :>
+                                   unsafeCoerceP patch) of
+                       Nothing -> sp (n-1) (p:kn) ps patch
+                       Just (myp :> _) ->
+                           do t' <- apply_to_slurpy myp noptree
+                                    >>= writeSlurpTree
+                              ct <- commitTree t (p:kn++ps) "iolaus:testing"
+                              joined0 <- mergeCommitsX MergeN (Sealed ct:p:nop)
+                              ct' <- commitTree t' nop "iolaus:testing"
+                              joined <- mergeCommitsX MergeN (Sealed ct':p:nop)
+                              ok <-
+                                  if joined == joined0
+                                  then
+                                      if TestParents `elem` opts
+                                      then do Sealed x <- mapSealM catCommit p
+                                              putStrLn $
+                                                "\n\nRunning test without:\n"++
+                                                myMessage x
+                                              testPredicate opts t'
+                                      else return True
+                                  else return False
+                              if ok
+                                then sp (n-1) kn (filter (`notElem` kn) nop) myp
+                                else sp (n-1) (p:kn) ps patch
 
 mergeCommits :: [Flag] -> [Sealed (Hash Commit)]
              -> IO (Sealed (Hash Tree))

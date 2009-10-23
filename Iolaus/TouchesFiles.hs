@@ -38,7 +38,7 @@ select_touching [] pc = pc
 select_touching files pc = force_firsts xs pc
     where ct :: Patchy p => [FilePath] -> FL (TaggedPatch p) C(x y) -> [Tag]
           ct _ NilFL = []
-          ct fs (tp:>:tps) = case look_touch fs (tp_patch tp) of
+          ct fs (tp:>:tps) = case look_touch0 fs (tp_patch tp) of
                              (True, fs') -> tag tp:ct fs' tps
                              (False, fs') -> ct fs' tps
           xs = case get_choices pc of
@@ -49,7 +49,7 @@ deselect_not_touching [] pc = pc
 deselect_not_touching files pc = force_lasts xs pc
     where ct :: Patchy p => [FilePath] -> FL (TaggedPatch p) C(x y) -> [Tag]
           ct _ NilFL = []
-          ct fs (tp:>:tps) = case look_touch fs (tp_patch tp) of
+          ct fs (tp:>:tps) = case look_touch0 fs (tp_patch tp) of
                              (True, fs') -> ct fs' tps
                              (False, fs') -> tag tp:ct fs' tps
           xs = case get_choices pc of
@@ -60,7 +60,7 @@ select_not_touching [] pc = pc
 select_not_touching files pc = force_firsts xs pc
     where ct :: Patchy p => [FilePath] -> FL (TaggedPatch p) C(x y) -> [Tag]
           ct _ NilFL = []
-          ct fs (tp:>:tps) = case look_touch fs (tp_patch tp) of
+          ct fs (tp:>:tps) = case look_touch0 fs (tp_patch tp) of
                              (True, fs') -> ct fs' tps
                              (False, fs') -> tag tp:ct fs' tps
           xs = case get_choices pc of
@@ -77,8 +77,11 @@ choose_touching [] p = seal p
 choose_touching files p = case get_choices $ select_touching files $ patch_choices p of
                           fc :> _ :> _ -> seal $ mapFL_FL tp_patch fc
 
-look_touch :: Patchy p => [FilePath] -> p C(x y) -> (Bool, [FilePath])
-look_touch fs p = (any (\tf -> any (affects tf) fs) (list_touched_files p)
+look_touch :: Patchy p => [FilePath] -> p C(x y) -> Bool
+look_touch fs p = fst $ look_touch0 fs p
+
+look_touch0 :: Patchy p => [FilePath] -> p C(x y) -> (Bool, [FilePath])
+look_touch0 fs p = (any (\tf -> any (affects tf) fs) (list_touched_files p)
                    || fs' /= fs, fs')
     where affects touched f | touched == f = True
           affects t f = case splitAt (length f) t of
