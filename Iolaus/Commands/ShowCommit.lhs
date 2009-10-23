@@ -22,8 +22,7 @@ module Iolaus.Commands.ShowCommit ( show_commit ) where
 import Iolaus.Arguments ( Flag(..), mergeStrategy,
                           summary, working_repo_dir )
 import Iolaus.Command ( Command(..), nodefaults )
-import Iolaus.Printer ( putDocLnWith )
-import Iolaus.ColorPrinter ( fancyPrinters )
+import Iolaus.Printer ( putDocLn )
 import Iolaus.Patch ( showContextPatch, summarize, invert, apply_to_slurpy )
 import Iolaus.Sealed ( Sealed(Sealed), FlippedSeal(FlippedSeal) )
 
@@ -71,7 +70,7 @@ commit_cmd opts cs = mapM_ showc cs
                  FlippedSeal ch <- diffCommit opts x
                  new <- slurpTree (myTree commit)
                  let Just old = apply_to_slurpy (invert ch) new
-                 if Summary `elem` opts
-                   then putDocLnWith fancyPrinters $ summarize ch
-                   else putDocLnWith fancyPrinters $ showContextPatch old ch
+                 putDocLn $ if Summary `elem` opts
+                            then summarize ch
+                            else showContextPatch old ch
 \end{code}

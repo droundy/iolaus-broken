@@ -29,8 +29,7 @@ import Iolaus.Command ( Command(..), nodefaults )
 import Iolaus.Arguments ( Flag(Summary), mergeStrategy,
                           working_repo_dir, summary )
 import Iolaus.Patch ( showContextPatch, summarize )
-import Iolaus.Printer ( putDocLnWith )
-import Iolaus.ColorPrinter ( fancyPrinters )
+import Iolaus.Printer ( putDocLn )
 import Iolaus.Repository ( get_recorded_and_unrecorded, Unrecorded(..) )
 
 import Git.LocateRepo ( amInRepository )
@@ -78,9 +77,9 @@ whatsnew = Command {command_name = "whatsnew",
 whatsnew_cmd :: [Flag] -> [String] -> IO ()
 whatsnew_cmd opts _ =
     do (old, Unrecorded chs _) <- get_recorded_and_unrecorded opts
-       if Summary `elem` opts
-          then putDocLnWith fancyPrinters $ summarize chs
-          else putDocLnWith fancyPrinters $ showContextPatch old chs
+       putDocLn $ if Summary `elem` opts
+                  then summarize chs
+                  else showContextPatch old chs
 \end{code}
 
 If you give one or more file or directory names as an argument to
