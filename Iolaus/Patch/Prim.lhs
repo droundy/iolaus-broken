@@ -30,8 +30,8 @@ module Iolaus.Patch.Prim
          is_identity,
          formatFileName,
          adddir, addfile,
-         hunk, chunk, move, rmdir, rmfile, chmod,
-         is_addfile, is_hunk, is_chunk,
+         chunk, move, rmdir, rmfile, chmod,
+         is_addfile, is_chunk,
          is_similar, is_adddir, is_filepatch,
          canonize, try_to_shrink,
          subcommutes, sort_coalesceFL, join,
@@ -45,10 +45,10 @@ import Control.Monad ( MonadPlus, msum, mzero, mplus )
 import Data.Map ( elems, fromListWith, mapWithKey )
 #endif
 
-import qualified Data.ByteString as B ( ByteString, length, head, concat )
+import qualified Data.ByteString as B ( ByteString, concat )
 
 import Iolaus.FileName ( FileName, fn2fp, fp2fn, norm_path,
-                              movedirfilename, encode_white )
+                         movedirfilename, encode_white )
 import Iolaus.RepoPath ( toFilePath )
 import Iolaus.Ordered ( EqCheck(..), MyEq(..),
                        (:>)(..), (:\/:)(..), (:/\:)(..), FL(..), RL(..), (+>+),
@@ -58,13 +58,11 @@ import Iolaus.Patch.Patchy ( Invert(..), Commute(..) )
 import Iolaus.Patch.Permutations () -- for Invert instance of FL
 import Iolaus.Show
 import Iolaus.Lcs2 ( nestedChanges )
-import Iolaus.Printer ( Doc, vcat, Color(Red,Green,Cyan,Magenta), lineColor,
-                        text, blueText, colorPS,
-                        ($$), (<+>), (<>), prefix, userchunkPS )
+import Iolaus.Printer ( Doc, Color(Red,Green), text, blueText, colorPS,
+                        ($$), (<+>), (<>), userchunkPS )
 import Iolaus.IO ( ExecutableBit(IsExecutable, NotExecutable) )
 #include "impossible.h"
 
-#ifndef LAZY
 data Prim C(x y) where
     Move :: !FileName -> !FileName -> Prim C(x y)
     DP :: !FileName -> !(DirPatchType C(x y)) -> Prim C(x y)
@@ -73,27 +71,12 @@ data Prim C(x y) where
 
 data FilePatchType C(x y) = RmFile | AddFile
                           | Chmod ExecutableBit
-                          | Hunk !Int [B.ByteString] [B.ByteString]
                           | Chunk !B.ByteString !Int
                                   [B.ByteString] [B.ByteString]
                             deriving (Eq,Ord)
 
 data DirPatchType C(x y) = RmDir | AddDir
                            deriving (Eq,Ord)
-#else
-data Prim C(x y) where
-    Move :: FileName -> FileName -> Prim C(x y)
-    DP :: FileName -> (DirPatchType C(x y)) -> Prim C(x y)
-    FP :: FileName -> (FilePatchType C(x y)) -> Prim C(x y)
-    Identity :: Prim C(x x)
-
-data FilePatchType C(x y) = RmFile | AddFile | Chmod IsExecutable
-                          | Hunk Int [B.ByteString] [B.ByteString]
-                            deriving (Eq,Ord)
-
-data DirPatchType C(x y) = RmDir | AddDir
-                           deriving (Eq,Ord)
-#endif
 
 instance MyEq FilePatchType where
     unsafeCompare a b = a == unsafeCoerceP b
@@ -102,7 +85,7 @@ instance MyEq DirPatchType where
     unsafeCompare a b = a == unsafeCoerceP b
 
 is_null_patch :: Prim C(x y) -> Bool
-is_null_patch (FP _ (Hunk _ [] [])) = True
+is_null_patch (FP _ (Chunk _ _ [] [])) = True
 is_null_patch Identity = True
 is_null_patch _ = False
 
@@ -110,7 +93,7 @@ nullP :: Prim C(x y) -> EqCheck C(x y)
 nullP = sloppyIdentity
 
 is_identity :: Prim C(x y) -> EqCheck C(x y)
-is_identity (FP _ (Hunk _ old new)) | old == new = unsafeCoerceP IsEq
+is_identity (FP _ (Chunk _ _ old new)) | old == new = unsafeCoerceP IsEq
 is_identity (Move old new) | old == new = unsafeCoerceP IsEq
 is_identity Identity = IsEq
 is_identity _ = NotEq
@@ -133,32 +116,21 @@ is_adddir :: Prim C(x y) -> Bool
 is_adddir (DP _ AddDir) = True
 is_adddir _ = False
 
-is_hunk :: Prim C(x y) -> Bool
-is_hunk (FP _ (Hunk _ _ _)) = True
-is_hunk _ = False
-
 is_chunk :: Prim C(x y) -> Bool
 is_chunk (FP _ (Chunk _ _ _ _)) = True
 is_chunk _ = False
-\end{code}
 
-\begin{code}
 addfile :: FilePath -> Prim C(x y)
 rmfile :: FilePath -> Prim C(x y)
 adddir :: FilePath -> Prim C(x y)
 rmdir :: FilePath -> Prim C(x y)
 move :: FilePath -> FilePath -> Prim C(x y)
-hunk :: FilePath -> Int -> [B.ByteString] -> [B.ByteString] -> Prim C(x y)
-
-evalargs :: (a -> b -> c) -> a -> b -> c
-evalargs f x y = (f $! x) $! y
 
 addfile f = FP (n_fn f) AddFile
 rmfile f = FP (n_fn f) RmFile
 adddir d = DP (n_fn d) AddDir
 rmdir d = DP (n_fn d) RmDir
 move f f' = Move (n_fn f) (n_fn f')
-hunk f line old new = evalargs FP (n_fn f) (Hunk line old new)
 
 chunk :: FilePath -> B.ByteString -> Int
       -> [B.ByteString] -> [B.ByteString] -> Prim C(x y)
@@ -180,7 +152,6 @@ instance Invert Prim where
     invert (FP f (Chmod IsExecutable)) = FP f (Chmod NotExecutable)
     invert (FP f (Chmod NotExecutable)) = FP f (Chmod IsExecutable)
     invert (FP f (Chunk chs w old new))  = FP f $ Chunk chs w new old
-    invert (FP f (Hunk line old new))  = FP f $ Hunk line new old
     invert (DP d RmDir) = DP d AddDir
     invert (DP d AddDir) = DP d RmDir
     invert (Move f f') = Move f' f
@@ -212,17 +183,6 @@ instance Show (FilePatchType C(x y)) where
     showsPrec _ (Chmod IsExecutable) = showString "Chmod IsExecutable"
     showsPrec _ (Chmod NotExecutable) = showString "Chmod NotExecutable"
     showsPrec _ (Chunk _ _ _ _) = showString "Chunk not shown"
-    showsPrec d (Hunk line old new) | all ((==1) . B.length) old && all ((==1) . B.length) new
-        = showParen (d > app_prec) $ showString "Hunk " .
-                                      showsPrec (app_prec + 1) line . showString " " .
-                                      showsPrecC old . showString " " .
-                                      showsPrecC new
-       where showsPrecC [] = showString "[]"
-             showsPrecC ss = showParen True $ showString "packStringLetters " . showsPrec (app_prec + 1) (map B.head ss)
-    showsPrec d (Hunk line old new) = showParen (d > app_prec) $ showString "Hunk " .
-                                      showsPrec (app_prec + 1) line . showString " " .
-                                      showsPrec (app_prec + 1) old . showString " " .
-                                      showsPrec (app_prec + 1) new
 
 instance Show (DirPatchType C(x y)) where
     showsPrec _ RmDir = showString "RmDir"
@@ -234,13 +194,12 @@ instance Show (Prim C(x y))  where
 -}
 
 formatFileName :: FileName -> Doc
-formatFileName = blueText . drop 2 . encode_white . toFilePath
+formatFileName = blueText . encode_white . toFilePath
 
 showPrim :: Prim C(a b) -> Doc
 showPrim (FP f AddFile) = showAddFile f
 showPrim (FP f RmFile)  = showRmFile f
 showPrim (FP f (Chmod x)) = showChmod f x
-showPrim (FP f (Hunk line old new))  = showHunk f line old new
 showPrim (FP f (Chunk chs line old new))  = showChunk f chs line old new
 showPrim (DP d AddDir) = showAddDir d
 showPrim (DP d RmDir)  = showRmDir d
@@ -303,25 +262,6 @@ Delete a directory from the tree.
 \begin{code}
 showRmDir :: FileName -> Doc
 showRmDir d = blueText "rmdir" <+> formatFileName d
-\end{code}
-
-
-\paragraph{Hunk}
-Replace a hunk (set of contiguous lines) of text with a new
-hunk.
-\begin{verbatim}
-hunk FILE LINE#
--LINE
-...
-+LINE
-...
-\end{verbatim}
-\begin{code}
-showHunk :: FileName -> Int -> [B.ByteString] -> [B.ByteString] -> Doc
-showHunk f line old new =
-           blueText "hunk" <+> formatFileName f <+> text (show line)
-        $$ lineColor Magenta (prefix "-" (vcat $ map userchunkPS old))
-        $$ lineColor Cyan    (prefix "+" (vcat $ map userchunkPS new))
 
 showChunk :: FileName -> B.ByteString
           -> Int -> [B.ByteString] -> [B.ByteString] -> Doc
@@ -521,10 +461,7 @@ everything_else_commute x = eec x
         msum [clever_commute commute_filedir xx]
 
 instance Commute Prim where
-    merge (y :\/: z) =
-        case elegant_merge (y:\/:z) of
-        Just (z' :/\: y') -> z' :/\: y'
-        Nothing -> error "Commute Prim merge"
+    merge = elegant_merge
     commute x = toMaybe $ msum [speedy_commute x,
                                 everything_else_commute x]
     -- Recurse on everything, these are potentially spoofed patches
@@ -596,9 +533,7 @@ commute_filedir (Move f f' :> Move d d')
           f1' = movedirfilename d d' f'
 
 commute_filedir _ = Unknown
-\end{code}
 
-\begin{code}
 type CommuteFunction = FORALL(x y) (Prim :> Prim) C(x y)
                      -> Perhaps ((Prim :> Prim) C(x y))
 subcommutes :: [(String, CommuteFunction)]
@@ -628,7 +563,6 @@ old and new version of a file.
 \begin{code}
 canonize :: Prim C(x y) -> FL Prim C(x y)
 canonize p | IsEq <- is_identity p = NilFL
-canonize (FP f (Hunk line old new)) = canonizeHunk f line old new
 canonize (FP f (Chunk c w old new)) = canonizeChunk f c w old new
 canonize p = p :>: NilFL
 \end{code}
@@ -683,12 +617,6 @@ commuteFP f (Chmod e :> x) = Succeeded (FP f (unsafeCoerceP x) :>
                                         FP f (Chmod e))
 commuteFP f (x :> Chmod e) = Succeeded (FP f (Chmod e) :>
                                         FP f (unsafeCoerceP x))
-commuteFP f (p2 :> Hunk line1 [] []) =
-    seq f $ Succeeded (FP f (Hunk line1 [] []) :> FP f (unsafeCoerceP p2))
-commuteFP f (Hunk line1 [] [] :> p2) =
-    seq f $ Succeeded (FP f (unsafeCoerceP p2) :> FP f (Hunk line1 [] []))
-commuteFP f (Hunk line2 old2 new2 :> Hunk line1 old1 new1) = seq f $
-  toPerhaps $ commuteHunk f (Hunk line2 old2 new2 :> Hunk line1 old1 new1)
 commuteFP f (Chunk c w1 o1 n1 :> Chunk c2 w2 o2 n2)
     | c == c2 =
         toPerhaps $ commuteChunk f (Chunk c w1 o1 n1 :> Chunk c2 w2 o2 n2)
@@ -699,42 +627,9 @@ commuteFP _ _ = Unknown
 \begin{code}
 coalesceFilePrim :: FileName -> (FilePatchType :> FilePatchType) C(x y)
                   -> Maybe (Prim C(x y))
-coalesceFilePrim f (Hunk line2 old2 new2 :> Hunk line1 old1 new1)
-    = coalesceHunk f line1 old1 new1 line2 old2 new2
--- Token replace patches operating right after (or before) AddFile (RmFile)
--- is an identity patch, as far as coalescing is concerned.
+coalesceFilePrim f (Chunk c1 w1 o1 n1 :> Chunk c2 w2 o2 n2)
+    | c1 == c2 = coalesceChunk f c1 w1 o1 n1 w2 o2 n2
 coalesceFilePrim _ _ = Nothing
-\end{code}
-
-\subsection{Hunks}
-
-The hunk is the simplest patch that has a commuting pattern in which the
-commuted patches differ from the originals (rather than simple success or
-failure).  This makes commuting or merging two hunks a tad tedious.
-\begin{code}
-commuteHunk :: FileName -> (FilePatchType :> FilePatchType) C(x y)
-            -> Maybe ((Prim :> Prim) C(x y))
-commuteHunk f (Hunk line1 old1 new1 :> Hunk line2 old2 new2)
-  | seq f $ line1 + lengthnew1 < line2 =
-      Just (FP f (Hunk (line2 - lengthnew1 + lengthold1) old2 new2) :>
-            FP f (Hunk line1 old1 new1))
-  | line2 + lengthold2 < line1 =
-      Just (FP f (Hunk line2 old2 new2) :>
-            FP f (Hunk (line1+ lengthnew2 - lengthold2) old1 new1))
-  | line1 + lengthnew1 == line2 &&
-    lengthold2 /= 0 && lengthold1 /= 0 && lengthnew2 /= 0 && lengthnew1 /= 0 =
-      Just (FP f (Hunk (line2 - lengthnew1 + lengthold1) old2 new2) :>
-            FP f (Hunk line1 old1 new1))
-  | line2 + lengthold2 == line1 &&
-    lengthold2 /= 0 && lengthold1 /= 0 && lengthnew2 /= 0 && lengthnew1 /= 0 =
-      Just (FP f (Hunk line2 old2 new2) :>
-            FP f (Hunk (line1 + lengthnew2 - lengthold2) old1 new1))
-  | otherwise = seq f Nothing
-  where lengthnew1 = length new1
-        lengthnew2 = length new2
-        lengthold1 = length old1
-        lengthold2 = length old2
-commuteHunk _ _ = impossible
 
 commuteChunk :: FileName -> (FilePatchType :> FilePatchType) C(x y)
              -> Maybe ((Prim :> Prim) C(x y))
@@ -759,50 +654,34 @@ commuteChunk f (Chunk c line1 old1 new1 :> Chunk _ line2 old2 new2)
         lengthold1 = length old1
         lengthold2 = length old2
 commuteChunk _ _ = impossible
-\end{code}
-Hunks, of course, can be coalesced if they have any overlap.  Note that
-coalesce code doesn't check if the two patches are conflicting.  If you are
-coalescing two conflicting hunks, you've already got a bug somewhere.
 
-\begin{code}
-coalesceHunk :: FileName
+coalesceChunk :: FileName -> B.ByteString
              -> Int -> [B.ByteString] -> [B.ByteString]
              -> Int -> [B.ByteString] -> [B.ByteString]
              -> Maybe (Prim C(x y))
-coalesceHunk f line1 old1 new1 line2 old2 new2
+coalesceChunk f c line1 old1 new1 line2 old2 new2
     | line1 == line2 && lengthold1 < lengthnew2 =
         if take lengthold1 new2 /= old1
         then Nothing
         else case drop lengthold1 new2 of
-        extranew -> Just (FP f (Hunk line1 old2 (new1 ++ extranew)))
+        extranew -> Just (FP f (Chunk c line1 old2 (new1 ++ extranew)))
     | line1 == line2 && lengthold1 > lengthnew2 =
         if take lengthnew2 old1 /= new2
         then Nothing
         else case drop lengthnew2 old1 of
-        extraold -> Just (FP f (Hunk line1 (old2 ++ extraold) new1))
-    | line1 == line2 = if new2 == old1 then Just (FP f (Hunk line1 old2 new1))
+        extraold -> Just (FP f (Chunk c line1 (old2 ++ extraold) new1))
+    | line1 == line2 = if new2 == old1 then Just (FP f (Chunk c line1 old2 new1))
                        else Nothing
     | line1 < line2 && lengthold1 >= line2 - line1 =
         case take (line2 - line1) old1 of
-        extra-> coalesceHunk f line1 old1 new1 line1 (extra ++ old2) (extra ++ new2)
+        extra-> coalesceChunk f c line1 old1 new1 line1 (extra ++ old2) (extra ++ new2)
     | line1 > line2 && lengthnew2 >= line1 - line2 =
         case take (line1 - line2) new2 of
-        extra-> coalesceHunk f line2 (extra ++ old1) (extra ++ new1) line2 old2 new2
+        extra-> coalesceChunk f c line2 (extra ++ old1) (extra ++ new1) line2 old2 new2
     | otherwise = Nothing
     where lengthold1 = length old1
           lengthnew2 = length new2
-\end{code}
 
-One of the most important pieces of code is the canonization of a hunk,
-which is where the ``diff'' algorithm is performed.  This algorithm begins
-with chopping off the identical beginnings and endings of the old and new
-hunks.  This isn't strictly necessary, but is a good idea, since this
-process is $O(n)$, while the primary diff algorithm is something
-considerably more painful than that\ldots\ actually the head would be dealt
-with all right, but with more space complexity.  I think it's more
-efficient to just chop the head and tail off first.
-
-\begin{code}
 canonizeChunk :: FileName -> B.ByteString -> Int
              -> [B.ByteString] -> [B.ByteString] -> FL Prim C(x y)
 canonizeChunk f c w old new
@@ -812,20 +691,6 @@ canonizeChunk f c w old new = make_chs $ nestedChanges old new
     where make_chs ((l,o,n):cs) = FP f (Chunk c (l+w) o n) :>: make_chs cs
           make_chs [] = unsafeCoerceP NilFL
 
-canonizeHunk :: FileName -> Int
-             -> [B.ByteString] -> [B.ByteString] -> FL Prim C(x y)
-canonizeHunk f line old new
-    | null old || null new
-        = FP f (Hunk line old new) :>: NilFL
-canonizeHunk f line old new = make_holey f line $ nestedChanges old new
-
-make_holey :: FileName -> Int -> [(Int,[B.ByteString], [B.ByteString])]
-           -> FL Prim C(x y)
-make_holey f line ((l,o,n):cs) = FP f (Hunk (l+line) o n) :>: make_holey f line cs
-make_holey _ _ [] = unsafeCoerceP NilFL
-\end{code}
-
-\begin{code}
 instance MyEq Prim where
     unsafeCompare (Move a b) (Move c d) = a == c && b == d
     unsafeCompare (DP d1 p1) (DP d2 p2)
@@ -859,15 +724,12 @@ class Effect p where
     effect = reverseRL . effectRL
     effectRL :: p C(x y) -> RL Prim C(x y)
     effectRL = reverseFL . effect
-    isHunk :: p C(x y) -> Maybe (Prim C(x y))
-    isHunk _ = Nothing
 
 instance Effect Prim where
     effect p | IsEq <- sloppyIdentity p = NilFL
              | otherwise = p :>: NilFL
     effectRL p | IsEq <- sloppyIdentity p = NilRL
                | otherwise = p :<: NilRL
-    isHunk p = if is_hunk p then Just p else Nothing
 
 instance Effect p => Effect (FL p) where
     effect p = concatFL $ mapFL_FL effect p

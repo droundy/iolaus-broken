@@ -112,10 +112,13 @@ instance FilePathOrURL AbsoluteOrRemotePath where
  isUrl _ = False
 
 instance FilePathOrURL PatchFileName.FileName where
-    toPath = PatchFileName.fn2fp
+    toPath p = case PatchFileName.fn2fp p of -- cut annoying ./ from paths
+                 "./" -> "."
+                 '.':'/':p' -> p'
+                 p' -> p'
     fn </> sp = fn PatchFileName./// (PatchFileName.fp2fn $ toFilePath sp)
 instance FilePathLike PatchFileName.FileName where
-    toFilePath = PatchFileName.fn2fp
+    toFilePath = toPath
     parentDir = PatchFileName.super_name
 
 instance FilePathLike AbsolutePath where

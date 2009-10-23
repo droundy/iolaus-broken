@@ -65,7 +65,7 @@ show_authors = Command {
 authors_cmd :: [Flag] -> [String] -> IO ()
 authors_cmd opts _ =
     do authors <- (filter ((/="commit") . take 6) . lines)
-                  `fmap` revList [Authors]
+                  `fmap` revList "master" [Authors]
        spellings <- compiled_author_spellings
        putStr $ unlines $ reverse $ map shownames $ sort $
               map (\s -> (length s,head s)) $ group $ sort $ concat $ map (\(n,a) ->  replicate n a) $

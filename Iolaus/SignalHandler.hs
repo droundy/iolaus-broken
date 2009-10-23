@@ -68,9 +68,9 @@ withSignalsHandled job = do
           die_with_string e | take 6 e == "STDOUT" =
                 do is_pipe <- stdout_is_a_pipe
                    when (not is_pipe) $
-                        hPutStrLn stderr $ "\narcs failed:  "++drop 6 e
+                        hPutStrLn stderr $ "\niolaus failed:  "++drop 6 e
                    exitWith $ ExitFailure $ 2
-          die_with_string e = do hPutStrLn stderr $ "\narcs failed:  "++e
+          die_with_string e = do hPutStrLn stderr $ "\niolaus failed:  "++e
                                  exitWith $ ExitFailure $ 2
 #ifdef WIN32
           job' thid =
@@ -129,4 +129,4 @@ withSignalsBlocked job = (block job) `catchSignal` couldnt_do
                        | s ==  sigPIPE = return ()
                        | otherwise = oops "unknown signal"
           oops s = hPutStrLn stderr $ "Couldn't handle " ++ s ++
-                   " since arcs was in a sensitive job."
+                   " since iolaus was in a sensitive job."

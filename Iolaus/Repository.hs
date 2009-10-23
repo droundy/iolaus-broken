@@ -17,19 +17,25 @@
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
 
-module Iolaus.Repository ( get_unrecorded_changes,
-                           get_unrecorded, Unrecorded(..),
-                           slurp_recorded, slurp_working ) where
+module Iolaus.Repository
+    ( add_heads, decapitate, push_heads,
+      get_unrecorded_changes, get_recorded_and_unrecorded,
+      get_unrecorded, Unrecorded(..), slurp_recorded, slurp_working ) where
+
+import Control.Monad ( zipWithM_ )
+import System.Directory ( removeFile )
 
 import Iolaus.Diff ( diff )
 import Iolaus.Patch ( Prim )
 import Iolaus.Flags ( Flag )
 import Iolaus.Ordered ( FL, unsafeCoerceS )
 import Iolaus.SlurpDirectory ( Slurpy )
-import Iolaus.Sealed ( Sealed(..), mapSealM )
+import Iolaus.Sealed ( Sealed(..), mapSealM, unseal )
 
-import Git.Plumbing ( heads, writetree, updateindex )
+import Git.Plumbing ( Hash, Commit, emptyCommit, heads, headNames, remoteHeads,
+                      writetree, updateindex, updateref, sendPack )
 import Git.Helpers ( touchedFiles, slurpTree, mergeCommits )
+import Git.Dag ( parents, cauterizeHeads )
 
 slurp_recorded :: [Flag] -> IO (Slurpy C(RecordedState))
 slurp_recorded opts = do Sealed r <- heads >>= mergeCommits opts
@@ -51,8 +57,48 @@ get_unrecorded opts =
        old <- slurp_recorded opts
        return $ Unrecorded (diff [] old new) new
 
+get_recorded_and_unrecorded :: [Flag]
+                            -> IO (Slurpy C(RecordedState), Unrecorded)
+get_recorded_and_unrecorded opts =
+    do Sealed new <- slurp_working
+       old <- slurp_recorded opts
+       return (old, Unrecorded (diff [] old new) new)
+
 get_unrecorded_changes :: [Flag] -> IO (Sealed (FL Prim C(RecordedState)))
 get_unrecorded_changes opts =
     do Sealed new <- slurp_working
        old <- slurp_recorded opts
        return $ Sealed $ diff [] old new
+
+add_heads :: [Flag] -> [Sealed (Hash Commit)] -> IO ()
+add_heads _ h =
+    do hs <- heads
+       case cauterizeHeads (h++hs) of
+         hs' -> do zipWithM_ (\mm (Sealed hh) -> updateref mm hh) masters hs'
+                   cleanup_all_but hs'
+
+decapitate :: [Flag] -> [Sealed (Hash Commit)] -> IO ()
+decapitate _ xs =
+    do hs <- heads
+       let pars = concatMap (unseal parents) xs
+       case cauterizeHeads (filter (`notElem` xs) (hs++pars)) of
+         hs' -> do zipWithM_ (\mm (Sealed hh) -> updateref mm hh) masters hs'
+                   cleanup_all_but hs'
+
+cleanup_all_but :: [Sealed (Hash Commit)] -> IO ()
+cleanup_all_but hs =
+    do hns <- headNames
+       let rmhead x = removeFile (".git/"++x)
+       mapM_ rmhead $ map snd $ filter ((`notElem` hs) . fst) hns
+
+push_heads :: String -> [Sealed (Hash Commit)] -> IO ()
+push_heads repo cs =
+    do hs <- remoteHeads repo
+       let newhs = cauterizeHeads (hs++cs)
+           empties = take (length hs - length newhs) $
+                     repeat $ Sealed emptyCommit
+       sendPack repo (zip (newhs++empties) masters)
+
+masters :: [String]
+masters = "refs/heads/master" :
+          map (\n -> "refs/heads/master"++show n) [1 :: Int ..]

@@ -96,8 +96,8 @@ instance Commute p => Commute (TaggedPatch p) where
     commute (TP t1 p1 :> TP t2 p2) = do p2' :> p1' <- commute (p1 :> p2)
                                         return (TP t2 p2' :> TP t1 p1')
     list_touched_files (TP _ p) = list_touched_files p
-    merge (TP t1 p1 :\/: TP t2 p2) = case merge (p1 :\/: p2) of
-                                     p2' :/\: p1' -> TP t2 p2' :/\: TP t1 p1'
+    merge (TP t1 p1 :\/: TP t2 p2) = do p2' :/\: p1' <- merge (p1 :\/: p2)
+                                        Just $ TP t2 p2' :/\: TP t1 p1'
 
 instance Apply p => Apply (TaggedPatch p) where
     apply (TP _ p) = apply p
@@ -122,9 +122,8 @@ instance Commute p => Commute (PatchChoice p) where
     commute (PC t1 x1 :> PC t2 x2)
         = do t2' :> t1' <- commute (t1 :> t2)
              return (PC t2' x2 :> PC t1' x1)
-    merge (PC t1 x1 :\/: PC t2 x2)
-        = case merge (t1 :\/: t2) of
-          t2' :/\: t1' -> PC t2' x2 :/\: PC t1' x1
+    merge (PC t1 x1 :\/: PC t2 x2) = do t2' :/\: t1' <- merge (t1 :\/: t2)
+                                        Just $ PC t2' x2 :/\: PC t1' x1
     list_touched_files (PC t _) = list_touched_files t
 
 invertSeq :: (Invert p, Invert q) => (p :> q) C(x y) -> (q :> p) C(y x)

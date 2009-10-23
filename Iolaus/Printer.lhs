@@ -43,7 +43,7 @@ module Iolaus.Printer
                 hPutDoc,     hPutDocLn,     putDoc,     putDocLn,
                 hPutDocWith, hPutDocLnWith, putDocWith, putDocLnWith,
                 renderString, renderStringWith, renderPS, renderPSWith,
-                renderPSs, renderPSsWith, lineColor,
+                renderPSs, renderPSsWith,
                 prefix, colorText, colorPS,
                 invisibleText, hiddenText, hiddenPrefix,
                 userchunk, text,
@@ -164,10 +164,7 @@ data Printers' = Printers {colorP :: !(Color -> Printer),
                            invisibleP :: !Printer,
                            hiddenP :: !Printer,
                            userchunkP :: !Printer,
-                           defP :: !Printer,
-                           lineColorT :: !(Color -> Doc -> Doc),
-                           lineColorS :: !([Printable] -> [Printable])
-                          }
+                           defP :: !Printer }
 type Printer = Printable -> St -> Document
 
 data Color = Blue | Red | Green | Cyan | Magenta
@@ -231,10 +228,6 @@ prefix s (Doc d) = Doc $ \st ->
                    case d st' of
                      Document d'' -> Document $ (p:) . d''
                      Empty -> Empty
-
-lineColor :: Color -> Doc -> Doc
-lineColor c d = Doc $ \st -> case lineColorT (printers st) c d of
-                             Doc d' -> d' st
 
 hiddenPrefix :: String -> Doc -> Doc
 hiddenPrefix s (Doc d) =
@@ -341,9 +334,7 @@ simplePrinters'  = Printers { colorP = const simplePrinter,
                               invisibleP = simplePrinter,
                               hiddenP = invisiblePrinter,
                               userchunkP = simplePrinter,
-                              defP = simplePrinter,
-                              lineColorT = const id,
-                              lineColorS = id
+                              defP = simplePrinter
                             }
 
 -- | 'simplePrinter' is the simplest 'Printer': it just concatenates together
@@ -409,9 +400,8 @@ Doc a $$ Doc b =
                 Document af ->
                     Document (\s -> af $ case b st of
                                          Empty -> s
-                                         Document bf -> sf (newline_p:pf (bf s)))
+                                         Document bf -> newline_p:pf (bf s))
                         where pf = current_prefix st
-                              sf = lineColorS $ printers st
 
 -- | 'vcat' piles vertically a list of 'Doc's.
 vcat :: [Doc] -> Doc
