@@ -61,6 +61,8 @@ import qualified Data.ByteString as B (ByteString, hPut, null,
 import qualified Data.ByteString.Char8 as BC
     (unpack, pack, singleton, spanEnd, any, last)
 
+import Git.Plumbing ( getColorWithDefault )
+
 -- | A 'Printable' is either a String, a packed string, or a chunk of
 -- text with both representations.
 data Printable = S !String
@@ -76,13 +78,12 @@ newline_p :: Printable
 newline_p = PS (BC.singleton '\n')
 
 -- | Minimal 'Doc's representing the common characters 'space', 'newline'
--- 'minus', 'plus', and 'backslash'.
-space, newline, plus, minus, backslash :: Doc
+-- 'minus', 'plus'
+space, newline, plus, minus :: Doc
 space     = unsafeBoth " "  (BC.singleton ' ')
 newline   = unsafeChar '\n'
 minus     = unsafeBoth "-"  (BC.singleton '-')
 plus      = unsafeBoth "+"  (BC.singleton '+')
-backslash = unsafeBoth "\\" (BC.singleton '\\')
 
 errorDoc :: Doc -> a
 errorDoc = error . renderStringWith simplePrinters'
@@ -137,8 +138,7 @@ data Printers' = Printers {colorP :: !(Color -> Printer),
                            defP :: !Printer }
 type Printer = Printable -> St -> Document
 
-data Color = Blue | Red | Green | Cyan | Magenta
-           | Underline Color
+data Color = Blue | Red | Green | Underline Color
 
 -- | 'Document' is a wrapper around '[Printable] -> [Printable]' which allows
 -- for empty Documents. The simplest 'Documents' are built from 'String's
@@ -548,16 +548,15 @@ make_color' = with_color . set_color
 make_color Blue    = make_color' Blue
 make_color Red     = make_color' Red
 make_color Green   = make_color' Green
-make_color Cyan    = make_color' Cyan
-make_color Magenta = make_color' Magenta
 make_color c = make_color' c
 
 set_color :: Color -> String
-set_color Blue    = "\x1B[01;34m" -- bold blue
-set_color Red     = "\x1B[01;31m" -- bold red
-set_color Green   = "\x1B[01;32m" -- bold green
-set_color Cyan    = "\x1B[36m"    -- light cyan
-set_color Magenta = "\x1B[35m"    -- light magenta
+set_color Blue    = unsafePerformIO $
+                    getColorWithDefault "color.diff.meta" "blue bold"
+set_color Red     = unsafePerformIO $
+                    getColorWithDefault "color.diff.old" "red bold"
+set_color Green   = unsafePerformIO $
+                    getColorWithDefault "color.diff.new" "green bold"
 set_color (Underline c) = "\x1B[04m" ++ set_color c
 
 -- | @'make_asciiart' doc@ tries to make @doc@ (usually a

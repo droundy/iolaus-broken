@@ -17,17 +17,20 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag, emptyCommit,
                       diffFiles, diffTrees, DiffOption(..), gitApply,
                       mergeBase, mergeIndex,
                       mergeFile, unpackFile,
+                      getColor, getColorWithDefault,
                       headhash, commitTree ) where
 
 import System.IO ( Handle, hGetContents, hPutStr, hClose )
 -- import System.IO.Pipe ( openPipe )
 import System.Exit ( ExitCode(..) )
+import System.IO.Error ( isDoesNotExistError )
+import System.Directory ( removeFile )
+import Control.Exception ( catchJust, ioErrors )
 import System.Process.Redirects ( createProcess, waitForProcess, proc,
                                   CreateProcess(..), StdStream(..) )
 import qualified Data.ByteString as B
 import Iolaus.FileName ( FileName, fp2fn, fn2fp )
-import Iolaus.Progress ( debugMessage )
-import Iolaus.Lock ( removeFileMayNotExist )
+import Iolaus.Global ( debugMessage )
 import Iolaus.Sealed ( Sealed(Sealed) )
 import Iolaus.Show ( Show1(..), Eq1(..), Ord1(..), Pretty1(..), Pretty(..) )
 
@@ -669,3 +672,31 @@ sendPack repo0 xs =
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git send-pack failed"
 
+getColor :: String -> IO String
+getColor c =
+    do (Nothing, Just o, Nothing, pid) <-
+           createProcess (proc "git" ["config", "--get-color", c])
+                         { std_out = CreatePipe }
+       out <- hGetContents o
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return out
+         ExitFailure _ -> fail "git config failed"
+
+getColorWithDefault :: String -> String -> IO String
+getColorWithDefault c d =
+    do (Nothing, Just o, Nothing, pid) <-
+           createProcess (proc "git" ["config", "--get-color", c, d])
+                         { std_out = CreatePipe }
+       out <- hGetContents o
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return out
+         ExitFailure _ -> fail "git config failed"
+
+
+removeFileMayNotExist :: String -> IO ()
+removeFileMayNotExist f =
+    catchJust ioErrors (removeFile f) $ \e ->
+        if isDoesNotExistError e then return ()
+                                 else ioError e
