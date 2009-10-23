@@ -15,7 +15,7 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsection{arcs unrevert}\label{unrevert}
+\subsection{iolaus unrevert}\label{unrevert}
 \begin{code}
 {-# LANGUAGE CPP #-}
 

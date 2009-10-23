@@ -178,15 +178,28 @@ simpHelp opts pars0 pat0 = sp (cpnum opts) [] pars0 pat0
              t <- apply_to_slurpy (unsafeCoerceP patch) ptree >>= writeSlurpTree
              return (cauterizeHeads (kn++ps),Sealed t)
       sp n kn (p:ps) patch =
-          do tf <- commitTouches p
+          do let nop = cauterizeHeads (kn++ps++unseal parents p)
+             tf <- commitTouches p
              if not (look_touch tf patch || null (unseal parents p))
                 then -- FIXME: need to handle --test-parents here
                      do debugMessage "skipping an easy commit..."
                         debugMessage $ unlines $ list_touched_files patch
-                        sp (n-1) kn (ps++unseal parents p) patch
+                        ok <-
+                           if TestParents `elem` opts
+                           then do Sealed x <- mapSealM catCommit p
+                                   putStrLn $ "\n\nRunning test without:\n"++
+                                            myMessage x
+                                   Sealed noptree <- mergeCommits opts nop
+                                                     >>= mapSealM slurpTree
+                                   t' <- apply_to_slurpy (unsafeCoerceP patch)
+                                                         noptree
+                                         >>= writeSlurpTree
+                                   testPredicate opts t'
+                           else return True
+                        if ok then sp (n-1) kn (ps++unseal parents p) patch
+                              else sp (n-1) (p:kn) ps patch
                 else
-                  do let nop = cauterizeHeads (kn++ps++unseal parents p)
-                     Sealed ptree <- mergeCommits opts (kn++p:ps)
+                  do Sealed ptree <- mergeCommits opts (kn++p:ps)
                                      >>= mapSealM slurpTree
                      debugMessage "In sp, trying with one less..."
                      t <- apply_to_slurpy (unsafeCoerceP patch) ptree

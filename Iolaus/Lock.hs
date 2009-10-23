@@ -26,11 +26,10 @@ module Iolaus.Lock ( withTemp, withOpenTemp, withStdoutTemp,
                    writeAtomicFilePS,
                    rm_recursive, removeFileMayNotExist,
                    canonFilename,
-                   world_readable_temp, tempdir_loc ) where
+                   world_readable_temp ) where
 
 import Prelude hiding ( catch )
-import Data.List ( inits )
-import Data.Maybe ( isJust, listToMaybe )
+import Data.Maybe ( isJust )
 import System.IO ( openBinaryFile, openBinaryTempFile,
                    hClose, hPutStr, Handle,
                    IOMode(WriteMode, AppendMode) )
@@ -42,15 +41,14 @@ import System.Directory ( removeFile, removeDirectory,
                    getDirectoryContents, createDirectory,
                    getTemporaryDirectory,
                  )
-import System.FilePath.Posix ( splitDirectories )
 import Iolaus.Workaround ( renameFile )
 import Iolaus.Utils ( withCurrentDirectory, maybeGetEnv, firstJustIO )
 import Control.Monad ( unless, when )
 
-import Iolaus.URL ( is_relative )
 import Iolaus.Utils ( catchall, add_to_error_loc )
 import Iolaus.RepoPath ( AbsolutePath, FilePathLike, toFilePath,
-                        getCurrentDirectory, setCurrentDirectory )
+                         makeAbsolute, ioAbsolute, (<++>),
+                         getCurrentDirectory, setCurrentDirectory )
 
 import qualified Data.ByteString as B (null, readFile, hPut, ByteString)
 import qualified Data.ByteString.Char8 as BC (unpack)
@@ -111,30 +109,25 @@ withOpenTemp = bracket get_empty_file cleanup
 withStdoutTemp :: (String -> IO a) -> IO a
 withStdoutTemp = bracket (mk_stdout_temp "stdout_") removeFileMayNotExist
 
-tempdir_loc :: IO FilePath
-tempdir_loc = firstJustIO [ readBinFile (".arcs-prefs/tmpdir") >>= return . Just . head.words >>= chkdir,
-                            maybeGetEnv "DARCS_TMPDIR" >>= chkdir,
-                            getTemporaryDirectory >>= chkdir . Just,
-                            getCurrentDirectorySansIolaus,
-                            return $ Just "."  -- always returns a Just
-                          ]
-              >>= return . fromJust
+tempdir_loc :: IO AbsolutePath
+tempdir_loc =
+    firstJustIO [ readBinFile (".arcs-prefs/tmpdir")
+                         >>= return . Just . head.words >>= chkdir,
+                  maybeGetEnv "DARCS_TMPDIR" >>= chkdir,
+                  getTemporaryDirectory >>= chkdir . Just,
+                  Just `fmap` getCurrentDirectory ]
+                    >>= return . fromJust
     where chkdir Nothing = return Nothing
-          chkdir (Just d) = doesDirectoryExist d >>= return . \e -> if e then Just (d++"/") else Nothing
-                                                         
-getCurrentDirectorySansIolaus :: IO (Maybe FilePath)
-getCurrentDirectorySansIolaus = do
-  c <- getCurrentDirectory
-  return $ listToMaybe $ drop 5 $ reverse $ takeWhile no_darcs $ inits $ toFilePath c
-  where no_darcs x = not $ "_darcs" `elem` splitDirectories x
+          chkdir (Just d) =
+              do exists <- doesDirectoryExist d
+                 if exists then Just `fmap` ioAbsolute d
+                           else return Nothing
 
 data WithDirKind = Perm | Temp | Delayed
 
 withDir :: WithDirKind -> String -> (AbsolutePath -> IO a) -> IO a
 withDir kind abs_or_relative_name job = do
-  absolute_name <- if is_relative abs_or_relative_name
-                   then fmap (++ abs_or_relative_name) tempdir_loc
-                   else return abs_or_relative_name
+  absolute_name <- (`makeAbsolute` abs_or_relative_name) `fmap` tempdir_loc
   formerdir <- getCurrentDirectory
   bracket (create_directory absolute_name 0)
           (\dir -> do setCurrentDirectory formerdir
@@ -145,10 +138,10 @@ withDir kind abs_or_relative_name job = do
                                       Delayed -> atexit $ rm_recursive (toFilePath dir))
           job
     where newname name 0 = name
-          newname name n = name ++ "-" ++ show n
-          create_directory :: FilePath -> Int -> IO AbsolutePath
+          newname name n = name <++> ('-':show n)
+          create_directory :: AbsolutePath -> Int -> IO AbsolutePath
           create_directory name n
-              = do createDirectory $ newname name n
+              = do createDirectory $ toFilePath $ newname name n
                    setCurrentDirectory $ newname name n
                    getCurrentDirectory
                 `catch` (\e -> case e of
