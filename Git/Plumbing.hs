@@ -22,8 +22,13 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag,
 import System.IO ( Handle, hGetContents, hPutStr, hClose )
 -- import System.IO.Pipe ( openPipe )
 import System.Exit ( ExitCode(..) )
+#ifdef HAVE_REDIRECTS
 import System.Process.Redirects ( createProcess, waitForProcess, proc,
                                   CreateProcess(..), StdStream(..) )
+#else
+import System.Process ( createProcess, waitForProcess, proc,
+                        CreateProcess(..), StdStream(..) )
+#endif
 import qualified Data.ByteString as B
 import Iolaus.FileName ( FileName, fp2fn, fn2fp )
 import Iolaus.Progress ( debugMessage )
@@ -344,7 +349,11 @@ parseRev s =
     do debugMessage "calling git-rev-parse"
        (Nothing, Just stdout, Just stderr, pid) <-
            createProcess (proc "git-rev-parse" ["--verify",s])
+#ifdef HAVE_REDIRECTS
                    { std_err = Just CreatePipe, std_out = CreatePipe }
+#else
+                   { std_err = CreatePipe, std_out = CreatePipe }
+#endif
        out <- hGetContents stdout
        err <- hGetContents stderr
        ec <- length (out++err) `seq` waitForProcess pid

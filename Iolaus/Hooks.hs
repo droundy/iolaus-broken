@@ -15,12 +15,18 @@
   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301, USA. -}
 
+{-# LANGUAGE CPP #-}
+
 module Iolaus.Hooks ( run_posthook, run_prehook ) where
 
 import Iolaus.Utils ( withCurrentDirectory )
 import System.Exit ( ExitCode(..) )
 import Control.Monad ( when )
+#ifndef HAVE_REDIRECTS
+import System.Cmd ( system )
+#else
 import System.Process.Redirects ( system )
+#endif
 
 import Iolaus.RepoPath ( AbsolutePath )
 import Iolaus.Arguments ( Flag( Quiet ),

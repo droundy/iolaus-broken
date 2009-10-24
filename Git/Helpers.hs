@@ -10,7 +10,11 @@ import Prelude hiding ( catch )
 import Control.Exception ( catch )
 import System.Directory ( getCurrentDirectory, setCurrentDirectory,
                           doesFileExist )
+#ifndef HAVE_REDIRECTS
+import System.Cmd ( system )
+#else
 import System.Process.Redirects ( system )
+#endif
 import System.Exit ( ExitCode(..) )
 import System.IO ( hPutStrLn )
 import System.IO.Unsafe ( unsafeInterleaveIO )
