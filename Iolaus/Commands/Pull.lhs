@@ -93,14 +93,14 @@ pull_cmd opts repodirs@(_:_) =
        when (null newhs') $ do putStrLn "No patches to pull!"
                                exitWith ExitSuccess
        Sealed newtree <- mergeCommits opts (hs++newhs')
-       test (testByDefault opts) newtree
        new <- slurpTree newtree
        case merge (diff opts old work :\/: diff opts old new) of
          Nothing ->
              do putStrLn "Unwilling to pull when it conflicts with working..."
                 exitWith (ExitFailure 1)
          Just (nps :/\: _) ->
-             do add_heads opts newhs'
+             do test (testByDefault opts) newtree
+                add_heads opts newhs'
                 apply nps
 pull_cmd _ [] = fail "No default repository to pull from, please specify one"
 \end{code}

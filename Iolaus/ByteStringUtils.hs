@@ -19,7 +19,9 @@ module Iolaus.ByteStringUtils ( linesPS, unlinesPS, breakFirstPS,
                                 breakLastPS ) where
 
 import qualified Data.ByteString as B
+    ( ByteString, take, drop, null, empty )
 import qualified Data.ByteString.Char8 as BC
+    ( elemIndex, elemIndexEnd, split, init, unlines )
 
 -- TODO: replace breakFirstPS and breakLastPS with definitions based on
 -- ByteString's break/breakEnd
@@ -68,7 +70,7 @@ evaluates to \"foo\\nbar\", not \"foo\\nbar\\n\"! This point should hold true fo
 
 TODO: rename this function. -}
 unlinesPS :: [B.ByteString] -> B.ByteString
-unlinesPS [] = BC.empty
+unlinesPS [] = B.empty
 unlinesPS x  = BC.init $ BC.unlines x
 {-# INLINE unlinesPS #-}
 {- QuickCheck property:
