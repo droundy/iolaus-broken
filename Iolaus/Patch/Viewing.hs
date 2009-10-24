@@ -28,15 +28,14 @@ import Iolaus.ByteStringUtils ( linesPS, unlinesPS )
 import qualified Data.ByteString as B ( ByteString, null, concat )
 import Iolaus.FileName ( FileName, fp2fn, fn2fp )
 import Iolaus.Printer
-    ( Doc, empty, vcat,
-      text, blueText, Color(Red,Green,Cyan,Magenta), lineColor, colorPS,
+    ( Doc, empty, vcat, text, blueText, Color(Red,Green), colorPS,
       minus, plus, ($$), (<+>), (<>),
-      prefix, renderString, userchunkPS, unsafePackedString )
+      prefix, renderString, unsafePackedString )
 import Iolaus.Patch.Core ( Named(..) )
-import Iolaus.Patch.Prim ( Prim(..), isHunk, formatFileName, showPrim,
+import Iolaus.Patch.Prim ( Prim(..), formatFileName, showPrim,
                            Effect, effect,
                            DirPatchType(..), FilePatchType(..) )
-import Iolaus.Patch.Patchy ( Patchy, Apply, ShowPatch(..), identity )
+import Iolaus.Patch.Patchy ( Patchy, Apply, ShowPatch(..) )
 import Iolaus.Patch.Apply ( apply_to_slurpy, chunkify )
 #include "impossible.h"
 #include "gadts.h"
@@ -44,7 +43,6 @@ import Iolaus.Ordered ( RL(..), FL(..), mapFL, reverseRL )
 
 instance ShowPatch Prim where
     showPatch = showPrim
-    showContextPatch s p@(FP _ (Hunk _ _ _)) = showContextHunk s p
     showContextPatch s p@(FP _ (Chunk _ _ _ _)) = 
         showContextStuff s (p :>: NilFL)
     showContextPatch _ p = showPatch p
@@ -53,26 +51,6 @@ instance ShowPatch Prim where
 
 summarize :: Effect e => e C(x y) -> Doc
 summarize = gen_summary . effect
-
-showContextSeries :: (Apply p, ShowPatch p, Effect p) =>
-                     Slurpy C(x) -> FL p C(x y) -> Doc
-showContextSeries slur patches = scs slur identity patches
-    where scs :: (Apply p, ShowPatch p, Effect p) =>
-                 Slurpy C(x) -> Prim C(w x) -> FL p C(x y) -> Doc
-          scs s pold (p:>:ps) =
-              case isHunk p of
-              Nothing -> showContextPatch s p $$ scs s' identity ps
-              Just hp ->
-                  case ps of
-                  NilFL -> coolContextHunk s pold hp identity
-                  (p2:>:_) ->
-                      case isHunk p2 of
-                      Nothing -> coolContextHunk s pold hp identity $$ scs s' hp ps
-                      Just hp2 -> coolContextHunk s pold hp hp2 $$
-                                  scs s' hp ps
-              where s' =
-                        fromJust $ apply_to_slurpy p s
-          scs _ _ NilFL = empty
 
 showContextStuff :: Slurpy C(x) -> FL Prim C(x y) -> Doc
 showContextStuff _ NilFL = empty
@@ -115,50 +93,12 @@ showContextStuff s (p :>: ps) = showContextPatch s p $$
                                 showContextStuff snew ps
     where snew = fromJust $ apply_to_slurpy p s
 
-showContextHunk :: (Apply p, ShowPatch p, Effect p) =>
-                   Slurpy C(x) -> p C(x y) -> Doc
-showContextHunk s p = case isHunk p of
-                        Just h -> coolContextHunk s identity h identity
-                        Nothing -> showPatch p
-
-coolContextHunk :: Slurpy C(b) -> Prim C(a b) -> Prim C(b c)
-                -> Prim C(c d) -> Doc
-coolContextHunk s prev p@(FP f (Hunk l o n)) next =
-    case (linesPS . get_filecontents) `fmap` get_slurp f s of
-    Nothing -> showPatch p -- This is a weird error...
-    Just ls ->
-        let numpre = case prev of
-                     (FP f' (Hunk lprev _ nprev))
-                         | f' == f &&
-                           l - (lprev + length nprev + 3) < 3 &&
-                           lprev < l ->
-                             max 0 $ l - (lprev + length nprev + 3)
-                     _ -> if l >= 4 then 3 else l - 1
-            pre = take numpre $ drop (l - numpre - 1) ls
-            numpost = case next of
-                      (FP f' (Hunk lnext _ _))
-                          | f' == f && lnext < l+length n+4 &&
-                            lnext > l ->
-                              lnext - (l+length n)
-                      _ -> 3
-            cleanedls = case reverse ls of
-                        (x:xs) | B.null x -> reverse xs
-                        _ -> ls
-            post = take numpost $ drop (max 0 $ l+length o-1) cleanedls
-            in blueText "hunk" <+> formatFileName f <+> text (show l)
-            $$ prefix " " (vcat $ map userchunkPS pre)
-            $$ lineColor Magenta (prefix "-" (vcat $ map userchunkPS o))
-            $$ lineColor Cyan    (prefix "+" (vcat $ map userchunkPS n))
-            $$ prefix " " (vcat $ map userchunkPS post)
-coolContextHunk _ _ _ _ = impossible
-
 gen_summary :: FL Prim C(x y) -> Doc
 gen_summary p
     = vcat themoves
    $$ vcat themods
     where themods = map summ $ combine $ sort $ concat $ mapFL s p
           s :: Prim C(x y) -> [(FileName, Int, Int, Int, Bool)]
-          s (FP f (Hunk _ o n)) = [(f, length o, length n, 0, False)]
           s (FP f (Chunk _ _ o n)) = [(f, length o, length n, 0, False)]
           s (FP f (Chmod _)) = [(f, 0, 0, 0, False)]
           s (FP f AddFile) = [(f, -1, 0, 0, False)]

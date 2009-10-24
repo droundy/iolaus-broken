@@ -29,7 +29,7 @@ import Iolaus.Help ( command_control_list )
 
 \paragraph{defaults}\label{defaults}
 
-Default values for darcs commands can be configured on a per-repository
+Default values for iolaus commands can be configured on a per-repository
 basis by editing (and possibly creating) the \verb!.arcs-prefs/defaults!
 file.  Each line of this file has the following form:
 \begin{verbatim}
@@ -46,18 +46,18 @@ Each line only takes one flag.  To set multiple defaults for the same
 command (or for \verb!ALL! commands), use multiple lines.
 
 Note that the use of \verb|ALL| easily can have unpredicted consequences,
-especially if commands in newer versions of darcs accepts flags that they
+especially if commands in newer versions of iolaus accepts flags that they
 didn't in previous versions. A command like \verb|obliterate| could be
 devastating with the ``wrong'' flags (for example --all). Only use safe
 flags with \verb|ALL|.
 
 \begin{tabular}{ll}
-{\tt \verb!~/.darcs/defaults!} & provides defaults for this user account \\
+{\tt \verb!~/.iolaus/defaults!} & provides defaults for this user account \\
 {\tt \verb!repo/.arcs-prefs/defaults!} & provides defaults for one project,\\
   & overrules changes per user \\
 \end{tabular}
 
-For example, if your system clock is bizarre, you could instruct darcs to
+For example, if your system clock is bizarre, you could instruct iolaus to
 always ignore the file modification times by adding the following line to
 your \verb!.arcs-prefs/defaults! file.  (Note that this would have to be
 done for each repository!)
@@ -80,12 +80,12 @@ repository, that all developers contribute to), then you can set apply
 to always run a command when apply is successful.  For example, if you
 need to make sure that the files in the repository have the correct
 access rights you might use the following.  There are two things
-to note about using darcs this way:
+to note about using iolaus this way:
 \begin{itemize}
 \item Without the second line you will get errors, because the sub
       process that runs apply cannot prompt interactively.
 \item Whatever script is run by the post apply command should not be
-      added to the repository with \verb!darcs add!; doing so would
+      added to the repository with \verb!iolaus add!; doing so would
       allow people to modify that file and then run arbitrary scripts on
       your main repository, possibly damaging or violating security.
 \end{itemize}
@@ -94,7 +94,7 @@ apply posthook chmod -R a+r *
 apply run-posthook
 \end{verbatim}
 
-Similarly, if you need a command to run automatically before darcs
+Similarly, if you need a command to run automatically before iolaus
 performs an action you can use a prehook.  Using prehooks it could be
 possible to canonicalize line endings before recording patches.
 
@@ -109,7 +109,7 @@ amend-record disable
 \end{verbatim}
 
 Also, a global preferences file can be created with the name
-\verb!.darcs/defaults! in your home directory. Options present there will
+\verb!.iolaus/defaults! in your home directory. Options present there will
 be added to the repository-specific preferences.
 If they conflict with repository-specific options, the repository-specific
 ones will take precedence.

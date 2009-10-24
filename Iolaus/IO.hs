@@ -35,7 +35,6 @@ import qualified Data.ByteString as B (ByteString, empty, null, readFile)
 import qualified Data.ByteString.Char8 as BC (unpack, pack)
 
 import Iolaus.Utils ( withCurrentDirectory, prettyException )
-import Iolaus.Printer ( Doc, renderPS )
 import Iolaus.FileName ( FileName, fn2fp, fp2fn )
 import Iolaus.Lock ( writeBinFile, readBinFile, writeAtomicFilePS )
 import Iolaus.Workaround ( setExecutable )
@@ -69,8 +68,6 @@ class ReadableDirectory m => WriteableDirectory m where
     mWriteFilePSs f ss = mWriteFilePS f (unlinesPS ss)
     mCreateDirectory :: FileName -> m ()
     mRemoveDirectory :: FileName -> m ()
-    mWriteDoc :: FileName -> Doc -> m ()
-    mWriteDoc f d = mWriteFilePS f (renderPS d)
     mCreateFile :: FileName -> m ()
     mCreateFile f = mWriteFilePS f B.empty
     mRemoveFile :: FileName -> m ()

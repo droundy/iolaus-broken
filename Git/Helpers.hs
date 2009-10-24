@@ -20,7 +20,7 @@ import System.IO ( hPutStrLn )
 import System.IO.Unsafe ( unsafeInterleaveIO )
 import Data.List ( sort )
 import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
-import Data.Map as M ( Map, insert, empty, lookup, keys )
+import Data.Map as M ( Map, insert, empty, lookup )
 import Data.ByteString as B ( hPutStr )
 
 import Git.Dag ( mergeBases, makeDag, Dag(..), greatGrandFather, parents,
@@ -29,7 +29,8 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       catCommit, CommitEntry(..),
                       commitTree, updateref, parseRev,
                       mkTree, hashObject, lsothers,
-                      diffFiles, DiffOption( NameOnly ),
+                      diffFiles, diffTreeCommit,
+                      DiffOption( NameOnly, DiffRecursive ),
                       readTree, checkoutIndex,
                       heads, revList, RevListOption(Skip),
                       -- mergeBase,
@@ -38,7 +39,8 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
 
 import Iolaus.Progress ( debugMessage )
 import Iolaus.Flags ( Flag( Test, TestParents, NativeMerge, FirstParentMerge,
-                            IolausSloppyMerge, CauterizeAllHeads ) )
+                            IolausSloppyMerge,
+                            CauterizeAllHeads, CommutePast ) )
 import Iolaus.FileName ( FileName, fp2fn )
 import Iolaus.IO ( ExecutableBit(..) )
 import Iolaus.SlurpDirectoryInternal
@@ -46,7 +48,9 @@ import Iolaus.SlurpDirectoryInternal
       slurpies_to_map, map_to_slurpies )
 import Iolaus.Lock ( removeFileMayNotExist )
 import Iolaus.Diff ( diff )
-import Iolaus.Patch ( Prim, commute, apply_to_slurpy, mergeN )
+import Iolaus.Patch ( Prim, commute, apply_to_slurpy, mergeN,
+                      list_touched_files )
+import Iolaus.TouchesFiles ( look_touch )
 import Iolaus.Ordered ( FL(..), (:>)(..), (+>+), unsafeCoerceP )
 import Iolaus.Sealed ( Sealed(..), FlippedSeal(..), mapSeal, mapSealM, unseal )
 
@@ -57,6 +61,10 @@ touchedFiles =
     do x <- lsothers
        y <- diffFiles [NameOnly] []
        return (x++lines y)
+
+commitTouches :: Sealed (Hash Commit) -> IO [FilePath]
+commitTouches (Sealed c) =
+    lines `fmap` diffTreeCommit [NameOnly, DiffRecursive] c []
 
 test :: [Flag] -> Hash Tree C(x) -> IO ()
 test opts t =
@@ -146,39 +154,87 @@ flag2strategy opts = if NativeMerge `elem` opts
 
 simplifyParents :: [Flag] -> [Sealed (Hash Commit)] -> Hash Tree C(x)
                 -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
-simplifyParents opts pars0 rec0
-    | CauterizeAllHeads `elem` opts = return (pars0, Sealed rec0)
-simplifyParents opts pars0 rec0 = sp [] (cauterizeHeads pars0) rec0
-    where
-      sp :: [Sealed (Hash Commit)] -> [Sealed (Hash Commit)] -> Hash Tree C(x)
+simplifyParents opts pars0 rec0 =
+    do Sealed x <- mergeCommits opts (cauterizeHeads pars0)
+                   >>= mapSealM slurpTree
+       y <- slurpTree rec0
+       simpHelp opts (cauterizeHeads pars0) (diff opts x y)
+
+simpHelp :: [Flag] -> [Sealed (Hash Commit)] -> FL Prim C(w x)
          -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
-      sp ps [] t = return (ps,Sealed t)
-      sp kn (p:ps) t =
+simpHelp opts pars0 pat0 = sp (cpnum opts) [] pars0 pat0
+    where
+      cpnum [] = 10000
+      cpnum (CommutePast (-1):fs) = cpnum fs
+      cpnum (CommutePast n:_) = n
+      cpnum (CauterizeAllHeads:_) = 0
+      cpnum (_:fs) = cpnum fs
+      sp :: Int -> [Sealed (Hash Commit)] -> [Sealed (Hash Commit)]
+         -> FL Prim C(w x) -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
+      sp _ kn [] patch =
+          do Sealed ptree <- mergeCommits opts kn >>= mapSealM slurpTree
+             debugMessage "In sp, no more parents..."
+             t <- apply_to_slurpy (unsafeCoerceP patch) ptree >>= writeSlurpTree
+             return (cauterizeHeads kn,Sealed t)
+      sp 0 kn ps patch =
+          do Sealed ptree <- mergeCommits opts (kn++ps) >>= mapSealM slurpTree
+             debugMessage "In sp, we've tried enough times..."
+             t <- apply_to_slurpy (unsafeCoerceP patch) ptree >>= writeSlurpTree
+             return (cauterizeHeads (kn++ps),Sealed t)
+      sp n kn (p:ps) patch =
           do let nop = cauterizeHeads (kn++ps++unseal parents p)
-             Sealed ptree <- mergeCommits opts (kn++p:ps)
-                             >>= mapSealM slurpTree
-             Sealed noptree <- mergeCommits opts nop >>= mapSealM slurpTree
-             mys <- slurpTree t
-             case commute (diff opts noptree ptree :> diff opts ptree mys) of
-               Nothing -> sp (p:kn) ps t
-               Just (myp :> _) ->
-                   do t' <- apply_to_slurpy myp noptree >>= writeSlurpTree
-                      ct <- commitTree t (p:ps) "iolaus:testing"
-                      joined0 <- mergeCommitsX MergeN (Sealed ct:p:nop)
-                      ct' <- commitTree t' nop "iolaus:testing"
-                      joined <- mergeCommitsX MergeN (Sealed ct':p:nop)
-                      ok <-
-                          if joined == joined0
-                          then
-                            if TestParents `elem` opts
-                            then do Sealed x <- mapSealM catCommit p
-                                    putStrLn $ "\n\nRunning test without:\n"++
-                                             myMessage x
-                                    testPredicate opts t'
-                            else return True
-                          else return False
-                      if ok then sp kn (filter (`notElem` kn) nop) t'
-                            else sp (p:kn) ps t
+             tf <- commitTouches p
+             if not (look_touch tf patch || null (unseal parents p))
+                then -- FIXME: need to handle --test-parents here
+                     do debugMessage "skipping an easy commit..."
+                        debugMessage $ unlines $ list_touched_files patch
+                        ok <-
+                           if TestParents `elem` opts
+                           then do Sealed x <- mapSealM catCommit p
+                                   putStrLn $ "\n\nRunning test without:\n"++
+                                            myMessage x
+                                   Sealed noptree <- mergeCommits opts nop
+                                                     >>= mapSealM slurpTree
+                                   t' <- apply_to_slurpy (unsafeCoerceP patch)
+                                                         noptree
+                                         >>= writeSlurpTree
+                                   testPredicate opts t'
+                           else return True
+                        if ok then sp (n-1) kn (ps++unseal parents p) patch
+                              else sp (n-1) (p:kn) ps patch
+                else
+                  do Sealed ptree <- mergeCommits opts (kn++p:ps)
+                                     >>= mapSealM slurpTree
+                     debugMessage "In sp, trying with one less..."
+                     t <- apply_to_slurpy (unsafeCoerceP patch) ptree
+                          >>= writeSlurpTree
+                     Sealed noptree <- mergeCommits opts nop
+                                       >>= mapSealM slurpTree
+                     case commute (diff opts noptree ptree :>
+                                   unsafeCoerceP patch) of
+                       Nothing -> sp (n-1) (p:kn) ps patch
+                       Just (myp :> _) ->
+                           do t' <- apply_to_slurpy myp noptree
+                                    >>= writeSlurpTree
+                              ct <- commitTree t
+                                    (cauterizeHeads (p:kn++ps)) "iolaus:testing"
+                              joined0 <- mergeCommitsX MergeN (Sealed ct:p:nop)
+                              ct' <- commitTree t' nop "iolaus:testing"
+                              joined <- mergeCommitsX MergeN (Sealed ct':p:nop)
+                              ok <-
+                                  if joined == joined0
+                                  then
+                                      if TestParents `elem` opts
+                                      then do Sealed x <- mapSealM catCommit p
+                                              putStrLn $
+                                                "\n\nRunning test without:\n"++
+                                                myMessage x
+                                              testPredicate opts t'
+                                      else return True
+                                  else return False
+                              if ok
+                                then sp (n-1) kn (filter (`notElem` kn) nop) myp
+                                else sp (n-1) (p:kn) ps patch
 
 mergeCommits :: [Flag] -> [Sealed (Hash Commit)]
              -> IO (Sealed (Hash Tree))
@@ -258,6 +314,7 @@ diffDag c s (Node x ys) =
 diffDagHelper :: IORef (M.Map (Sealed (Hash Commit)) (Sealed (FL Prim C(x))))
               -> Strategy -> Dag C(x y) -> IO (FL Prim C(x y))
 diffDagHelper _ _ (Ancestor _) = return NilFL
+diffDagHelper _ _ (Node _ []) = impossible
 diffDagHelper _ _ (Node x [Sealed (Ancestor y)]) =
     do old <- catCommitTree y >>= slurpTree
        new <- catCommitTree x >>= slurpTree
@@ -280,7 +337,6 @@ diffDagHelper c s (Node x ys@(Sealed y0:_)) = -- this version is buggy!!!
        ps0 <- diffDag c s y0
        old <- catCommitTree (dag2commit y0) >>= slurpTree
        new <- catCommitTree x >>= slurpTree
-       tracks <- mapM (mapSealM (diffDag c s)) ys
        return $ ps0 +>+ diff [] old merged +>+ diff [] merged new
 
 diffCommit :: [Flag] -> Hash Commit C(x)
@@ -296,5 +352,5 @@ revListHeads :: [Flag] -> [RevListOption] -> IO String
 revListHeads opts revlistopts =
     do hs <- cauterizeHeads `fmap` heads
        Sealed t <- mergeCommits opts hs
-       c <- commitTree t hs "iolaus:temp"
+       c <- commitTree t (cauterizeHeads hs) "iolaus:temp"
        revList (show c) (Skip 1:revlistopts)

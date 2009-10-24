@@ -15,7 +15,7 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsubsection{arcs show authors}
+\subsubsection{iolaus show authors}
 \begin{code}
 module Iolaus.Commands.ShowAuthors ( show_authors ) where
 

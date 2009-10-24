@@ -22,8 +22,7 @@ module Iolaus.Commands.ShowDependencies ( show_dependencies ) where
 import Iolaus.Arguments ( Flag(..), mergeStrategy,
                           summary, working_repo_dir )
 import Iolaus.Command ( Command(..), nodefaults )
-import Iolaus.Printer ( putDocLnWith )
-import Iolaus.ColorPrinter ( fancyPrinters )
+import Iolaus.Printer ( putDocLn )
 import Iolaus.Patch ( summarize )
 import Iolaus.Sealed ( Sealed(Sealed), FlippedSeal(FlippedSeal) )
 import Iolaus.Repository ( slurp_working )
@@ -78,6 +77,6 @@ showc opts (Sealed x) =
        putStr $ show commit
        if Summary `elem` opts
            then do FlippedSeal ch <- diffCommit opts x
-                   putDocLnWith fancyPrinters $ summarize ch
+                   putDocLn $ summarize ch
            else return ()
 \end{code}

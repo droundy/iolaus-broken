@@ -19,24 +19,18 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Iolaus.Patch ( Prim, Named, Patchy, Apply, apply,
                       rmfile, addfile, chmod, rmdir, adddir, move,
-                      chunkify, chunk, hunk, description,
+                      chunkify, chunk, description,
                       showContextPatch, showPatch, showNicely,
-                    infopatch, thing, things,
-                    is_similar, is_addfile, is_hunk,
-                    Effect, effect,
-                    writePatch, is_adddir,
-                    Invert, invert, invertFL, invertRL, identity,
-                    Commute, commute, merge, list_touched_files,
-                    commuteFL, commuteRL,
-                    canonize, sort_coalesceFL,
-                    try_to_shrink, try_shrinking_inverse,
-                    apply_to_slurpy, patchcontents,
-                    patch2patchinfo,
-                    summary, summarize,
-                    mergeFL, mergeN,
-                    -- from Permutations
-                    module Iolaus.Patch.Permutations,
-                  ) where
+                      infopatch, thing, things, is_similar, is_addfile,
+                      Effect, effect, writePatch, is_adddir,
+                      Invert, invert, invertFL, invertRL, identity,
+                      Commute, commute, merge, list_touched_files, commuteFL,
+                      commuteRL, canonize, sort_coalesceFL, try_to_shrink,
+                      try_shrinking_inverse, apply_to_slurpy, patchcontents,
+                      patch2patchinfo, summary, summarize, mergeFL, mergeN,
+                      -- from Permutations
+                      module Iolaus.Patch.Permutations,
+                    ) where
 import Iolaus.Patch.Core ( Named, infopatch,
                          patch2patchinfo, patchcontents )
 import Iolaus.Patch.Patchy ( Patchy, writePatch, mergeFL, Apply,
@@ -51,14 +45,10 @@ import Iolaus.Patch.Permutations ( commuteWhatWeCanRL, commuteWhatWeCanFL,
                                  remove_subsequenceRL, removeFL )
 import Iolaus.Patch.Viewing ( summarize )
 import Iolaus.Patch.Apply ( apply_to_slurpy, chunkify )
-import Iolaus.Patch.Prim ( Effect(effect),
-                           Prim, canonize,
-                           sort_coalesceFL,
+import Iolaus.Patch.Prim ( Effect(effect), Prim, canonize, sort_coalesceFL,
                            rmdir, rmfile, adddir, addfile, chmod,
-                           chunk, hunk, move, 
-                           is_adddir, is_addfile,
-                           is_hunk, is_similar,
-                           try_to_shrink, try_shrinking_inverse )
+                           chunk, move, is_adddir, is_addfile,
+                           is_similar, try_to_shrink, try_shrinking_inverse )
 import Iolaus.Patch.Merge ( mergeN )
 
 instance Patchy Prim

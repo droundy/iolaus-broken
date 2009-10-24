@@ -23,21 +23,22 @@ module Iolaus.Commands.Pull ( pull ) where
 
 import System.Exit ( ExitCode(..), exitWith )
 import Control.Monad ( when )
-import Data.List ( nub )
 
-import Iolaus.Workaround ( getCurrentDirectory )
 import Iolaus.Command ( Command(..) )
 import Iolaus.Arguments
-    ( Flag, pull_conflict_options, fixUrl, all_interactive, repo_combinator,
+    ( Flag, pull_conflict_options, all_interactive, repo_combinator,
+      match_several_or_first,
       notest, testByDefault, mergeStrategy, working_repo_dir, remote_repo )
 import Iolaus.Patch ( apply, merge )
 import Iolaus.Ordered ( (:/\:)(..), (:\/:)(..) )
 import Iolaus.Diff ( diff )
 import Iolaus.Sealed ( Sealed(..) )
 import Iolaus.Repository ( add_heads, slurp_working, slurp_recorded )
+import Iolaus.SelectCommits ( select_commits )
 
+import Git.Dag ( notIn )
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( heads, remoteHeads, fetchPack )
+import Git.Plumbing ( heads, remoteHeads, listRemotes, fetchPack )
 import Git.Helpers ( test, slurpTree, mergeCommits )
 
 pull_description :: String
@@ -67,30 +68,31 @@ pull = Command {command_name = "pull",
                 command_extra_arg_help = ["[REPOSITORY]..."],
                 command_command = pull_cmd,
                 command_prereq = amInRepository,
-                command_get_arg_possibilities = return ["origin"], -- fixme: list remotes
+                command_get_arg_possibilities = listRemotes,
                 command_argdefaults = deforigin,
                 command_advanced_options = [repo_combinator,
                                             mergeStrategy,remote_repo],
                 command_basic_options = [all_interactive,
-                                         pull_conflict_options]++
+                                         pull_conflict_options,
+                                         match_several_or_first]++
                                          notest++[working_repo_dir]}
     where deforigin _ _ [] = return ["origin"]
           deforigin _ _ xs = return xs
 
 pull_cmd :: [Flag] -> [String] -> IO ()
 
-pull_cmd opts unfixedrepodirs@(_:_) =
-    do here <- getCurrentDirectory
-       repodirs <- (nub . filter (/= here)) `fmap`
-                   mapM (fixUrl opts) unfixedrepodirs
-       -- Test to make sure we aren't trying to pull from the current repo
+pull_cmd opts repodirs@(_:_) =
+    do -- Test to make sure we aren't trying to pull from the current repo
        when (null repodirs) $ fail "Can't pull from current repository!"
        old <- slurp_recorded opts
        Sealed work <- slurp_working
        mapM_ fetchPack repodirs
        newhs <- concat `fmap` mapM remoteHeads repodirs
        hs <- heads
-       Sealed newtree <- mergeCommits opts (hs++newhs)
+       newhs' <- select_commits "pull" opts (reverse $ newhs `notIn` hs)
+       when (null newhs') $ do putStrLn "No patches to pull!"
+                               exitWith ExitSuccess
+       Sealed newtree <- mergeCommits opts (hs++newhs')
        test (testByDefault opts) newtree
        new <- slurpTree newtree
        case merge (diff opts old work :\/: diff opts old new) of
@@ -98,7 +100,7 @@ pull_cmd opts unfixedrepodirs@(_:_) =
              do putStrLn "Unwilling to pull when it conflicts with working..."
                 exitWith (ExitFailure 1)
          Just (nps :/\: _) ->
-             do add_heads opts newhs
+             do add_heads opts newhs'
                 apply nps
 pull_cmd _ [] = fail "No default repository to pull from, please specify one"
 \end{code}

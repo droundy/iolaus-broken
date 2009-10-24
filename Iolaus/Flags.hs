@@ -20,9 +20,9 @@ module Iolaus.Flags ( Flag( .. ), Compression( .. ), compression,
 import Iolaus.RepoPath ( AbsolutePath, AbsolutePathOrStd )
 
 -- | The 'Flag' type is a list of all flags that can ever be
--- passed to darcs, or to one of its commands.
-data Flag = Help | ListOptions | NoTest | Test
-          | NoCauterizeAllHeads | CauterizeAllHeads | TestParents
+-- passed to iolaus, or to one of its commands.
+data Flag = Help | ListOptions | NoTest | Test | TestParents
+          | NoCauterizeAllHeads | CauterizeAllHeads | CommutePast Int
           | NoTagOnTest | TagOnTest
                | HelpOnMatch | OnlyChangesToFiles
                | LeaveTestDir | NoLeaveTestDir
@@ -60,21 +60,16 @@ data Flag = Help | ListOptions | NoTest | Test
                | FirstParentMerge
                | WorkDir String | RepoDir String | RemoteRepo String
                | Reply String | ApplyAs String
-               | MachineReadable | HumanReadable
-               | Pipe | Interactive
+               | Interactive
                | DiffCmd String
                | ExternalMerge String | Summary | NoSummary
                | Unified | Reverse
                | Complete | Lazy | Ephemeral
                | FixFilePath AbsolutePath AbsolutePath | DiffFlags String
                | XMLOutput
-               | ForceReplace
-               | NonApply | NonVerify | NonForce
+               | NonApply | NonVerify
                | DryRun | SetDefault | NoSetDefault
-               | FancyMoveAdd | NoFancyMoveAdd
                | Disable
-               | UseHashedInventory | UseOldFashionedInventory
-               | UseFormat2
                | PristinePlain | PristineNone | NoUpdateWorking
                | Sibling AbsolutePath | Relink | NoLinks
                | Files | NoFiles | Directories | NoDirectories

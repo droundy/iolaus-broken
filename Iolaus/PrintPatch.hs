@@ -26,20 +26,19 @@ module Iolaus.PrintPatch ( printPatch, contextualPrintPatch,
 import Iolaus.Patch ( Patchy, Effect, showContextPatch, showPatch, summarize )
 import Iolaus.Flags ( Flag( Summary ) )
 import Iolaus.SlurpDirectory ( Slurpy )
-import Iolaus.Printer ( putDocLnWith )
-import Iolaus.ColorPrinter ( fancyPrinters )
+import Iolaus.Printer ( putDocLn )
 
 -- | @'printFriendly' opts patch@ prints @patch@ in accordance with the
 -- flags in opts, ie, whether @--verbose@ or @--summary@ were passed at
 -- the command-line.
 printFriendly :: (Effect p, Patchy p) => [Flag] -> p C(x y) -> IO ()
-printFriendly opts p = putDocLnWith fancyPrinters $ if Summary `elem` opts
-                                                    then summarize p
-                                                    else showPatch p
+printFriendly opts p = putDocLn $ if Summary `elem` opts
+                                  then summarize p
+                                  else showPatch p
 
 -- | 'printPatch' prints a patch on standard output.
 printPatch :: Patchy p => p C(x y) -> IO ()
-printPatch p = putDocLnWith fancyPrinters $ showPatch p
+printPatch p = putDocLn $ showPatch p
 
 -- | 'printPatchPager' runs '$PAGER' and shows a patch in it.
 printPatchPager :: Patchy p => p C(x y) -> IO ()
@@ -48,4 +47,4 @@ printPatchPager = printPatch
 -- | 'contextualPrintPatch' prints a patch, together with its context,
 -- on standard output.
 contextualPrintPatch :: Patchy p => Slurpy C(x) -> p C(x y) -> IO ()
-contextualPrintPatch s p = putDocLnWith fancyPrinters $ showContextPatch s p
+contextualPrintPatch s p = putDocLn $ showContextPatch s p

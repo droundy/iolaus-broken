@@ -19,26 +19,21 @@
 -- Boston, MA 02110-1301, USA.
 
 module Iolaus.RepoPath ( AbsolutePath, makeAbsolute, ioAbsolute, rootDirectory,
-                        SubPath, makeSubPathOf, simpleSubPath,
-                        AbsolutePathOrStd,
-                        makeAbsoluteOrStd, ioAbsoluteOrStd, useAbsoluteOrStd,
-                        AbsoluteOrRemotePath, ioAbsoluteOrRemote, assertLocal_,
-                        makeRelative, sp2fn,
-                        FilePathOrURL(toPath, (</>)),
-                        isFile, isUrl, isSsh,
-                        FilePathLike(toFilePath, parentDir),
-                        SubPathLike,
-                        doesDirectoryExist, doesFileExist,
-                        createDirectory, createDirectoryIfMissing,
-                        getCurrentDirectory, setCurrentDirectory
-                      ) where
+                         SubPath, makeSubPathOf, simpleSubPath,
+                         AbsolutePathOrStd,
+                         makeAbsoluteOrStd, ioAbsoluteOrStd, useAbsoluteOrStd,
+                         FilePathOrURL(toPath, (</>), (<++>)),
+                         FilePathLike(toFilePath, parentDir),
+                         SubPathLike,
+                         doesDirectoryExist, doesFileExist,
+                         createDirectory, createDirectoryIfMissing,
+                         getCurrentDirectory, setCurrentDirectory
+                       ) where
 
 import Data.List ( isPrefixOf )
 import Control.Exception ( bracket )
 
 import Iolaus.Progress ( debugMessage )
-import Iolaus.URL ( is_absolute, is_relative, is_ssh_nopath, is_file,
-                   is_ssh, is_url )
 import qualified Iolaus.Workaround ( getCurrentDirectory )
 import qualified System.Directory ( setCurrentDirectory,
                                     createDirectory, createDirectoryIfMissing,
@@ -52,12 +47,7 @@ class Eq a => FilePathOrURL a where
  {-# INLINE toPath #-}
  toPath :: a -> String
  (</>) :: SubPathLike b => a -> b -> a
- isFile :: a -> Bool
- isFile = const True
- isUrl :: a -> Bool
- isUrl = const False
- isSsh :: a -> Bool
- isSsh = const False
+ (<++>) :: a -> String -> a -- ^ append string to filename
 
 class FilePathOrURL a => FilePathLike a where
  {-# INLINE toFilePath #-}
@@ -72,14 +62,15 @@ class (SubPathSecret a, FilePathLike a) => SubPathLike a where
 newtype SubPath      = SubPath FilePath deriving (Eq, Ord)
 newtype AbsolutePath = AbsolutePath FilePath deriving (Eq, Ord)
 data AbsolutePathOrStd = AP AbsolutePath | APStd deriving (Eq, Ord)
-data AbsoluteOrRemotePath = AbsP AbsolutePath | RmtP String deriving (Eq, Ord)
 
 instance FilePathOrURL AbsolutePath where
  toPath (AbsolutePath x) = x
  AbsolutePath x </> sp = AbsolutePath (x </> toFilePath sp)
+ AbsolutePath x <++> y = AbsolutePath (x++y)
 instance FilePathOrURL SubPath where
  toPath (SubPath x) = x
  SubPath x </> sp = SubPath (x </> toFilePath sp)
+ SubPath x <++> y = SubPath (x++y)
 instance CharLike c => FilePathOrURL [c] where
  toPath = toFilePath
  a </> sp = cleana ++ fromChar '/' : dropWhile sl (map fromChar $ toFilePath sp)
@@ -88,9 +79,7 @@ instance CharLike c => FilePathOrURL [c] where
                       [] -> a
                       _:[c] | toChar c == ':' -> a
                       a' -> a'
- isFile = is_file . toFilePath
- isUrl = is_url . toFilePath
- isSsh = is_ssh . toFilePath
+ x <++> y = x ++ map fromChar y
 
 instance SubPathSecret SubPath
 instance SubPathLike SubPath
@@ -99,23 +88,15 @@ instance CharLike c => SubPathLike [c]
 instance SubPathSecret PatchFileName.FileName
 instance SubPathLike PatchFileName.FileName
 
-instance FilePathOrURL AbsoluteOrRemotePath where
- toPath (AbsP a) = toPath a
- toPath (RmtP r) = r
- AbsP a </> sp = AbsP (a </> toFilePath sp)
- RmtP a </> sp = RmtP (a </> toFilePath sp)
- isFile (AbsP _) = True
- isFile _ = False
- isSsh (RmtP p) = is_ssh p
- isSsh _ = False
- isUrl (RmtP p) = is_url p
- isUrl _ = False
-
 instance FilePathOrURL PatchFileName.FileName where
-    toPath = PatchFileName.fn2fp
+    toPath p = case PatchFileName.fn2fp p of -- cut annoying ./ from paths
+                 "./" -> "."
+                 '.':'/':p' -> p'
+                 p' -> p'
     fn </> sp = fn PatchFileName./// (PatchFileName.fp2fn $ toFilePath sp)
+    x <++> y = PatchFileName.fp2fn $ toFilePath x ++ y
 instance FilePathLike PatchFileName.FileName where
-    toFilePath = PatchFileName.fn2fp
+    toFilePath = toPath
     parentDir = PatchFileName.super_name
 
 instance FilePathLike AbsolutePath where
@@ -152,16 +133,6 @@ makeSubPathOf (AbsolutePath p1) (AbsolutePath p2) =
 simpleSubPath :: FilePath -> Maybe SubPath
 simpleSubPath x | is_relative x = Just $ SubPath $ FilePath.normalise $ map cleanup x
                 | otherwise = Nothing
-
-makeRelative :: AbsolutePath -> AbsolutePath -> FilePath
-makeRelative (AbsolutePath p1) (AbsolutePath p2) = mr p1 p2
-    where mr x y | x == y = "."
-          mr x y | takedir x == takedir y = mr (dropdir x) (dropdir y)
-          mr x y = add_dotdots x y
-          add_dotdots "" y = dropWhile  (=='/') y
-          add_dotdots x y = '.':'.':'/': add_dotdots (dropdir x) y
-          takedir = takeWhile (/='/')  . dropWhile (=='/')
-          dropdir = dropWhile (/='/') . dropWhile (=='/')
 
 -- | Interpret a possibly relative path wrt the current working directory
 ioAbsolute :: FilePath -> IO AbsolutePath
@@ -219,19 +190,6 @@ useAbsoluteOrStd :: (AbsolutePath -> IO a) -> IO a -> AbsolutePathOrStd -> IO a
 useAbsoluteOrStd _ f APStd = f
 useAbsoluteOrStd f _ (AP x) = f x
 
-ioAbsoluteOrRemote :: String -> IO AbsoluteOrRemotePath
-ioAbsoluteOrRemote p
-    | is_file p = AbsP `fmap` ioAbsolute p
-    | otherwise = return $ RmtP $
-                  case () of _ | is_ssh_nopath p -> p++"."
-                               | otherwise -> reverse $ dropWhile (=='/') $ reverse p
-
--- | You actually want to use the macro assertLocal in impossible.h
--- rather than this...
-assertLocal_ :: AbsoluteOrRemotePath -> Maybe AbsolutePath
-assertLocal_ (RmtP _) = Nothing
-assertLocal_ (AbsP p) = Just p
-
 instance Show AbsolutePath where
  show = show . toFilePath
 instance Show SubPath where
@@ -239,9 +197,6 @@ instance Show SubPath where
 instance Show AbsolutePathOrStd where
     show (AP a) = show a
     show APStd = "standard input/output"
-instance Show AbsoluteOrRemotePath where
-    show (AbsP a) = show a
-    show (RmtP r) = show r
 
 cleanup :: Char -> Char
 cleanup '\\' = '/'
@@ -276,6 +231,10 @@ createDirectoryIfMissing b p =
     do debugMessage $ "createDirectoryIfMissing "++ show b++" "++toFilePath p
        System.Directory.createDirectoryIfMissing b $ toFilePath p
 
-{-# INLINE sp2fn #-}
-sp2fn :: SubPath -> PatchFileName.FileName
-sp2fn = PatchFileName.fp2fn . toFilePath
+is_relative :: String -> Bool
+is_relative (_:':':_) = False
+is_relative (c:_) = c /= '/' && c /= '~'
+is_relative "" = False
+
+is_absolute :: String -> Bool
+is_absolute = not . is_relative

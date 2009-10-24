@@ -28,16 +28,12 @@ module Iolaus.Commands.WhatsNew ( whatsnew ) where
 import Iolaus.Command ( Command(..), nodefaults )
 import Iolaus.Arguments ( Flag(Summary), mergeStrategy,
                           working_repo_dir, summary )
-
 import Iolaus.Patch ( showContextPatch, summarize )
-import Iolaus.Printer ( putDocLnWith )
-import Iolaus.ColorPrinter ( fancyPrinters )
-import Iolaus.Repository ( Unrecorded(..), get_unrecorded, slurp_recorded )
+import Iolaus.Printer ( putDocLn )
+import Iolaus.Repository ( get_recorded_and_unrecorded, Unrecorded(..) )
 
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( lsfiles,
-                      --diffFiles, DiffOption(Stat, DiffAll, DiffPatch)
-                    )
+import Git.Plumbing ( lsfiles )
 \end{code}
 
 \options{whatsnew}
@@ -80,16 +76,10 @@ whatsnew = Command {command_name = "whatsnew",
 \begin{code}
 whatsnew_cmd :: [Flag] -> [String] -> IO ()
 whatsnew_cmd opts _ =
-    do old <- slurp_recorded opts
-       Unrecorded chs _ <- get_unrecorded opts
-       if Summary `elem` opts
-          then putDocLnWith fancyPrinters $ summarize chs
-          else putDocLnWith fancyPrinters $ showContextPatch old chs
-{-
-whatsnew_cmd opts fs = diffFiles flags fs >>= putStr
-    where flags = (if null fs then [DiffAll] else []) ++
-                  (if Summary `elem` opts then [Stat] else [DiffPatch])
--}
+    do (old, Unrecorded chs _) <- get_recorded_and_unrecorded opts
+       putDocLn $ if Summary `elem` opts
+                  then summarize chs
+                  else showContextPatch old chs
 \end{code}
 
 If you give one or more file or directory names as an argument to
