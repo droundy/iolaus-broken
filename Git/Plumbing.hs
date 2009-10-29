@@ -2,7 +2,7 @@
 #include "gadts.h"
 
 module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag, emptyCommit,
-                      catBlob, hashObject,
+                      catBlob, hashObject, committer, uname,
                       catTree, TreeEntry(..),
                       catCommit, CommitEntry(..),
                       catCommitTree, parseRev,
@@ -728,3 +728,24 @@ removeFileMayNotExist f =
     catchJust ioErrors (removeFile f) $ \e ->
         if isDoesNotExistError e then return ()
                                  else ioError e
+
+committer :: IO String
+committer =
+    do (Nothing, Just o, Nothing, pid) <-
+           createProcess (proc "git" ["var", "GIT_COMMITTER_IDENT"])
+                         { std_out = CreatePipe }
+       out <- hGetContents o
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return (takeWhile (/= '>') out++">")
+         ExitFailure _ -> fail "git var failed"
+
+uname :: IO String
+uname = do (Nothing, Just o, Nothing, pid) <-
+               createProcess (proc "uname" ["-n", "-m", "-o"])
+                                 { std_out = CreatePipe }
+           out <- hGetContents o
+           ec <- length out `seq` waitForProcess pid
+           case ec of
+             ExitSuccess -> return $ filter (/= '\n') out
+             ExitFailure _ -> fail "uname failed"
