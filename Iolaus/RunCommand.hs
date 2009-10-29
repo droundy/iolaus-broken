@@ -27,7 +27,7 @@ import System.Exit ( ExitCode ( ExitSuccess ), exitWith )
 
 import Iolaus.Arguments ( Flag(..), help, flagToString, option_from_iolausoption,
                           list_options )
-import Iolaus.ArgumentDefaults ( get_default_flags )
+import Iolaus.ArgumentDefaults ( add_default_flags )
 import Iolaus.Command ( CommandArgs( CommandOnly, SuperCommandOnly,
                                      SuperCommandSub ),
                         Command, command_name, command_command,
@@ -166,8 +166,7 @@ consider_running msuper cmd opts old_extra = do
 add_command_defaults :: Command -> [Flag] -> IO [Flag]
 add_command_defaults cmd already = do
   let (opts1, opts2) = command_alloptions cmd
-  defaults <- get_default_flags (command_name cmd) (opts1 ++ opts2) already
-  return $ already ++ defaults
+  add_default_flags (command_name cmd) (opts1 ++ opts2) already
 
 get_options_options :: [OptDescr Flag] -> String
 get_options_options [] = ""

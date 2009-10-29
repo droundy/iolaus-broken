@@ -21,7 +21,7 @@
 
 #include "gadts.h"
 
-module Iolaus.Arguments ( Flag( .. ), flagToString, optionFlags,
+module Iolaus.Arguments ( Flag( .. ), flagToString,
                           isin, arein, mergeStrategy, commitApproach,
                          fixSubPaths, areFileArgs,
                          IolausOption( .. ), option_from_iolausoption,
@@ -96,6 +96,7 @@ getContent (Output s) = AbsoluteOrStdContent s
 getContent NoCauterizeAllHeads = NoContent
 getContent CauterizeAllHeads = NoContent
 getContent (CommutePast n) = StringContent (show n)
+getContent (RecordFor r) = StringContent r
 getContent Verbose = NoContent
 getContent Help = NoContent
 getContent ListOptions = NoContent
@@ -314,14 +315,6 @@ data IolausOption
 
     | IolausMultipleChoiceOption [IolausOption]
     -- ^ A constructor for grouping mutually-exclusive options together.
-
-optionFlags :: IolausOption -> [String]
-optionFlags (IolausArgOption _ fs _ _ _) = fs
-optionFlags (IolausAbsPathOption _ fs _ _ _) = fs
-optionFlags (IolausAbsPathOrStdOption _ fs _ _ _) = fs
-optionFlags (IolausOptAbsPathOption _ fs _ _ _ _) = fs
-optionFlags (IolausNoArgOption _ fs _ _) = fs
-optionFlags (IolausMultipleChoiceOption os) = concatMap optionFlags os
 
 option_from_iolausoption :: AbsolutePath -> IolausOption -> [OptDescr Flag]
 option_from_iolausoption _ (IolausNoArgOption a b c h) = [Option a b (NoArg c) h]
@@ -875,6 +868,8 @@ commitApproach = IolausMultipleChoiceOption
      "new commit depends on all existing commits",
      IolausArgOption [] ["commute-past"] cp "NUMBER"
      "try commuting past the last NUMBER commits",
+     IolausArgOption [] ["record-for"] RecordFor "REPOSITORY"
+     "try not to depend on patches not present in REPOSITORY",
      IolausNoArgOption [] ["no-cauterize-all"] NoCauterizeAllHeads
      "commit in minimal context [default]"]
   where cp s = if all isDigit s
