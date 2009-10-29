@@ -1,15 +1,14 @@
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
 
-module Git.Helpers ( test, testPredicate, revListHeads,
+module Git.Helpers ( test, revListHeads,
                      slurpTree, writeSlurpTree, touchedFiles,
                      simplifyParents,
                      diffCommit, mergeCommits, Strategy(..) ) where
 
 import Prelude hiding ( catch )
 import Control.Exception ( catch )
-import System.Directory ( getCurrentDirectory, setCurrentDirectory,
-                          doesFileExist )
+import System.Directory ( doesFileExist )
 #ifndef HAVE_REDIRECTS
 import System.Cmd ( system )
 #else
@@ -21,11 +20,13 @@ import System.IO.Unsafe ( unsafeInterleaveIO )
 import Data.List ( sort )
 import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
 import Data.Map as M ( Map, insert, empty, lookup )
+import Data.Maybe ( isJust )
 import Data.ByteString as B ( hPutStr )
 
 import Git.Dag ( mergeBases, makeDag, Dag(..), greatGrandFather, parents,
                  cauterizeHeads, dag2commit )
 import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
+                      uname, committer,
                       catCommit, CommitEntry(..),
                       commitTree, updateref, parseRev,
                       mkTree, hashObject, lsothers,
@@ -46,7 +47,8 @@ import Iolaus.IO ( ExecutableBit(..) )
 import Iolaus.SlurpDirectoryInternal
     ( Slurpy(..), SlurpyContents(..), empty_slurpy,
       slurpies_to_map, map_to_slurpies )
-import Iolaus.Lock ( removeFileMayNotExist )
+import Iolaus.Lock ( removeFileMayNotExist, withTempDir )
+import Iolaus.RepoPath ( setCurrentDirectory, getCurrentDirectory, toFilePath )
 import Iolaus.Diff ( diff )
 import Iolaus.Patch ( Prim, commute, apply_to_slurpy, mergeN,
                       list_touched_files )
@@ -66,32 +68,37 @@ commitTouches :: Sealed (Hash Commit) -> IO [FilePath]
 commitTouches (Sealed c) =
     lines `fmap` diffTreeCommit [NameOnly, DiffRecursive] c []
 
-test :: [Flag] -> Hash Tree C(x) -> IO ()
+test :: [Flag] -> Hash Tree C(x) -> IO [String]
 test opts t =
     do x <- testPredicate opts t
-       if x then return ()
-            else fail "test failed"
+       case x of
+         Just m -> return m
+         Nothing -> fail "test failed"
 
-testPredicate :: [Flag] -> Hash Tree C(x) -> IO Bool
+testPredicate :: [Flag] -> Hash Tree C(x) -> IO (Maybe [String])
 testPredicate opts t | Test `elem` opts || TestParents `elem` opts =
  do havet <- doesFileExist ".git-hooks/test"
+    here <- getCurrentDirectory
     if not havet
-     then return True
-     else do
-       system "rm -rf /tmp/testing"
+     then return (Just [])
+     else withTempDir "testing" $ \tdir -> do
+       setCurrentDirectory here
        removeFileMayNotExist ".git/index.tmp"
        readTree t "index.tmp"
-       checkoutIndex "index.tmp" "/tmp/testing/"
+       checkoutIndex "index.tmp" (toFilePath tdir++"/")
        removeFileMayNotExist ".git/index.tmp"
-       here <- getCurrentDirectory
-       setCurrentDirectory "/tmp/testing"
+       setCurrentDirectory tdir
        ec <- system "./.git-hooks/test"
        setCurrentDirectory here
        case ec of
-         ExitFailure _ -> return False
-         ExitSuccess -> do system "rm -rf /tmp/testing"
-                           return True
-testPredicate _ _ = return True
+         ExitFailure _ -> return Nothing
+         ExitSuccess -> testedMessage
+    where testedMessage = Just `fmap` (testedon `catch` \_ -> testedby)
+          testedon = do x <- uname
+                        return ["","Tested-on: "++x]
+          testedby = do x <- committer
+                        return ["","Tested-by: "++x]
+testPredicate _ _ = return $ Just []
 
 slurpTree :: Hash Tree C(x) -> IO (Slurpy C(x))
 slurpTree = slurpTreeHelper (fp2fn ".")
@@ -198,7 +205,7 @@ simpHelp opts pars0 pat0 = sp (cpnum opts) [] pars0 pat0
                                    t' <- apply_to_slurpy (unsafeCoerceP patch)
                                                          noptree
                                          >>= writeSlurpTree
-                                   testPredicate opts t'
+                                   isJust `fmap` testPredicate opts t'
                            else return True
                         if ok then sp (n-1) kn (ps++unseal parents p) patch
                               else sp (n-1) (p:kn) ps patch
@@ -229,7 +236,8 @@ simpHelp opts pars0 pat0 = sp (cpnum opts) [] pars0 pat0
                                               putStrLn $
                                                 "\n\nRunning test without:\n"++
                                                 myMessage x
-                                              testPredicate opts t'
+                                              isJust `fmap`
+                                                     testPredicate opts t'
                                       else return True
                                   else return False
                               if ok
