@@ -21,7 +21,7 @@
 
 #include "gadts.h"
 
-module Iolaus.Arguments ( Flag( .. ), flagToString, optionFlags,
+module Iolaus.Arguments ( Flag( .. ), flagToString,
                           isin, arein, mergeStrategy, commitApproach,
                          fixSubPaths, areFileArgs,
                          IolausOption( .. ), option_from_iolausoption,
@@ -314,14 +314,6 @@ data IolausOption
 
     | IolausMultipleChoiceOption [IolausOption]
     -- ^ A constructor for grouping mutually-exclusive options together.
-
-optionFlags :: IolausOption -> [String]
-optionFlags (IolausArgOption _ fs _ _ _) = fs
-optionFlags (IolausAbsPathOption _ fs _ _ _) = fs
-optionFlags (IolausAbsPathOrStdOption _ fs _ _ _) = fs
-optionFlags (IolausOptAbsPathOption _ fs _ _ _ _) = fs
-optionFlags (IolausNoArgOption _ fs _ _) = fs
-optionFlags (IolausMultipleChoiceOption os) = concatMap optionFlags os
 
 option_from_iolausoption :: AbsolutePath -> IolausOption -> [OptDescr Flag]
 option_from_iolausoption _ (IolausNoArgOption a b c h) = [Option a b (NoArg c) h]
