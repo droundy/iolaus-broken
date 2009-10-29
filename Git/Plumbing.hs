@@ -96,7 +96,7 @@ mergeIndex i =
        ec <- waitForProcess pid
        case ec of
          ExitSuccess -> return ()
-         ExitFailure _ -> fail "git checkout-index failed"
+         ExitFailure _ -> fail "git merge-index failed"
        debugMessage "calling git write-tree"
        (Nothing, Just stdout, Nothing, pid2) <-
            createProcess (proc "git" ["write-tree"])
