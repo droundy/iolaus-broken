@@ -21,7 +21,7 @@
 
 #include "gadts.h"
 
-module Iolaus.Arguments ( Flag( .. ), flagToString, optionFlags,
+module Iolaus.Arguments ( Flag( .. ), flagToString,
                           isin, arein, mergeStrategy, commitApproach,
                          fixSubPaths, areFileArgs,
                          IolausOption( .. ), option_from_iolausoption,
@@ -315,14 +315,6 @@ data IolausOption
     | IolausMultipleChoiceOption [IolausOption]
     -- ^ A constructor for grouping mutually-exclusive options together.
 
-optionFlags :: IolausOption -> [String]
-optionFlags (IolausArgOption _ fs _ _ _) = fs
-optionFlags (IolausAbsPathOption _ fs _ _ _) = fs
-optionFlags (IolausAbsPathOrStdOption _ fs _ _ _) = fs
-optionFlags (IolausOptAbsPathOption _ fs _ _ _ _) = fs
-optionFlags (IolausNoArgOption _ fs _ _) = fs
-optionFlags (IolausMultipleChoiceOption os) = concatMap optionFlags os
-
 option_from_iolausoption :: AbsolutePath -> IolausOption -> [OptDescr Flag]
 option_from_iolausoption _ (IolausNoArgOption a b c h) = [Option a b (NoArg c) h]
 option_from_iolausoption _ (IolausArgOption a b c n h) = [Option a b (ReqArg c n) h]
@@ -338,9 +330,7 @@ concat_options os = IolausMultipleChoiceOption $ concatMap from_option os
  where
   from_option (IolausMultipleChoiceOption xs) = xs
   from_option x = [x]
-\end{code}
 
-\begin{code}
 extract_fix_path :: [Flag] -> Maybe (AbsolutePath, AbsolutePath)
 extract_fix_path [] = Nothing
 extract_fix_path ((FixFilePath repo orig):_)  = Just (repo, orig)
@@ -370,9 +360,7 @@ partitionEither es = ( [b | Right b <- es]
 -- as opposed to just '.'
 areFileArgs :: [SubPath] -> Bool
 areFileArgs rps = concatMap toFilePath rps /= ""
-\end{code}
 
-\begin{code}
 -- | 'list_option' is an option which lists the command's arguments
 list_options :: IolausOption
 list_options = IolausNoArgOption [] ["list-options"] ListOptions
@@ -721,9 +709,7 @@ __dont_compress = IolausNoArgOption [] ["dont-compress"] NoCompress
                   "don't create compressed patches"
 __uncompress = IolausNoArgOption [] ["uncompress"] UnCompress
                "uncompress patches"
-\end{code}
 
-\begin{code}
 summary = IolausMultipleChoiceOption
           [IolausNoArgOption ['s'] ["summary"] Summary "summarize changes",
            IolausNoArgOption [] ["no-summary"] NoSummary "don't summarize changes"]
@@ -733,9 +719,7 @@ unidiff = IolausNoArgOption ['u'] ["unified"] Unified
           "pass -u option to diff"
 diff_cmd_flag = IolausArgOption [] ["diff-command"]
        DiffCmd "COMMAND" "specify diff command (ignores --diff-opts)"
-\end{code}
 
-\begin{code}
 target = IolausArgOption [] ["to"] Target "EMAIL" "specify destination email"
 cc = IolausArgOption [] ["cc"] Cc "EMAIL" "mail results to additional EMAIL(s). Requires --reply"
 
@@ -751,10 +735,9 @@ get_cc fs = lt $ catMaybes $ map whatcc fs
                   lt [t,""] = t
                   lt (t:ts) = t++" , "++lt ts
                   lt [] = ""
-\end{code}
 
-\begin{code}
-subject = IolausArgOption [] ["subject"] Subject "SUBJECT" "specify mail subject"
+subject = IolausArgOption [] ["subject"] Subject "SUBJECT"
+          "specify mail subject"
 
 -- |'get_subject' takes a list of flags and returns the subject of the mail
 -- to be sent by @iolaus send@. Looks for a subject specified by
@@ -764,41 +747,31 @@ get_subject :: [Flag] -> Maybe String
 get_subject (Subject s:_) = Just s
 get_subject (_:fs) = get_subject fs
 get_subject [] = Nothing
-\end{code}
 
-\begin{code}
-in_reply_to = IolausArgOption [] ["in-reply-to"] InReplyTo "EMAIL" "specify in-reply-to header"
+in_reply_to = IolausArgOption [] ["in-reply-to"] InReplyTo "EMAIL"
+              "specify in-reply-to header"
 get_in_reply_to :: [Flag] -> Maybe String
 get_in_reply_to (InReplyTo s:_) = Just s
 get_in_reply_to (_:fs) = get_in_reply_to fs
 get_in_reply_to [] = Nothing
-\end{code}
 
-\begin{code}
 output = IolausAbsPathOrStdOption ['o'] ["output"] Output "FILE"
          "specify output filename"
-\end{code}
 
-\begin{code}
-output_auto_name = IolausOptAbsPathOption ['O'] ["output-auto-name"] "." OutputAutoName "DIRECTORY"
-                   "output to automatically named file in DIRECTORY, default: current directory"
-\end{code}
+output_auto_name = IolausOptAbsPathOption ['O'] ["output-auto-name"] "."
+                   OutputAutoName "DIRECTORY"
+  "output to automatically named file in DIRECTORY, default: current directory"
 
-\begin{code}
 edit_description =
     IolausMultipleChoiceOption
     [IolausNoArgOption [] ["edit-description"] EditDescription
                           "edit the patch bundle description",
      IolausNoArgOption [] ["dont-edit-description"] NoEditDescription
                       "don't edit the patch bundle description"]
-\end{code}
 
-\begin{code}
 distname_option = IolausArgOption ['d'] ["dist-name"] DistName "DISTNAME"
                   "name of version"
-\end{code}
 
-\begin{code}
 recursive h
     = IolausMultipleChoiceOption
       [IolausNoArgOption ['r'] ["recursive"] Recursive h,
@@ -806,14 +779,10 @@ recursive h
 
 xmloutput = IolausNoArgOption [] ["xml-output"] XMLOutput
         "generate XML formatted output"
-\end{code}
 
-\begin{code}
 creatorhash = IolausArgOption [] ["creator-hash"] CreatorHash "HASH"
               "specify hash of creator patch (see docs)"
-\end{code}
 
-\begin{code}
 sign = IolausMultipleChoiceOption
        [IolausNoArgOption [] ["sign"] Sign
         "sign the patch with your gpg key",
@@ -833,9 +802,7 @@ set_default = IolausMultipleChoiceOption
                "set default repository [DEFAULT]",
                IolausNoArgOption [] ["no-set-default"] NoSetDefault
                "don't set default repository"]
-\end{code}
 
-\begin{code}
 verify = IolausMultipleChoiceOption
          [IolausAbsPathOption [] ["verify"] Verify "PUBRING"
           "verify that the patch was signed by a key in PUBRING",
@@ -843,9 +810,7 @@ verify = IolausMultipleChoiceOption
           "verify using openSSL with authorized keys from file KEYS",
           IolausNoArgOption [] ["no-verify"] NonVerify
           "don't verify patch signature"]
-\end{code}
 
-\begin{code}
 reponame = IolausArgOption [] ["repo-name"] WorkDir "DIRECTORY"
            "path of output directory"
 deps_sel = IolausMultipleChoiceOption
@@ -969,9 +934,7 @@ allow_problematic_filenames = IolausMultipleChoiceOption
                 ]
 diffflags = IolausArgOption [] ["diff-opts"]
             DiffFlags "OPTIONS" "options to pass to diff"
-\end{code}
 
-\begin{code}
 changes_format = IolausMultipleChoiceOption
                  [IolausNoArgOption [] ["number"] NumberPatches "number the changes",
                   IolausNoArgOption [] ["count"] Count "output count of changes"
@@ -1004,9 +967,7 @@ repo_combinator =
      "take union of all repositories [DEFAULT]",
      IolausNoArgOption [] ["complement"] Complement
      "take complement of repositories (in order listed)"]
-\end{code}
 
-\begin{code}
 options_latex :: [IolausOption] -> String
 options_latex opts = "\\begin{tabular}{lll}\n"++
                      unlines (map option_latex opts)++
@@ -1044,9 +1005,7 @@ show_long_options [] = " &"
 show_long_options [s] = "\\verb!--" ++ s ++ "! &"
 show_long_options (s:ss)
     = "\\verb!--" ++ s ++ "!,"++ show_long_options ss
-\end{code}
 
-\begin{code}
 relink, sibling :: IolausOption
 relink = IolausNoArgOption [] ["relink"] Relink
          "relink internal data to a sibling"
@@ -1059,15 +1018,11 @@ flagsToSiblings :: [Flag] -> [AbsolutePath]
 flagsToSiblings ((Sibling s) : l) = s : (flagsToSiblings l)
 flagsToSiblings (_ : l) = flagsToSiblings l
 flagsToSiblings [] = []
-\end{code}
 
-\begin{code}
 nolinks :: IolausOption
 nolinks = IolausNoArgOption [] ["nolinks"] NoLinks
           "do not link repository or pristine to sibling"
-\end{code}
 
-\begin{code}
 reorder_patches :: IolausOption
 reorder_patches = IolausNoArgOption [] ["reorder-patches"] Reorder
                   "reorder the patches in the repository"
@@ -1099,9 +1054,7 @@ get_sendmail_cmd [] = do easy_sendmail <- firstJustIO [ maybeGetEnv "SENDMAIL" ]
                          case easy_sendmail of
                             Just a -> return a
                             Nothing -> return ""
-\end{code}
 
-\begin{code}
 files :: IolausOption
 files = IolausMultipleChoiceOption
         [IolausNoArgOption [] ["files"] Files
@@ -1175,9 +1128,7 @@ doing pull, push and send. This option makes iolaus skip this check.
 allow_unrelated_repos =
     IolausNoArgOption [] ["ignore-unrelated-repos"] AllowUnrelatedRepos
                          "do not check if repositories are unrelated"
-\end{code}
 
-\begin{code}
 -- | @'patch_select_flag' f@ holds whenever @f@ is a way of selecting
 -- patches such as @PatchName n@.
 patch_select_flag :: Flag -> Bool

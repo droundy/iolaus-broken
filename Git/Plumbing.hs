@@ -2,7 +2,7 @@
 #include "gadts.h"
 
 module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag, emptyCommit,
-                      catBlob, hashObject,
+                      catBlob, hashObject, committer, uname,
                       catTree, TreeEntry(..),
                       catCommit, CommitEntry(..),
                       catCommitTree, parseRev,
@@ -18,7 +18,7 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag, emptyCommit,
                       gitApply,
                       mergeBase, mergeIndex,
                       mergeFile, unpackFile,
-                      getColor, getColorWithDefault,
+                      getColor, getColorWithDefault, getAllConfig, getConfig,
                       headhash, commitTree ) where
 
 import System.IO ( Handle, hGetContents, hPutStr, hClose )
@@ -661,6 +661,34 @@ listConfig =
                             (c,"") -> [(a,c)]
                       _ -> []
 
+getAllConfig :: String -> IO [String]
+getAllConfig v =
+    do debugMessage "calling git config"
+       (Nothing, Just o, Nothing, pid) <-
+           createProcess (proc "git" ["config", "--null", "--get-all",v])
+                         { std_out = CreatePipe }
+       out <- hGetContents o
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ vals out
+         ExitFailure _ -> fail "git config failed"
+    where vals :: String -> [String]
+          vals "" =  []
+          vals s = case break (== '\0') s of (l, []) -> [l]
+                                             (l, _:s') -> l : vals s'
+
+getConfig :: String -> IO (Maybe String)
+getConfig v =
+    do debugMessage "calling git config"
+       (Nothing, Just o, Nothing, pid) <-
+           createProcess (proc "git" ["config", "--null", "--get",v])
+                         { std_out = CreatePipe }
+       out <- hGetContents o
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ Just out
+         ExitFailure _ -> return Nothing
+
 remoteUrls :: IO [(String,String)]
 remoteUrls = concatMap getrepo `fmap` listConfig
     where getrepo (x,y) =
@@ -728,3 +756,24 @@ removeFileMayNotExist f =
     catchJust ioErrors (removeFile f) $ \e ->
         if isDoesNotExistError e then return ()
                                  else ioError e
+
+committer :: IO String
+committer =
+    do (Nothing, Just o, Nothing, pid) <-
+           createProcess (proc "git" ["var", "GIT_COMMITTER_IDENT"])
+                         { std_out = CreatePipe }
+       out <- hGetContents o
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return (takeWhile (/= '>') out++">")
+         ExitFailure _ -> fail "git var failed"
+
+uname :: IO String
+uname = do (Nothing, Just o, Nothing, pid) <-
+               createProcess (proc "uname" ["-n", "-m", "-o"])
+                                 { std_out = CreatePipe }
+           out <- hGetContents o
+           ec <- length out `seq` waitForProcess pid
+           case ec of
+             ExitSuccess -> return $ filter (/= '\n') out
+             ExitFailure _ -> fail "uname failed"
