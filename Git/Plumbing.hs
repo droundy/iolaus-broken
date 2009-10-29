@@ -18,7 +18,9 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag, emptyCommit,
                       gitApply,
                       mergeBase, mergeIndex,
                       mergeFile, unpackFile,
-                      getColor, getColorWithDefault, getAllConfig, getConfig,
+                      getColor, getColorWithDefault,
+                      getAllConfig, getConfig, setConfig, unsetConfig,
+                      ConfigOption(..),
                       headhash, commitTree ) where
 
 import System.IO ( Handle, hGetContents, hPutStr, hClose )
@@ -677,17 +679,43 @@ getAllConfig v =
           vals s = case break (== '\0') s of (l, []) -> [l]
                                              (l, _:s') -> l : vals s'
 
-getConfig :: String -> IO (Maybe String)
-getConfig v =
+data ConfigOption = Global | System | RepositoryOnly
+instance Flag ConfigOption where
+    toFlags Global = ["--global"]
+    toFlags System = ["--system"]
+    toFlags RepositoryOnly = ["--file",".git/config"]
+
+getConfig :: [ConfigOption] -> String -> IO (Maybe String)
+getConfig fs v =
     do debugMessage "calling git config"
        (Nothing, Just o, Nothing, pid) <-
-           createProcess (proc "git" ["config", "--null", "--get",v])
+           createProcess (proc "git" ("config":"--null":concatMap toFlags fs
+                                      ++["--get",v]))
                          { std_out = CreatePipe }
        out <- hGetContents o
        ec <- length out `seq` waitForProcess pid
        case ec of
          ExitSuccess -> return $ Just out
          ExitFailure _ -> return Nothing
+
+setConfig :: [ConfigOption] -> String -> String -> IO ()
+setConfig fs c v =
+    do debugMessage "calling git config"
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git" ("config":concatMap toFlags fs++[c, v]))
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git config failed"
+
+unsetConfig :: [ConfigOption] -> String -> IO ()
+unsetConfig fs c =
+    do debugMessage "calling git config"
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git" ("config":concatMap toFlags fs++
+                                      ["--unset",c]))
+       waitForProcess pid
+       return ()
 
 remoteUrls :: IO [(String,String)]
 remoteUrls = concatMap getrepo `fmap` listConfig

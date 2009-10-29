@@ -3,7 +3,7 @@
 
 module Git.Helpers ( test, revListHeads,
                      slurpTree, writeSlurpTree, touchedFiles,
-                     simplifyParents,
+                     simplifyParents, configDefaults,
                      diffCommit, mergeCommits, Strategy(..) ) where
 
 import Prelude hiding ( catch )
@@ -27,6 +27,7 @@ import Git.Dag ( mergeBases, makeDag, Dag(..), greatGrandFather, parents,
                  cauterizeHeads, dag2commit, isAncestorOf )
 import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       uname, committer, remoteHeads,
+                      setConfig, unsetConfig, ConfigOption(Global, System),
                       catCommit, CommitEntry(..),
                       commitTree, updateref, parseRev,
                       mkTree, hashObject, lsothers,
@@ -41,7 +42,8 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
 import Iolaus.Progress ( debugMessage )
 import Iolaus.Flags ( Flag( Test, TestParents, NativeMerge, FirstParentMerge,
                             IolausSloppyMerge, RecordFor,
-                            CauterizeAllHeads, CommutePast ) )
+                            CauterizeAllHeads, CommutePast,
+                            GlobalConfig, SystemConfig ) )
 import Iolaus.FileName ( FileName, fp2fn )
 import Iolaus.IO ( ExecutableBit(..) )
 import Iolaus.SlurpDirectoryInternal
@@ -367,3 +369,18 @@ revListHeads opts revlistopts =
        Sealed t <- mergeCommits opts hs
        c <- commitTree t (cauterizeHeads hs) "iolaus:temp"
        revList (show c) (Skip 1:revlistopts)
+
+configDefaults :: Maybe String -> String
+               -> [Flag -> [Either String (String,String)]] -> [Flag] -> IO ()
+configDefaults msuper cmd cs fs = mapM_ configit xs
+    where xs = concat [c f | f <- fs, c <- cs ]
+          configit (Left x) = unsetConfig opts $ fname x
+          configit (Right (a,b)) = setConfig opts (fname a) b
+          fname x = case msuper of
+                      Just super -> "iolaus."++super++'.':cmd++'.':x
+                      Nothing -> "iolaus."++cmd++'.':x
+          opts = if GlobalConfig `elem` fs
+                 then [Global]
+                 else if SystemConfig `elem` fs
+                      then [System]
+                      else []

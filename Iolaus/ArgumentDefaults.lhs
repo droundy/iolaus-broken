@@ -20,38 +20,49 @@ module Iolaus.ArgumentDefaults ( add_default_flags ) where
 
 import Iolaus.Arguments ( Flag,
                           IolausOption( IolausArgOption, IolausNoArgOption,
+                                        IolausAbsPathOption,
                                         IolausMultipleChoiceOption ),
                           arein, isin )
-import Git.Plumbing ( getConfig )
+import Iolaus.RepoPath ( ioAbsolute )
+import Git.Plumbing ( getConfig, ConfigOption(RepositoryOnly, System, Global) )
 
 add_default_flags :: String -> [IolausOption] -> [Flag] -> IO [Flag]
 add_default_flags _ [] already = return already
 add_default_flags com (o:os) already =
-    do x <- find_option com already o
-       add_default_flags com os (already++x)
+    do x <- find_option [RepositoryOnly] com already o
+       y <- find_option [Global] com (already++x) o
+       z <- find_option [System] com (already++x++y) o
+       add_default_flags com os (already++x++y++z)
 
-find_option :: String -> [Flag] -> IolausOption -> IO [Flag]
-find_option com already (IolausNoArgOption _ [n] o _)
+find_option :: [ConfigOption] -> String -> [Flag] -> IolausOption -> IO [Flag]
+find_option zz com already (IolausNoArgOption _ [n] o _)
     | o `elem` already = return []
-    | otherwise = do x <- getConfig ("iolaus.defaults."++com++'.':n)
+    | otherwise = do x <- getConfig zz ("iolaus."++com++'.':n)
                      case x of
                        Just _ -> return [o]
                        Nothing -> return []
-find_option com already (IolausArgOption _ [n] o _ _)
+find_option zz com already (IolausArgOption _ [n] o _ _)
     | o `isin` already = return []
-    | otherwise = do x <- getConfig ("iolaus.defaults."++com++'.':n)
+    | otherwise = do x <- getConfig zz ("iolaus."++com++'.':n)
                      case x of
                        Just s -> return [o s]
                        Nothing -> return []
-find_option com already (IolausMultipleChoiceOption os)
+find_option zz com already option@(IolausAbsPathOption _ [n] o _ _)
+    | [option] `arein` already = return []
+    | otherwise = do x <- getConfig zz ("iolaus."++com++'.':n)
+                     case x of
+                       Just s -> do p <- ioAbsolute s
+                                    return [o p]
+                       Nothing -> return []
+find_option zz com already (IolausMultipleChoiceOption os)
     | os `arein` already = return []
-    | otherwise = do x <- mapM (find_option com already) os
+    | otherwise = do x <- mapM (find_option zz com already) os
                      case dropWhile null x of xs:_ -> return xs
                                               [] -> return []
-find_option com _ (IolausNoArgOption _ ns _ _) =
+find_option _ com _ (IolausNoArgOption _ ns _ _) =
     fail ("I'm confused about "++com++" in find_option "++show ns)
-find_option com _ (IolausArgOption _ ns _ _ _) =
+find_option _ com _ (IolausArgOption _ ns _ _ _) =
     fail ("I'm confused about "++com++" in find_option foo "++show ns)
-find_option _ _ _ = return []
+find_option _ _ _ _ = return []
 \end{code}
 
