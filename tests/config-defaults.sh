@@ -8,7 +8,9 @@ mkdir .git-hooks
 echo true > .git-hooks/test
 chmod +x .git-hooks/test
 
-git config iolaus.defaults.record.no-test true
+iolaus record --config-default --no-test
+
+cat .git/config
 
 iolaus wh | grep chmod
 

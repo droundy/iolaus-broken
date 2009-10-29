@@ -18,7 +18,8 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag, emptyCommit,
                       gitApply,
                       mergeBase, mergeIndex,
                       mergeFile, unpackFile,
-                      getColor, getColorWithDefault, getAllConfig, getConfig,
+                      getColor, getColorWithDefault,
+                      getAllConfig, getConfig, setConfig, unsetConfig,
                       headhash, commitTree ) where
 
 import System.IO ( Handle, hGetContents, hPutStr, hClose )
@@ -688,6 +689,24 @@ getConfig v =
        case ec of
          ExitSuccess -> return $ Just out
          ExitFailure _ -> return Nothing
+
+setConfig :: String -> String -> IO ()
+setConfig c v =
+    do debugMessage "calling git config"
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git" ["config", c, v])
+       ec <- waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail "git config failed"
+
+unsetConfig :: String -> IO ()
+unsetConfig c =
+    do debugMessage "calling git config"
+       (Nothing, Nothing, Nothing, pid) <-
+           createProcess (proc "git" ["config", "--unset", c])
+       waitForProcess pid
+       return ()
 
 remoteUrls :: IO [(String,String)]
 remoteUrls = concatMap getrepo `fmap` listConfig

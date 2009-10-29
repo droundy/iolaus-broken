@@ -68,7 +68,7 @@ data Flag = Help | ListOptions | NoTest | Test | TestParents
                | FixFilePath AbsolutePath AbsolutePath | DiffFlags String
                | XMLOutput
                | NonApply | NonVerify
-               | DryRun | SetDefault | NoSetDefault
+               | DryRun | ConfigDefault | GlobalConfig | SystemConfig
                | Disable
                | PristinePlain | PristineNone | NoUpdateWorking
                | Sibling AbsolutePath | Relink | NoLinks

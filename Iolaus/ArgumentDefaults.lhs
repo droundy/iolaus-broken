@@ -33,13 +33,13 @@ add_default_flags com (o:os) already =
 find_option :: String -> [Flag] -> IolausOption -> IO [Flag]
 find_option com already (IolausNoArgOption _ [n] o _)
     | o `elem` already = return []
-    | otherwise = do x <- getConfig ("iolaus.defaults."++com++'.':n)
+    | otherwise = do x <- getConfig ("iolaus."++com++'.':n)
                      case x of
                        Just _ -> return [o]
                        Nothing -> return []
 find_option com already (IolausArgOption _ [n] o _ _)
     | o `isin` already = return []
-    | otherwise = do x <- getConfig ("iolaus.defaults."++com++'.':n)
+    | otherwise = do x <- getConfig ("iolaus."++com++'.':n)
                      case x of
                        Just s -> return [o s]
                        Nothing -> return []
