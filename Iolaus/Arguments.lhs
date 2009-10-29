@@ -316,6 +316,11 @@ data IolausOption
     -- ^ A constructor for grouping mutually-exclusive options together.
 
 pull_apart_option :: Flag -> IolausOption -> [Either String (String, String)]
+pull_apart_option f (IolausAbsPathOption _ [n] o _ _)
+    = case getContent f of
+        AbsoluteContent s -> if f == o s then [Right (n, toFilePath s)]
+                                         else []
+        _ -> []
 pull_apart_option f (IolausArgOption _ [n] o _ _)
     = case get_content f of
         Nothing -> []
@@ -327,6 +332,7 @@ pull_apart_option f (IolausMultipleChoiceOption os)
     | any (not . null . pull_apart_option f) os = concatMap doit os
     where doit o | not $ null $ pull_apart_option f o = pull_apart_option f o
           doit (IolausArgOption _ [n] _ _ _) = [Left n]
+          doit (IolausAbsPathOption _ [n] _ _ _) = [Left n]
           doit (IolausNoArgOption _ [n] _ _) = [Left n]
           doit _ = []
 pull_apart_option _ _ = []

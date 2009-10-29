@@ -20,8 +20,10 @@ module Iolaus.ArgumentDefaults ( add_default_flags ) where
 
 import Iolaus.Arguments ( Flag,
                           IolausOption( IolausArgOption, IolausNoArgOption,
+                                        IolausAbsPathOption,
                                         IolausMultipleChoiceOption ),
                           arein, isin )
+import Iolaus.RepoPath ( ioAbsolute )
 import Git.Plumbing ( getConfig )
 
 add_default_flags :: String -> [IolausOption] -> [Flag] -> IO [Flag]
@@ -42,6 +44,13 @@ find_option com already (IolausArgOption _ [n] o _ _)
     | otherwise = do x <- getConfig ("iolaus."++com++'.':n)
                      case x of
                        Just s -> return [o s]
+                       Nothing -> return []
+find_option com already option@(IolausAbsPathOption _ [n] o _ _)
+    | [option] `arein` already = return []
+    | otherwise = do x <- getConfig ("iolaus."++com++'.':n)
+                     case x of
+                       Just s -> do p <- ioAbsolute s
+                                    return [o p]
                        Nothing -> return []
 find_option com already (IolausMultipleChoiceOption os)
     | os `arein` already = return []
