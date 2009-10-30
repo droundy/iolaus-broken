@@ -29,15 +29,10 @@ module Iolaus.Patch.Commute ( )
 import Iolaus.Patch.Patchy ( Commute(..), Invert(..) )
 import Iolaus.Patch.Core ( Named(..) )
 #include "impossible.h"
-import Iolaus.Ordered ( (:/\:)(..), (:\/:)(..), (:>)(..),
-                      MyEq(..) )
+import Iolaus.Ordered ( (:/\:)(..), (:\/:)(..), (:>)(..) )
 
 --import Iolaus.ColorPrinter ( traceDoc )
 --import Iolaus.Printer ( greenText )
-
-instance MyEq p => MyEq (Named n p) where
-    NamedP _ x =\/= NamedP _ y = x =\/= y
-    NamedP _ x =/\= NamedP _ y = x =/\= y
 
 instance Commute p => Commute (Named n p) where
     commute (NamedP n1 p1 :> NamedP n2 p2) =

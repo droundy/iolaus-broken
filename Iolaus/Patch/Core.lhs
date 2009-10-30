@@ -32,6 +32,7 @@ import Prelude hiding ( pi )
 import Iolaus.FileName ( fn2fp, fp2fn, norm_path )
 import Iolaus.Patch.Patchy ( Patchy )
 import Iolaus.Patch.Prim ( Effect(effect, effectRL) )
+import Iolaus.Ordered ( MyEq(..) )
 
 data Named n p C(x y) where
     NamedP :: !n -> !(p C(x y)) -> Named n p C(x y)
@@ -39,6 +40,10 @@ data Named n p C(x y) where
 instance Effect p => Effect (Named n p) where
     effect (NamedP _ p) = effect p
     effectRL (NamedP _ p) = effectRL p
+
+instance MyEq p => MyEq (Named n p) where
+    NamedP _ x =\/= NamedP _ y = x =\/= y
+    NamedP _ x =/\= NamedP _ y = x =/\= y
 
 infopatch :: Patchy p => n -> p C(x y) -> Named n p C(x y)
 infopatch n p = NamedP n p

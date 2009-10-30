@@ -35,6 +35,7 @@ module Iolaus.Patch.Prim
          is_similar, is_adddir, is_filepatch,
          canonize, try_to_shrink,
          subcommutes, sort_coalesceFL, join,
+         splatter, splatterFL,
          try_shrinking_inverse,
          Effect(..)
        )
@@ -622,9 +623,30 @@ commuteFP f (Chunk c w1 o1 n1 :> Chunk c2 w2 o2 n2)
         toPerhaps $ commuteChunk f (Chunk c w1 o1 n1 :> Chunk c2 w2 o2 n2)
 -- FIXME: add commmute for chunks
 commuteFP _ _ = Unknown
-\end{code}
 
-\begin{code}
+splatterFL :: FL Prim C(x y) -> FL Prim C(x y)
+splatterFL (a :>: b :>: c) = case splatter (a:>b) of
+                               Just ab -> splatterFL (ab :>: c)
+                               Nothing -> a :>: splatterFL (b:>:c)
+splatterFL a = a
+
+splatter :: (Prim :> Prim) C(x y) -> Maybe (Prim C(x y))
+splatter (Identity :> a) = Just a
+splatter (a :> Identity) = Just a
+splatter (FP f (Chunk c1 w1 o1 n1) :> FP f' (Chunk c2 w2 o2 n2))
+    | f /= f' = Nothing
+    | c1 /= c2 = Nothing
+    | w2 >= w1 && w2 <= w1+ln1 =
+        Just $ FP f $ Chunk c1 w1 (o1++drop (w1+ln1-w2) o2)
+                                  (take (w2-w1) n1++n2++drop (w2+lo2-w1) n1)
+    | w2 < w1 && w2 + lo2 >= w1 =
+        Just $ FP f $ Chunk c1 w2 (take (w1-w2) o2++o1++drop (w1+ln1-w2) o2)
+                                  (n2++drop (w1-w2-lo2) n1)
+    | otherwise = Nothing
+    where ln1 = length n1
+          lo2 = length o2
+splatter _ = Nothing
+
 coalesceFilePrim :: FileName -> (FilePatchType :> FilePatchType) C(x y)
                   -> Maybe (Prim C(x y))
 coalesceFilePrim f (Chunk c1 w1 o1 n1 :> Chunk c2 w2 o2 n2)
