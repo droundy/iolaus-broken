@@ -2,18 +2,19 @@
 #include "gadts.h"
 module Iolaus.Patch.Merge ( mergeNamed ) where
 
+import Iolaus.Utils ( nubsort )
 import Iolaus.Patch.Patchy ( Patchy, invert, commuteRL, commuteFL, commuteRLFL,
                              identity, showPatch )
 import Iolaus.Patch.Prim ( Prim(..), FilePatchType(Chunk), Effect, splatter )
 import Iolaus.Patch.Core ( Named(NamedP) )
 import Iolaus.Patch.Permutations ( commuteWhatWeCanFL, removeFL )
-import Iolaus.Patch.Apply ()
+import Iolaus.Patch.Apply ( chunkify )
 import Iolaus.Patch.Viewing ()
 import Iolaus.Ordered ( EqCheck(..), (=\/=), FL(..), (:>)(..),
                         reverseFL, reverseRL )
 import Iolaus.Sealed ( Sealed(..), mapSeal )
 
-import qualified Data.ByteString.Char8 as BC ( pack )
+import qualified Data.ByteString.Char8 as BC ( pack, unpack )
 
 #include "impossible.h"
 
@@ -37,7 +38,7 @@ mergeNamed xsr@(Sealed (x:>:xs) : r) =
           bigid = mkIdentity xxx
           yyy = map mkbig xxx
           mkbig (Sealed z) = case splatterNamed (bigid :>: z:>:NilFL) of
-                               Just b ->  Sealed b
+                               Just b -> Sealed b
                                Nothing -> Sealed z
           marked = markConflict yyy
 
@@ -49,9 +50,12 @@ markConflict zzz@(Sealed (NamedP _ (FP f (Chunk c w o _))) : _) =
     where getn (Sealed (NamedP a (FP _ (Chunk _ _ _ n)))) = [(a,n)]
           getn _ = []
           ns = concatMap getn zzz
-          markn (a,n) = [BC.pack ("|||"++a++">>>"),BC.pack "\n"]++n++
-                        [BC.pack "\n",BC.pack ("<<<"++a++"|||"),BC.pack "\n"]
-          markedns = concatMap markn ns
+          markn (a,n) = "||| "++a++" >>>\n"++
+                        concatMap BC.unpack n++
+                        "\n<<< "++a++" |||"
+          markedns = (if even w then [] else [BC.pack "\n"])++
+                     chunkify c (BC.pack$ init$ unlines$ nubsort$ map markn ns)
+                     ++(if even (w+length o) then [BC.pack "\n"] else [])
 markConflict _ = Sealed NilFL
 
 mkIdentity :: [Sealed (Named String Prim C(x))]

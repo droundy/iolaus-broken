@@ -1,15 +1,14 @@
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
 
-module Git.Helpers ( test, testPredicate, revListHeads,
+module Git.Helpers ( test, revListHeads,
                      slurpTree, writeSlurpTree, touchedFiles,
-                     simplifyParents,
+                     simplifyParents, configDefaults,
                      diffCommit, mergeCommits, Strategy(..) ) where
 
 import Prelude hiding ( catch )
 import Control.Exception ( catch )
-import System.Directory ( getCurrentDirectory, setCurrentDirectory,
-                          doesFileExist )
+import System.Directory ( doesFileExist )
 #ifndef HAVE_REDIRECTS
 import System.Cmd ( system )
 #else
@@ -21,11 +20,14 @@ import System.IO.Unsafe ( unsafeInterleaveIO )
 import Data.List ( sort )
 import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
 import Data.Map as M ( Map, insert, empty, lookup )
+import Data.Maybe ( isJust )
 import Data.ByteString as B ( hPutStr )
 
 import Git.Dag ( mergeBases, makeDag, Dag(..), greatGrandFather, parents,
-                 cauterizeHeads, dag2commit )
+                 cauterizeHeads, dag2commit, isAncestorOf )
 import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
+                      uname, committer, remoteHeads,
+                      setConfig, unsetConfig, ConfigOption(Global, System),
                       catCommit, CommitEntry(..),
                       commitTree, updateref, parseRev,
                       mkTree, hashObject, lsothers,
@@ -39,14 +41,16 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
 
 import Iolaus.Progress ( debugMessage )
 import Iolaus.Flags ( Flag( Test, TestParents, NativeMerge, FirstParentMerge,
-                            IolausSloppyMerge,
-                            CauterizeAllHeads, CommutePast ) )
+                            IolausSloppyMerge, RecordFor,
+                            CauterizeAllHeads, CommutePast,
+                            GlobalConfig, SystemConfig ) )
 import Iolaus.FileName ( FileName, fp2fn )
 import Iolaus.IO ( ExecutableBit(..) )
 import Iolaus.SlurpDirectoryInternal
     ( Slurpy(..), SlurpyContents(..), empty_slurpy,
       slurpies_to_map, map_to_slurpies )
-import Iolaus.Lock ( removeFileMayNotExist )
+import Iolaus.Lock ( removeFileMayNotExist, withTempDir )
+import Iolaus.RepoPath ( setCurrentDirectory, getCurrentDirectory, toFilePath )
 import Iolaus.Diff ( diff )
 import Iolaus.Patch ( Named, Prim, commute, apply_to_slurpy, mergeNamed,
                       list_touched_files, infopatch )
@@ -66,32 +70,37 @@ commitTouches :: Sealed (Hash Commit) -> IO [FilePath]
 commitTouches (Sealed c) =
     lines `fmap` diffTreeCommit [NameOnly, DiffRecursive] c []
 
-test :: [Flag] -> Hash Tree C(x) -> IO ()
+test :: [Flag] -> Hash Tree C(x) -> IO [String]
 test opts t =
     do x <- testPredicate opts t
-       if x then return ()
-            else fail "test failed"
+       case x of
+         Just m -> return m
+         Nothing -> fail "test failed"
 
-testPredicate :: [Flag] -> Hash Tree C(x) -> IO Bool
+testPredicate :: [Flag] -> Hash Tree C(x) -> IO (Maybe [String])
 testPredicate opts t | Test `elem` opts || TestParents `elem` opts =
  do havet <- doesFileExist ".git-hooks/test"
+    here <- getCurrentDirectory
     if not havet
-     then return True
-     else do
-       system "rm -rf /tmp/testing"
+     then return (Just [])
+     else withTempDir "testing" $ \tdir -> do
+       setCurrentDirectory here
        removeFileMayNotExist ".git/index.tmp"
        readTree t "index.tmp"
-       checkoutIndex "index.tmp" "/tmp/testing/"
+       checkoutIndex "index.tmp" (toFilePath tdir++"/")
        removeFileMayNotExist ".git/index.tmp"
-       here <- getCurrentDirectory
-       setCurrentDirectory "/tmp/testing"
+       setCurrentDirectory tdir
        ec <- system "./.git-hooks/test"
        setCurrentDirectory here
        case ec of
-         ExitFailure _ -> return False
-         ExitSuccess -> do system "rm -rf /tmp/testing"
-                           return True
-testPredicate _ _ = return True
+         ExitFailure _ -> return Nothing
+         ExitSuccess -> testedMessage
+    where testedMessage = Just `fmap` (testedon `catch` \_ -> testedby)
+          testedon = do x <- uname
+                        return ["","Tested-on: "++x]
+          testedby = do x <- committer
+                        return ["","Tested-by: "++x]
+testPredicate _ _ = return $ Just []
 
 slurpTree :: Hash Tree C(x) -> IO (Slurpy C(x))
 slurpTree = slurpTreeHelper (fp2fn ".")
@@ -158,11 +167,13 @@ simplifyParents opts pars0 rec0 =
     do Sealed x <- mergeCommits opts (cauterizeHeads pars0)
                    >>= mapSealM slurpTree
        y <- slurpTree rec0
-       simpHelp opts (cauterizeHeads pars0) (diff opts x y)
+       dependon <- concat `fmap` mapM remoteHeads [for | RecordFor for <- opts]
+       simpHelp opts dependon (cauterizeHeads pars0) (diff opts x y)
 
-simpHelp :: [Flag] -> [Sealed (Hash Commit)] -> FL Prim C(w x)
+simpHelp :: [Flag] -> [Sealed (Hash Commit)]
+         -> [Sealed (Hash Commit)] -> FL Prim C(w x)
          -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
-simpHelp opts pars0 pat0 = sp (cpnum opts) [] pars0 pat0
+simpHelp opts for pars0 pat0 = sp (cpnum opts) [] pars0 pat0
     where
       cpnum [] = 10000
       cpnum (CommutePast (-1):fs) = cpnum fs
@@ -181,6 +192,9 @@ simpHelp opts pars0 pat0 = sp (cpnum opts) [] pars0 pat0
              debugMessage "In sp, we've tried enough times..."
              t <- apply_to_slurpy (unsafeCoerceP patch) ptree >>= writeSlurpTree
              return (cauterizeHeads (kn++ps),Sealed t)
+      sp n kn (p:ps) patch
+          | p `elem` for || any (p `ia`) for = sp n (p:kn) ps patch
+          where Sealed x `ia` Sealed y = x `isAncestorOf` y
       sp n kn (p:ps) patch =
           do let nop = cauterizeHeads (kn++ps++unseal parents p)
              tf <- commitTouches p
@@ -198,7 +212,7 @@ simpHelp opts pars0 pat0 = sp (cpnum opts) [] pars0 pat0
                                    t' <- apply_to_slurpy (unsafeCoerceP patch)
                                                          noptree
                                          >>= writeSlurpTree
-                                   testPredicate opts t'
+                                   isJust `fmap` testPredicate opts t'
                            else return True
                         if ok then sp (n-1) kn (ps++unseal parents p) patch
                               else sp (n-1) (p:kn) ps patch
@@ -229,7 +243,8 @@ simpHelp opts pars0 pat0 = sp (cpnum opts) [] pars0 pat0
                                               putStrLn $
                                                 "\n\nRunning test without:\n"++
                                                 myMessage x
-                                              testPredicate opts t'
+                                              isJust `fmap`
+                                                     testPredicate opts t'
                                       else return True
                                   else return False
                               if ok
@@ -367,3 +382,18 @@ revListHeads opts revlistopts =
        Sealed t <- mergeCommits opts hs
        c <- commitTree t (cauterizeHeads hs) "iolaus:temp"
        revList (show c) (Skip 1:revlistopts)
+
+configDefaults :: Maybe String -> String
+               -> [Flag -> [Either String (String,String)]] -> [Flag] -> IO ()
+configDefaults msuper cmd cs fs = mapM_ configit xs
+    where xs = concat [c f | f <- fs, c <- cs ]
+          configit (Left x) = unsetConfig opts $ fname x
+          configit (Right (a,b)) = setConfig opts (fname a) b
+          fname x = case msuper of
+                      Just super -> "iolaus."++super++'.':cmd++'.':x
+                      Nothing -> "iolaus."++cmd++'.':x
+          opts = if GlobalConfig `elem` fs
+                 then [Global]
+                 else if SystemConfig `elem` fs
+                      then [System]
+                      else []

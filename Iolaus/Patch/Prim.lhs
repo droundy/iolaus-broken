@@ -636,12 +636,10 @@ splatter (a :> Identity) = Just a
 splatter (FP f (Chunk c1 w1 o1 n1) :> FP f' (Chunk c2 w2 o2 n2))
     | f /= f' = Nothing
     | c1 /= c2 = Nothing
-    | w2 >= w1 && w2 <= w1+ln1 =
-        Just $ FP f $ Chunk c1 w1 (o1++drop (w1+ln1-w2) o2)
-                                  (take (w2-w1) n1++n2++drop (w2+lo2-w1) n1)
-    | w2 < w1 && w2 + lo2 >= w1 =
-        Just $ FP f $ Chunk c1 w2 (take (w1-w2) o2++o1++drop (w1+ln1-w2) o2)
-                                  (n2++drop (w1-w2-lo2) n1)
+    | (w2 >= w1 && w2 <= w1+ln1) || (w2 < w1 && w2 + lo2 >= w1) =
+        Just $ FP f $ Chunk c1 (min w1 w2)
+                               (take (w1-w2) o2++o1++drop (w1+ln1-w2) o2)
+                               (take (w2-w1) n1++n2++drop (w2+lo2-w1) n1)
     | otherwise = Nothing
     where ln1 = length n1
           lo2 = length o2
