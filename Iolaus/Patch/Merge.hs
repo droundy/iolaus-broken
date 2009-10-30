@@ -3,7 +3,7 @@
 module Iolaus.Patch.Merge ( mergeNamed ) where
 
 import Iolaus.Patch.Patchy ( Patchy, invert, commuteRL, commuteFL, commuteRLFL,
-                             identity, showPatch )
+                             identity )
 import Iolaus.Patch.Prim ( Prim(..), FilePatchType(Chunk), Effect, splatter )
 import Iolaus.Patch.Core ( Named(NamedP) )
 import Iolaus.Patch.Permutations ( commuteWhatWeCanFL, removeFL )

@@ -25,12 +25,14 @@ import System.Console.GetOpt( ArgOrder( Permute, RequireOrder ),
                               getOpt )
 import System.Exit ( ExitCode ( ExitSuccess ), exitWith )
 
-import Iolaus.Arguments ( Flag(..), help, flagToString, option_from_iolausoption,
-                          list_options )
-import Iolaus.ArgumentDefaults ( get_default_flags )
+import Iolaus.Arguments ( Flag(..), help, flagToString,
+                          option_from_iolausoption, pull_apart_option,
+                          list_options, config_defaults )
+import Iolaus.ArgumentDefaults ( add_default_flags )
 import Iolaus.Command ( CommandArgs( CommandOnly, SuperCommandOnly,
                                      SuperCommandSub ),
                         Command, command_name, command_command,
+                        command_basic_options, command_advanced_options,
                         command_prereq, command_extra_arg_help,
                         command_extra_args, command_argdefaults,
                         command_get_arg_possibilities,
@@ -44,6 +46,9 @@ import Iolaus.Progress ( setProgressMode, debugMessage )
 import Iolaus.RepoPath ( getCurrentDirectory )
 import Iolaus.Hooks ( run_posthook, run_prehook )
 import Iolaus.Utils ( formatPath )
+
+import Git.Helpers ( configDefaults )
+
 #include "impossible.h"
 
 run_the_command :: String -> [String] -> IO ()
@@ -67,6 +72,7 @@ run_the_command cmd args@(h:_)
                 Right (SuperCommandSub _ _, _) -> impossible
           Right (CommandOnly c, _) ->
               do let (opts1, opts2) = command_options cwd c
+                 putStrLn "--config-default"
                  file_args <- command_get_arg_possibilities c
                  putStrLn $ get_options_options (opts1++opts2)
                               ++ unlines file_args
@@ -78,6 +84,7 @@ run_the_command cmd args@(h:_)
               | [command_name s] /= take 1 args -> putStrLn $ command_name s
           Right (SuperCommandSub _ s, _) ->
               do let (opts1, opts2) = command_options cwd s
+                 putStrLn "--config-default"
                  file_args <- command_get_arg_possibilities s
                  putStrLn $ get_options_options (opts1++opts2)
                               ++ unlines file_args
@@ -99,20 +106,25 @@ run_command _ _ args -- Check for "dangerous" typoes...
 run_command msuper cmd args = do
    cwd <- getCurrentDirectory
    let options = opts1 ++ opts2
+                 ++ concatMap (option_from_iolausoption cwd) config_defaults
        (opts1, opts2) = command_options cwd cmd
    case getOpt Permute
              (option_from_iolausoption cwd list_options++options) args of
     (opts,extra,[])
       | Help `elem` opts -> putStrLn $ get_command_help msuper cmd
+      | ConfigDefault `elem` opts ->
+          configDefaults (command_name `fmap` msuper) (command_name cmd)
+                  (map (\o -> (`pull_apart_option` o)) iopts) opts
       | ListOptions `elem` opts  -> do
            setProgressMode False
            command_prereq cmd opts
            file_args <- command_get_arg_possibilities cmd
-           putStrLn $ get_options_options (opts1++opts2) ++ unlines file_args
+           putStrLn $ get_options_options options ++ unlines file_args
       | otherwise -> consider_running msuper cmd (addVerboseIfDebug opts) extra
     (_,_,ermsgs) -> fail $ unlines ermsgs
     where addVerboseIfDebug opts | DebugVerbose `elem` opts = Debug:Verbose:opts
                                  | otherwise = opts
+          iopts = command_basic_options cmd ++ command_advanced_options cmd
 
 consider_running :: Maybe Command -> Command
                  -> [Flag] -> [String] -> IO ()
@@ -166,8 +178,7 @@ consider_running msuper cmd opts old_extra = do
 add_command_defaults :: Command -> [Flag] -> IO [Flag]
 add_command_defaults cmd already = do
   let (opts1, opts2) = command_alloptions cmd
-  defaults <- get_default_flags (command_name cmd) (opts1 ++ opts2) already
-  return $ already ++ defaults
+  add_default_flags (command_name cmd) (opts1 ++ opts2) already
 
 get_options_options :: [OptDescr Flag] -> String
 get_options_options [] = ""

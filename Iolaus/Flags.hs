@@ -23,6 +23,7 @@ import Iolaus.RepoPath ( AbsolutePath, AbsolutePathOrStd )
 -- passed to iolaus, or to one of its commands.
 data Flag = Help | ListOptions | NoTest | Test | TestParents
           | NoCauterizeAllHeads | CauterizeAllHeads | CommutePast Int
+          | RecordFor String
           | NoTagOnTest | TagOnTest
                | HelpOnMatch | OnlyChangesToFiles
                | LeaveTestDir | NoLeaveTestDir
@@ -68,7 +69,7 @@ data Flag = Help | ListOptions | NoTest | Test | TestParents
                | FixFilePath AbsolutePath AbsolutePath | DiffFlags String
                | XMLOutput
                | NonApply | NonVerify
-               | DryRun | SetDefault | NoSetDefault
+               | DryRun | ConfigDefault | GlobalConfig | SystemConfig
                | Disable
                | PristinePlain | PristineNone | NoUpdateWorking
                | Sibling AbsolutePath | Relink | NoLinks

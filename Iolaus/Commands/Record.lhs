@@ -109,10 +109,14 @@ record_cmd opts args = do
                  do newtree <- writeSlurpTree new'
                     (name, my_log, _) <- get_log opts Nothing
                                        (world_readable_temp "iolaus-record")
-                    let message = (unlines $ name:my_log)
                     hs <- heads
                     (hs', Sealed newtree') <- simplifyParents opts hs newtree
-                    test (testByDefault opts) newtree'
+                    testedby <- test (testByDefault opts) newtree'
+                    let -- FIXME join with Signed-off-by:
+                        cleanup ("":"":r) = cleanup ("":r)
+                        cleanup (a:b) = a : cleanup b
+                        cleanup [] = []
+                        message = (unlines $ cleanup $ name:my_log++testedby)
                     com <- commitTree newtree' hs' message
                     add_heads opts [Sealed com]
                     putStrLn ("Finished recording patch '"++ name ++"'")
