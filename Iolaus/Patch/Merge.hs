@@ -4,12 +4,13 @@ module Iolaus.Patch.Merge ( mergeNamed ) where
 
 import Iolaus.Utils ( nubsort )
 import Iolaus.Patch.Patchy ( Patchy, invert, commuteRL, commuteFL, commuteRLFL,
-                             identity, showPatch )
+                             identity )
 import Iolaus.Patch.Prim ( Prim(..), FilePatchType(Chunk), Effect, splatter )
 import Iolaus.Patch.Core ( Named(NamedP) )
 import Iolaus.Patch.Permutations ( commuteWhatWeCanFL, removeFL )
 import Iolaus.Patch.Apply ( chunkify )
 import Iolaus.Patch.Viewing ()
+
 import Iolaus.Ordered ( EqCheck(..), (=\/=), FL(..), (:>)(..),
                         reverseFL, reverseRL )
 import Iolaus.Sealed ( Sealed(..), mapSeal )

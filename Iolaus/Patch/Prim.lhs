@@ -44,6 +44,7 @@ module Iolaus.Patch.Prim
 import Control.Monad ( MonadPlus, msum, mzero, mplus )
 #ifndef GADT_WITNESSES
 import Data.Map ( elems, fromListWith, mapWithKey )
+import Iolaus.Ordered ( mapFL )
 #endif
 
 import qualified Data.ByteString as B ( ByteString, concat )
@@ -53,7 +54,7 @@ import Iolaus.FileName ( FileName, fn2fp, fp2fn, norm_path,
 import Iolaus.RepoPath ( toFilePath )
 import Iolaus.Ordered ( EqCheck(..), MyEq(..),
                        (:>)(..), (:\/:)(..), (:/\:)(..), FL(..), RL(..), (+>+),
-                       concatFL, concatRL, mapFL, mapFL_FL, mapRL_RL,
+                       concatFL, concatRL, mapFL_FL, mapRL_RL,
                        reverseFL, reverseRL, lengthFL, unsafeCoerceP )
 import Iolaus.Patch.Patchy ( Invert(..), Commute(..) )
 import Iolaus.Patch.Permutations () -- for Invert instance of FL
@@ -644,6 +645,7 @@ splatter (FP f (Chunk c1 w1 o1 n1) :> FP f' (Chunk c2 w2 o2 n2))
     where ln1 = length n1
           lo2 = length o2
 splatter _ = Nothing
+
 
 coalesceFilePrim :: FileName -> (FilePatchType :> FilePatchType) C(x y)
                   -> Maybe (Prim C(x y))
