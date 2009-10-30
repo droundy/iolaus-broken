@@ -40,7 +40,7 @@ This code was made generic in the element type by Juliusz Chroboczek.
 \begin{code}
 module Iolaus.Printer
     (Doc, Color(..),
-     hPutDoc, hPutDocLn, putDoc, putDocLn, renderString, renderPSs,
+     hPutDoc, hPutDocLn, putDoc, putDocLn, renderPSs,
      prefix, colorPS, text, printable, wrap_text, blueText, redText, greenText,
      unsafeText, packedString, unsafePackedString, userchunkPS,
      empty, (<>), (<?>), (<+>), ($$), vcat, vsep, hcat,
@@ -86,7 +86,7 @@ minus     = unsafeBoth "-"  (BC.singleton '-')
 plus      = unsafeBoth "+"  (BC.singleton '+')
 
 errorDoc :: Doc -> a
-errorDoc = error . renderStringWith simplePrinters'
+errorDoc = error . show
 
 
 putDoc :: Doc -> IO ()
@@ -146,17 +146,11 @@ data Color = Blue | Red | Green | Underline Color
 data Document = Document ([Printable] -> [Printable])
               | Empty
 
--- | renders a 'Doc' into a 'String' with control codes for the
--- special features of the doc.
-renderString :: Doc -> String
-renderString = renderStringWith simplePrinters'
-
--- | renders a 'Doc' into a 'String' using a given set of printers.
-renderStringWith :: Printers' -> Doc -> String
-renderStringWith prs d = concatMap toString $ renderWith prs d
-    where toString (S s) = s
-          toString (PS ps) = BC.unpack ps
-          toString (Both s _) = s
+instance Show Doc where
+    show = concatMap toString . renderWith simplePrinters'
+        where toString (S s) = s
+              toString (PS ps) = BC.unpack ps
+              toString (Both s _) = s
 
 -- | renders a 'Doc' into a list of 'PackedStrings', one for each line.
 renderPSs :: Doc -> [B.ByteString]

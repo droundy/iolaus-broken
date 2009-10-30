@@ -42,7 +42,7 @@ import Iolaus.Arguments ( Flag( PromptLongComment, NoEditLongComment,
 import Iolaus.Utils ( askUser, promptYorn, edit_file )
 import Iolaus.RepoPath ( FilePathLike, toFilePath )
 import Iolaus.Patch ( apply_to_slurpy )
-import Iolaus.Printer ( ($$), text, hPutDocLn, wrap_text, renderString )
+import Iolaus.Printer ( ($$), text, hPutDocLn, wrap_text )
 import Iolaus.SelectChanges ( with_selected_changes_to_files )
 import Iolaus.Ordered ( (:>)(..), FL(NilFL) )
 import Iolaus.Progress ( debugMessage )
@@ -68,7 +68,7 @@ to record, you will only be prompted to changes in those files or
 directories.
 \begin{code}
 record_help :: String
-record_help = renderString $ wrap_text 80 $
+record_help = show $ wrap_text 80 $
  "Record is used to name a set of changes and record the patch to the "++
  "repository."
 

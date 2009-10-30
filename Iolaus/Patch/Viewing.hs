@@ -29,8 +29,7 @@ import qualified Data.ByteString as B ( ByteString, null, concat )
 import Iolaus.FileName ( FileName, fp2fn, fn2fp )
 import Iolaus.Printer
     ( Doc, empty, vcat, text, blueText, Color(Red,Green), colorPS,
-      minus, plus, ($$), (<+>), (<>),
-      prefix, renderString, unsafePackedString )
+      minus, plus, ($$), (<+>), (<>), prefix, unsafePackedString )
 import Iolaus.Patch.Core ( Named(..) )
 import Iolaus.Patch.Prim ( Prim(..), formatFileName, showPrim,
                            Effect, effect,
@@ -152,7 +151,7 @@ instance (Effect p, ShowPatch p, Show n) => ShowPatch (Named n p) where
                                  prefix "    " (showNicely pt)
 
 instance (Effect p, Show n, ShowPatch p) => Show (Named n p C(x y)) where
-    show = renderString . showPatch
+    show = show . showPatch
 
 instance (Apply p, Effect p, ShowPatch p) => ShowPatch (FL p) where
     showPatch xs = vcat (mapFL showPatch xs)
