@@ -111,6 +111,11 @@ record_cmd opts args = do
                                        (world_readable_temp "iolaus-record")
                     hs <- heads
                     (hs', Sealed newtree') <- simplifyParents opts hs newtree
+                    if Sealed newtree' /= Sealed newtree
+                      then do debugMessage "Testing on \"current\" tree"
+                              test (testByDefault opts) newtree
+                      else return []
+                    debugMessage "Testing on \"canonical\" tree"
                     testedby <- test (testByDefault opts) newtree'
                     let -- FIXME join with Signed-off-by:
                         cleanup ("":"":r) = cleanup ("":r)
