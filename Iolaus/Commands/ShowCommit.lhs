@@ -19,16 +19,14 @@
 \begin{code}
 module Iolaus.Commands.ShowCommit ( show_commit ) where
 
-import Iolaus.Arguments ( Flag(..), mergeStrategy,
+import Iolaus.Arguments ( Flag(Summary, Verbose), mergeStrategy,
                           summary, working_repo_dir )
 import Iolaus.Command ( Command(..), nodefaults )
-import Iolaus.Printer ( putDocLn )
-import Iolaus.Patch ( showContextPatch, summarize, invert, apply_to_slurpy )
-import Iolaus.Sealed ( Sealed(Sealed), FlippedSeal(FlippedSeal) )
+import Iolaus.Sealed ( Sealed(Sealed) )
 
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( parseRev, nameRevs, catCommit, CommitEntry(myTree) )
-import Git.Helpers ( slurpTree, diffCommit )
+import Git.Plumbing ( parseRev, nameRevs )
+import Git.Helpers ( showCommit )
 \end{code}
 
 \options{show commit}
@@ -38,15 +36,10 @@ import Git.Helpers ( slurpTree, diffCommit )
 \begin{code}
 show_commit_description :: String
 show_commit_description = "Show a given commit."
-\end{code}
 
-\begin{code}
 show_commit_help :: String
-show_commit_help =
- "The commit command nicely shows a commit."
-\end{code}
+show_commit_help = "The commit command nicely shows a commit."
 
-\begin{code}
 show_commit :: Command
 show_commit = Command {
   command_name = "commit",
@@ -62,15 +55,10 @@ show_commit = Command {
   command_basic_options = [mergeStrategy, summary, working_repo_dir] }
 
 commit_cmd :: [Flag] -> [String] -> IO ()
-commit_cmd opts cs = mapM_ showc cs
-    where showc c =
-              do Sealed x <- parseRev c
-                 commit <- catCommit x
-                 putStr $ show commit
-                 FlippedSeal ch <- diffCommit opts x
-                 new <- slurpTree (myTree commit)
-                 let Just old = apply_to_slurpy (invert ch) new
-                 putDocLn $ if Summary `elem` opts
-                            then summarize ch
-                            else showContextPatch old ch
+commit_cmd opts0 cs = mapM_ showc cs
+    where showc c = do Sealed x <- parseRev c
+                       showCommit opts x
+          opts = if Summary `elem` opts0
+                 then opts0
+                 else Verbose:opts0
 \end{code}

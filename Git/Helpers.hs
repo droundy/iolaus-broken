@@ -4,7 +4,8 @@
 module Git.Helpers ( test, revListHeads,
                      slurpTree, writeSlurpTree, touchedFiles,
                      simplifyParents, configDefaults,
-                     diffCommit, mergeCommits, Strategy(..) ) where
+                     diffCommit, mergeCommits, Strategy(..),
+                     showCommit ) where
 
 import Prelude hiding ( catch )
 import Control.Exception ( catch )
@@ -41,7 +42,7 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
 
 import Iolaus.Progress ( debugMessage )
 import Iolaus.Flags ( Flag( Test, TestParents, NativeMerge, FirstParentMerge,
-                            IolausSloppyMerge, RecordFor,
+                            IolausSloppyMerge, RecordFor, Summary, Verbose,
                             CauterizeAllHeads, CommutePast,
                             GlobalConfig, SystemConfig ) )
 import Iolaus.FileName ( FileName, fp2fn )
@@ -53,10 +54,12 @@ import Iolaus.Lock ( removeFileMayNotExist, withTempDir )
 import Iolaus.RepoPath ( setCurrentDirectory, getCurrentDirectory, toFilePath )
 import Iolaus.Diff ( diff )
 import Iolaus.Patch ( Named, Prim, commute, apply_to_slurpy, mergeNamed,
-                      list_touched_files, infopatch )
+                      list_touched_files, infopatch,
+                      invert, summarize, showContextPatch )
 import Iolaus.TouchesFiles ( look_touch )
 import Iolaus.Ordered ( FL(..), (:>)(..), (+>+), unsafeCoerceP, mapFL_FL )
 import Iolaus.Sealed ( Sealed(..), FlippedSeal(..), mapSeal, mapSealM, unseal )
+import Iolaus.Printer ( putDocLn )
 
 #include "impossible.h"
 
@@ -397,3 +400,16 @@ configDefaults msuper cmd cs fs = mapM_ configit xs
                  else if SystemConfig `elem` fs
                       then [System]
                       else []
+
+showCommit :: [Flag] -> Hash Commit C(x) -> IO ()
+showCommit opts c =
+    do commit <- catCommit c
+       putStr $ show commit
+       FlippedSeal ch <- diffCommit opts c
+       new <- slurpTree (myTree commit)
+       let Just old = apply_to_slurpy (invert ch) new
+       if Summary `elem` opts
+           then putDocLn $ summarize ch
+           else if Verbose `elem` opts
+                then putDocLn $ showContextPatch old ch
+                else return ()
