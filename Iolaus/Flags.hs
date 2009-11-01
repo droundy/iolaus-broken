@@ -64,6 +64,7 @@ data Flag = Help | ListOptions | NoTest | Test | TestParents
                | Interactive
                | DiffCmd String
                | ExternalMerge String | Summary | NoSummary
+               | ShowHash | NoShowHash
                | Unified | Reverse
                | Complete | Lazy | Ephemeral
                | FixFilePath AbsolutePath AbsolutePath | DiffFlags String

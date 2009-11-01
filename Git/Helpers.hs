@@ -43,7 +43,7 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
 import Iolaus.Progress ( debugMessage )
 import Iolaus.Flags ( Flag( Test, TestParents, NativeMerge, FirstParentMerge,
                             IolausSloppyMerge, RecordFor, Summary, Verbose,
-                            CauterizeAllHeads, CommutePast,
+                            CauterizeAllHeads, CommutePast, ShowHash,
                             GlobalConfig, SystemConfig ) )
 import Iolaus.FileName ( FileName, fp2fn )
 import Iolaus.IO ( ExecutableBit(..) )
@@ -407,6 +407,8 @@ configDefaults msuper cmd cs fs = mapM_ configit xs
 showCommit :: [Flag] -> Hash Commit C(x) -> IO ()
 showCommit opts c =
     do commit <- catCommit c
+       if ShowHash `elem` opts then putStrLn (show c)
+                                    else return ()
        putStr $ show commit
        if Summary `elem` opts
            then do FlippedSeal ch <- diffCommit opts c
