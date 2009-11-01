@@ -40,6 +40,7 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       mergeIndex, readTreeMerge,
                       catTree, catBlob, catCommitTree )
 
+import Iolaus.Show ( pretty )
 import Iolaus.Progress ( debugMessage )
 import Iolaus.Flags ( Flag( Test, TestParents, NativeMerge, FirstParentMerge,
                             IolausSloppyMerge, RecordFor, Summary, Verbose,
@@ -404,7 +405,7 @@ configDefaults msuper cmd cs fs = mapM_ configit xs
 showCommit :: [Flag] -> Hash Commit C(x) -> IO ()
 showCommit opts c =
     do commit <- catCommit c
-       putStr $ show commit
+       putStr $ pretty commit
        FlippedSeal ch <- diffCommit opts c
        new <- slurpTree (myTree commit)
        let Just old = apply_to_slurpy (invert ch) new
