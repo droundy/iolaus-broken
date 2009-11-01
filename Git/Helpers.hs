@@ -59,7 +59,7 @@ import Iolaus.Patch ( Named, Prim, commute, apply_to_slurpy, mergeNamed,
 import Iolaus.TouchesFiles ( look_touch )
 import Iolaus.Ordered ( FL(..), (:>)(..), (+>+), unsafeCoerceP, mapFL_FL )
 import Iolaus.Sealed ( Sealed(..), FlippedSeal(..), mapSeal, mapSealM, unseal )
-import Iolaus.Printer ( putDocLn )
+import Iolaus.Printer ( putDocLn, prefix )
 
 #include "impossible.h"
 
@@ -410,7 +410,8 @@ showCommit opts c =
        putStr $ show commit
        if Summary `elem` opts
            then do FlippedSeal ch <- diffCommit opts c
-                   putDocLn $ summarize ch
+                   putStrLn ""
+                   putDocLn $ prefix "    " $ summarize ch
            else if Verbose `elem` opts
                 then do FlippedSeal ch <- diffCommit opts c
                         new <- slurpTree (myTree commit)
