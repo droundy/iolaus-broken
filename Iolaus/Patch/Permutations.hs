@@ -23,6 +23,7 @@
 
 module Iolaus.Patch.Permutations ( removeFL, removeRL, removeCommon,
                                   commuteWhatWeCanFL, commuteWhatWeCanRL,
+                                   commuteWhatWeCanRLFL,
                                   genCommuteWhatWeCanRL,
                                   partitionFL, partitionRL,
                                   head_permutationsFL, head_permutationsRL,
@@ -109,6 +110,14 @@ genCommuteWhatWeCanRL com (x :<: xs :> p) =
                        a :> p'' :> c -> a :> p'' :> x' :<: c
 genCommuteWhatWeCanRL _ (NilRL :> y) = NilRL :> y :> NilRL
 
+commuteWhatWeCanRLFL :: Commute p => (RL p :> FL p) C(x y)
+                     -> (FL p :> FL p) C(x y)
+commuteWhatWeCanRLFL (xs :> NilFL) = NilFL :> reverseRL xs
+commuteWhatWeCanRLFL (xs :> y :>: ys) =
+    case commuteWhatWeCanRL (xs :> y) of
+      a :> b :> c ->
+          case commuteWhatWeCanRLFL (c :> ys) of
+            d :> e -> (reverseRL a +>+ b :>: d) :> e
 
 removeCommon :: (MyEq p, Commute p) => (FL p :\/: FL p) C(x y) -> (FL p :\/: FL p) C(x y)
 removeCommon (xs :\/: NilFL) = xs :\/: NilFL
