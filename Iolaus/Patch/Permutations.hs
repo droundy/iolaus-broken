@@ -22,12 +22,8 @@
 #include "gadts.h"
 
 module Iolaus.Patch.Permutations ( removeFL, removeRL, removeCommon,
-                                  commuteWhatWeCanFL, commuteWhatWeCanRL,
-                                  genCommuteWhatWeCanRL,
-                                  partitionFL, partitionRL,
-                                  head_permutationsFL, head_permutationsRL,
-                                  headPermutationsFL,
-                                  remove_subsequenceFL, remove_subsequenceRL ) where
+                                   commuteWhatWeCanFL, commuteWhatWeCanRL,
+                                   partitionFL, partitionRL ) where
 
 import Data.Maybe ( catMaybes )
 import Iolaus.Patch.Patchy ( Commute, commute, commuteFL, commuteRL, Invert(..), invertFL, invertRL )
@@ -95,19 +91,17 @@ commuteWhatWeCanFL (p :> x :>: xs) =
                        a :> p'' :> c -> x' :>: a :> p'' :> c
 commuteWhatWeCanFL (y :> NilFL) = NilFL :> y :> NilFL
 
-commuteWhatWeCanRL :: Commute p => (RL p :> p) C(x y) -> (RL p :> p :> RL p) C(x y)
-commuteWhatWeCanRL = genCommuteWhatWeCanRL commute
-
-genCommuteWhatWeCanRL :: (FORALL(a b) ((p :> p) C(a b) -> Maybe ((p :> p) C(a b))))
-                      -> (RL p :> p) C(x y) -> (RL p :> p :> RL p) C(x y)
-genCommuteWhatWeCanRL com (x :<: xs :> p) =
-    case com (x :> p) of
-    Nothing -> case genCommuteWhatWeCanRL com (xs :> x) of
-               xs1 :> x' :> xs2 -> case genCommuteWhatWeCanRL com (xs2 :> p) of
-                              xs1' :> p' :> xs2' -> xs1' +<+ x' :<: xs1 :> p' :> xs2'
-    Just (p' :> x') -> case genCommuteWhatWeCanRL com (xs :> p') of
+commuteWhatWeCanRL :: Commute p => (RL p :> p) C(x y)
+                   -> (RL p :> p :> RL p) C(x y)
+commuteWhatWeCanRL (x :<: xs :> p) =
+    case commute (x :> p) of
+    Nothing -> case commuteWhatWeCanRL (xs :> x) of
+               xs1 :> x' :> xs2 ->
+                   case commuteWhatWeCanRL (xs2 :> p) of
+                     xs1' :> p' :> xs2' -> xs1' +<+ x' :<: xs1 :> p' :> xs2'
+    Just (p' :> x') -> case commuteWhatWeCanRL (xs :> p') of
                        a :> p'' :> c -> a :> p'' :> x' :<: c
-genCommuteWhatWeCanRL _ (NilRL :> y) = NilRL :> y :> NilRL
+commuteWhatWeCanRL (NilRL :> y) = NilRL :> y :> NilRL
 
 
 removeCommon :: (MyEq p, Commute p) => (FL p :\/: FL p) C(x y) -> (FL p :\/: FL p) C(x y)
@@ -133,25 +127,6 @@ removeRL x xs = r x $ head_permutationsRL xs
           r z ((z':<:zs):zss) | IsEq <- z =/\= z' = Just zs
                               | otherwise = r z zss
           r _ _ = Nothing
-
-remove_subsequenceFL :: (MyEq p, Commute p) => FL p C(a b)
-                     -> FL p C(a c) -> Maybe (FL p C(b c))
-remove_subsequenceFL a b | lengthFL a > lengthFL b = Nothing
-                         | otherwise = rsFL a b
-    where rsFL :: (MyEq p, Commute p) => FL p C(a b) -> FL p C(a c) -> Maybe (FL p C(b c))
-          rsFL NilFL ys = Just ys
-          rsFL (x:>:xs) yys = removeFL x yys >>= remove_subsequenceFL xs
-
-remove_subsequenceRL :: (MyEq p, Commute p) => RL p C(ab abc)
-                     -> RL p C(a abc) -> Maybe (RL p C(a ab))
-remove_subsequenceRL a b | lengthRL a > lengthRL b = Nothing
-                         | otherwise = rsRL a b
-    where rsRL :: (MyEq p, Commute p) => RL p C(ab abc) -> RL p C(a abc) -> Maybe (RL p C(a ab))
-          rsRL NilRL ys = Just ys
-          rsRL (x:<:xs) yys = removeRL x yys >>= remove_subsequenceRL xs
-
-head_permutationsFL :: Commute p => FL p C(x y) -> [FL p C(x y)]
-head_permutationsFL ps = map (\ (x:>xs) -> x:>:xs) $ headPermutationsFL ps
 
 headPermutationsFL :: Commute p => FL p C(x y) -> [(p :> FL p) C(x y)]
 headPermutationsFL NilFL = []
