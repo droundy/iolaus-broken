@@ -95,22 +95,11 @@ putDoc = hPutDoc stdout
 putDocLn :: Doc -> IO ()
 putDocLn = hPutDocLn stdout
 
--- | 'hputDocWith' puts a Doc on the given handle using the given printer.
-hPutDocWith :: Printers -> Handle -> Doc -> IO ()
--- | 'hputDocLnWith' puts a doc, followed by a newline on the given
--- handle using the given printer.
-hPutDocLnWith :: Printers -> Handle -> Doc -> IO ()
-
-hPutDocWith prs h d = hPrintPrintables h (renderWith (prs h) d)
-hPutDocLnWith prs h d = hPutDocWith prs h (d <?> newline)
-
--- |'hputDoc' puts a Doc on the given handle using 'simplePrinters'
 hPutDoc :: Handle -> Doc -> IO ()
--- 'hputDocLn' puts a doc, followed by a newline on the given handle using
--- 'simplePrinters'.
+hPutDoc h d = hPrintPrintables h (renderWith (fancyPrinters h) d)
+
 hPutDocLn :: Handle -> Doc -> IO ()
-hPutDoc = hPutDocWith fancyPrinters
-hPutDocLn = hPutDocLnWith fancyPrinters
+hPutDocLn h d = hPutDoc h (d <?> newline)
 
 -- | @'hPrintPrintables' h@ prints a list of 'Printable's to the handle h
 hPrintPrintables :: Handle -> [Printable] -> IO ()
@@ -128,12 +117,11 @@ newtype Doc = Doc { unDoc :: St -> Document }
 
 -- | The State associated with a doc. Contains a set of printers for each
 -- hanlde, and the current prefix of the document.
-data St = St { printers :: !Printers',
+data St = St { printers :: !Printers,
                current_prefix :: !([Printable] -> [Printable]) }
-type Printers = Handle -> Printers'
 
 -- | A set of printers to print different types of text to a handle.
-data Printers' = Printers {colorP :: !(Color -> Printer),
+data Printers = Printers { colorP :: !(Color -> Printer),
                            userchunkP :: !Printer,
                            defP :: !Printer }
 type Printer = Printable -> St -> Document
@@ -147,20 +135,14 @@ data Document = Document ([Printable] -> [Printable])
               | Empty
 
 instance Show Doc where
-    show = concatMap toString . renderWith simplePrinters'
+    show = concatMap toString . renderWith (fancyPrinters stdout)
         where toString (S s) = s
               toString (PS ps) = BC.unpack ps
               toString (Both s _) = s
 
 -- | renders a 'Doc' into a list of 'PackedStrings', one for each line.
 renderPSs :: Doc -> [B.ByteString]
-renderPSs = renderPSsWith simplePrinters'
-
--- | renders a 'Doc' into a list of 'PackedStrings', one for each
--- chunk of text that was added to the doc, using the given set of
--- printers.
-renderPSsWith :: Printers' -> Doc -> [B.ByteString]
-renderPSsWith prs d = map toPS $ renderWith prs d
+renderPSs = map toPS . renderWith (fancyPrinters stdout)
     where toPS (S s)        = BC.pack s
           toPS (PS ps)      = ps
           toPS (Both _ ps)  = ps
@@ -168,12 +150,12 @@ renderPSsWith prs d = map toPS $ renderWith prs d
 -- | renders a 'Doc' into a list of 'Printables' using a set of
 -- printers. Each item of the list corresponds to a string that was
 -- added to the doc.
-renderWith :: Printers' -> Doc -> [Printable]
+renderWith :: Printers -> Doc -> [Printable]
 renderWith ps (Doc d) = case d (init_state ps) of
                         Empty -> []
                         Document f -> f []
 
-init_state :: Printers' -> St
+init_state :: Printers -> St
 init_state prs = St { printers = prs, current_prefix = id }
 
 prefix :: String -> Doc -> Doc
@@ -255,13 +237,6 @@ printable x = Doc $ \st -> defP (printers st) x st
 mkColorPrintable :: Color -> Printable -> Doc
 mkColorPrintable c x = Doc $ \st -> colorP (printers st) c x st
 userchunkPrintable x = Doc $ \st -> userchunkP (printers st) x st
-
--- | A set of default printers suitable for any handle. Does not use color.
-simplePrinters' :: Printers'
-simplePrinters'  = Printers { colorP = const simplePrinter,
-                              userchunkP = simplePrinter,
-                              defP = simplePrinter
-                            }
 
 -- | 'simplePrinter' is the simplest 'Printer': it just concatenates together
 -- the pieces of the 'Doc'
@@ -415,7 +390,7 @@ getPolicy handle = unsafePerformIO $
 
 -- | @'fancyPrinters' h@ returns a set of printers suitable for outputting
 -- to @h@
-fancyPrinters :: Printers
+fancyPrinters :: Handle -> Printers
 fancyPrinters h = Printers { colorP     = colorPrinter (getPolicy h),
                              userchunkP  = userchunkPrinter (getPolicy h),
                              defP       = escapePrinter (getPolicy h) }
