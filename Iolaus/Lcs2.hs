@@ -17,8 +17,7 @@
 --  along with this program; if not, write to the Free Software Foundation,
 --  Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-module Iolaus.Lcs2 ( getChanges, patientChanges, smartChanges,
-                     patientLcs, nestedChanges ) where
+module Iolaus.Lcs2 ( patientLcs, nestedChanges ) where
 
 import Data.List ( sort )
 import Data.Array.ST
@@ -85,22 +84,6 @@ lcus xs0 ys0 = lcs (filter (`S.member`u) xs0) (filter (`S.member`u) ys0)
           gru (x:x':xs) | x == x' = gru (dropWhile (==x) xs)
           gru (x:xs) = x : gru xs
           gru [] = []
-
-{-# SPECIALIZE smartChanges :: [B.ByteString] -> [B.ByteString]
-                              -> [(Int, [B.ByteString], [B.ByteString])] #-}
-smartChanges :: Ord a => [a] -> [a] -> [(Int,[a],[a])]
-smartChanges o n | length o > 10000 = getChanges o n
-                 | otherwise = patientChanges o n
-
-{-# SPECIALIZE patientChanges :: [B.ByteString] -> [B.ByteString]
-                              -> [(Int, [B.ByteString], [B.ByteString])] #-}
-patientChanges :: Ord a => [a] -> [a] -> [(Int,[a],[a])]
-patientChanges o n = mkdiff (const False) 0 (patientLcs o n) o n
-
-{-# SPECIALIZE getChanges :: [B.ByteString] -> [B.ByteString]
-                          -> [(Int, [B.ByteString], [B.ByteString])] #-}
-getChanges :: Ord a => [a] -> [a] -> [(Int,[a],[a])]
-getChanges o n = mkdiff (const False) 0 (lcs o n) o n
 
 
 mkdiff :: Ord a => (a -> Bool) -> Int -> [a] -> [a] -> [a] -> [(Int,[a],[a])]
