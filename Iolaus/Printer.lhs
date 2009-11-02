@@ -48,7 +48,7 @@ module Iolaus.Printer
      traceDoc, assertDoc, errorDoc ) where
 
 import Debug.Trace ( trace )
-import Data.Char ( isAscii, isPrint, isSpace, isControl, ord, chr, intToDigit )
+import Data.Char ( isAscii, isPrint, isControl, ord, chr, intToDigit )
 import System.IO.Unsafe ( unsafePerformIO )
 import System.IO ( hIsTerminalDevice )
 import System.Environment ( getEnv )
@@ -59,7 +59,7 @@ import System.IO (Handle, stdout, hPutStr)
 import qualified Data.ByteString as B (ByteString, hPut, null,
                                        init, span, spanEnd, elem)
 import qualified Data.ByteString.Char8 as BC
-    (unpack, pack, singleton, spanEnd, any, last)
+    (unpack, pack, singleton, any, last)
 
 import Git.Plumbing ( getColorWithDefault )
 
@@ -316,9 +316,8 @@ hcat ds = foldr1 (<>) ds
 \end{code}
 
 \begin{code}
-dollar, cr :: Doc
-dollar = unsafeBothText "$"
-cr     = unsafeBothText "\r"
+cr :: Doc
+cr = unsafeBothText "\r"
 
 traceDoc :: Doc -> a -> a
 traceDoc _ = trace "oops"
@@ -330,16 +329,10 @@ assertDoc (Just e) _ = errorDoc e
 -- policy
 -- | the 'Policy' type is a record containing the variables which control
 -- how 'Doc's will be rendered on some output.
-data Policy = Policy { poColor :: Bool    -- ^ overall use of color
-                     , poEscape :: Bool   -- ^ overall use of escaping
-                     , poLineColor :: Bool -- ^ overall use of colored lines (only hunks for now)
+data Policy = Policy { poEscape :: Bool   -- ^ overall use of escaping
                      , poIsprint :: Bool  -- ^ don't escape isprints
                      , po8bit  :: Bool    -- ^ don't escape 8-bit chars
-                     , poNoEscX :: String   -- ^ extra chars to never escape
-                     , poEscX :: String   -- ^ extra chars to always escape
-                     , poTrailing :: Bool -- ^ escape trailing spaces
                      , poCR :: Bool       -- ^ ignore \r at end of lines
-                     , poSpace :: Bool    -- ^ escape spaces (used with poTrailing)
                      }
 
 {-# NOINLINE getPolicy #-}
@@ -351,38 +344,24 @@ getPolicy handle = unsafePerformIO $
  do isTerminal <- hIsTerminalDevice handle
     envDontEscapeAnything  <- getEnvBool "DARCS_DONT_ESCAPE_ANYTHING"
     envDontEscapeIsprint   <- getEnvBool "DARCS_DONT_ESCAPE_ISPRINT"
-    envUseIsprint          <- getEnvBool "DARCS_USE_ISPRINT" -- for backwards-compatibility
-    envDontEscape8bit      <- getEnvBool "DARCS_DONT_ESCAPE_8BIT"
-
-    envDontEscapeExtra  <- getEnvString "DARCS_DONT_ESCAPE_EXTRA"
-    envEscapeExtra      <- getEnvString "DARCS_ESCAPE_EXTRA"
-
-    envDontEscapeTrailingSpace  <- getEnvBool "DARCS_DONT_ESCAPE_TRAILING_SPACES"
-    envDontEscapeTrailingCR     <- getEnvBool "DARCS_DONT_ESCAPE_TRAILING_CR"
+    envUseIsprint <- getEnvBool "DARCS_USE_ISPRINT" -- for backwards-compatibility
+    envDontEscape8bit <- getEnvBool "DARCS_DONT_ESCAPE_8BIT"
+    envDontEscapeTrailingCR <- getEnvBool "DARCS_DONT_ESCAPE_TRAILING_CR"
 
     envDontColor         <- getEnvBool "DARCS_DONT_COLOR"
     envAlwaysColor       <- getEnvBool "DARCS_ALWAYS_COLOR"
-    envDoColorLines    <- getEnvBool "DARCS_DO_COLOR_LINES"
 
     let haveColor = envAlwaysColor || isTerminal
         doColor   = not envDontColor && haveColor
 
-    return Policy { poColor    = doColor,
-                    poEscape   = not envDontEscapeAnything,
-                    poLineColor= doColor && envDoColorLines,
+    return Policy { poEscape   = not envDontEscapeAnything,
                     poIsprint  = envDontEscapeIsprint || envUseIsprint,
                     po8bit     = envDontEscape8bit,
-                    poNoEscX   = envDontEscapeExtra,
-                    poEscX     = envEscapeExtra,
-                    poTrailing = not envDontEscapeTrailingSpace,
-                    poCR       = envDontEscapeTrailingCR,
-
-                    poSpace = False
+                    poCR       = envDontEscapeTrailingCR
                   }
  where
   getEnvBool s = safeGetEnv s >>= return.(/= "0")
   safeGetEnv s = getEnv s `catch` \_ -> return "0"
-  getEnvString s = getEnv s `catch` \_ -> return ""
 
 
 -- printers
@@ -394,32 +373,8 @@ fancyPrinters h = Printers { userchunkP  = userchunkPrinter (getPolicy h),
                              defP       = escapePrinter (getPolicy h) }
 
 userchunkPrinter :: Policy -> Printable -> St -> Document
-userchunkPrinter po p
- | not (poEscape po)   = simplePrinter p
- | not (poTrailing po) = escapePrinter po p
- | otherwise           = unDoc $ pr p
- where
-  pr (S s)       = prString s
-  pr (Both _ ps) = prPS ps
-  pr (PS ps)     = prPS ps
-  pr (GitDefaultColor c d) = unsafeText (getCWD c d)
-  pr ColorReset = unsafeText reset_color
-
-  prPS ps = let (leadPS, trailPS) = BC.spanEnd isSpace ps
-            in if B.null trailPS
-                then Doc $ escapePrinter po p
-                else Doc (escapePrinter po (PS leadPS))
-                  <> Doc (escapePrinter po{poSpace=True} (PS trailPS))
-                  <> mark_escape po dollar
-
-  prString s = let (trail',lead') = span isSpace (reverse s)
-                   lead = reverse lead'
-                   trail = reverse trail'
-               in if (not.null) trail
-                   then Doc (escapePrinter po (S lead))
-                     <> Doc (escapePrinter po{poSpace=True} (S trail))
-                     <> mark_escape po dollar
-                   else Doc (escapePrinter po p)
+userchunkPrinter po p | not (poEscape po) = simplePrinter p
+                      | otherwise = escapePrinter po p
 
 escapePrinter :: Policy -> Printable -> St -> Document
 escapePrinter po
@@ -458,14 +413,11 @@ escape po s = hcat (map escapeChar s)
   escapeChar c | no_escape po c = unsafeChar c
   escapeChar ' ' = space
   escapeChar c = (emph.unsafeText.quoteChar) c
-  emph = mark_escape po
+  emph = mark_escape
 
 -- | @'no_escape' policy c@ tells wether @c@ will be left as-is
 -- when escaping according to @policy@
 no_escape :: Policy -> Char -> Bool
-no_escape po c | poSpace po && isSpace c = False
-no_escape po c | c `elem` poEscX po = False
-no_escape po c | c `elem` poNoEscX po = True
 no_escape _ '\t' = True  -- tabs will likely be converted to spaces
 no_escape _ '\n' = True
 no_escape po c = if (poIsprint po) then isPrint c
@@ -496,10 +448,8 @@ quoteChar c
 
 -- | @'mark_escape' policy doc@ marks @doc@ with the appropriate
 -- marking for escaped characters according to @policy@
-mark_escape :: Policy -> Doc -> Doc
-mark_escape po d | poColor po     = printable (color2printable Red) <>
-                                    d <> printable ColorReset
-                 | otherwise      = make_asciiart d
+mark_escape :: Doc -> Doc
+mark_escape d = printable (color2printable Red) <> d <> printable ColorReset
 
 getCWD :: String -> String -> String
 getCWD c d = unsafePerformIO $ getColorWithDefault c d
@@ -513,12 +463,6 @@ color2printable (Underline Red) =
 color2printable (Underline Green) =
     GitDefaultColor "color.diff.new.space" "green ul"
 color2printable _ = GitDefaultColor  "color.unknown" "magenta"
-
--- | @'make_asciiart' doc@ tries to make @doc@ (usually a
--- single escaped char) stand out with the help of only plain
--- ascii, i.e., no color or font style.
-make_asciiart :: Doc -> Doc
-make_asciiart x = unsafeBothText "[_" <> x <> unsafeBothText "_]"
 
 -- | the string to reset the terminal's color.
 reset_color :: String
