@@ -3,11 +3,11 @@
 module Iolaus.Patch.Merge ( mergeNamed ) where
 
 import Iolaus.Utils ( nubsort )
-import Iolaus.Patch.Patchy ( Patchy, invert, commuteRL, commuteFL, commuteRLFL,
-                             identity )
+import Iolaus.Patch.Patchy ( Patchy, invert, commuteRL, commuteFL, identity )
 import Iolaus.Patch.Prim ( Prim(..), FilePatchType(Chunk), Effect, splatter )
 import Iolaus.Patch.Core ( Named(NamedP) )
-import Iolaus.Patch.Permutations ( commuteWhatWeCanFL, removeFL )
+import Iolaus.Patch.Permutations ( commuteWhatWeCanFL, commuteWhatWeCanRLFL,
+                                   removeFL )
 import Iolaus.Patch.Apply ( chunkify )
 import Iolaus.Patch.Viewing ()
 
@@ -76,7 +76,7 @@ splatterNamed (NamedP _ x :>: NamedP b y :>: c) =
 splatterNamed (NamedP a x :>: NilFL) = Just $ NamedP a x
 splatterNamed NilFL = Just $ NamedP "identity" identity
 
-conflicting :: Patchy p => p C(x y) -> Sealed (FL p C(x))
+conflicting :: (Effect p, Patchy p) => p C(x y) -> Sealed (FL p C(x))
             -> Sealed (FL p C(x))
 conflicting a (Sealed xs) =
     case commuteWhatWeCanFL (invert a :> xs) of
@@ -85,9 +85,8 @@ conflicting a (Sealed xs) =
             Just (ia :> xs'') ->
                 case ia =\/= invert a of
                   NotEq -> impossible
-                  IsEq -> case commuteRLFL (xs'' :> ys) of
-                          Just (ys' :> _) -> Sealed ys'
-                          Nothing -> impossible
+                  IsEq -> case commuteWhatWeCanRLFL (xs'' :> ys) of
+                          ys' :> _ -> Sealed ys'
             _ -> impossible
 
 kill1 :: Patchy p => p C(x y) -> Sealed (FL p C(x)) -> Sealed (FL p C(x))

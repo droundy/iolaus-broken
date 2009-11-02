@@ -421,7 +421,7 @@ commitTree t pars m =
 cleanhash :: String -> String
 cleanhash = take 40
 
-data RevListOption = MediumPretty | OneLine | Authors
+data RevListOption = MediumPretty | OneLine | Authors | TopoOrder
                    | Graph | RelativeDate | MaxCount Int | Skip Int
 instance Flag RevListOption where
     toFlags MediumPretty = ["--pretty=medium"]
@@ -431,6 +431,7 @@ instance Flag RevListOption where
     toFlags RelativeDate = ["--date=relative"]
     toFlags (MaxCount n) = ["--max-count="++show n]
     toFlags (Skip n) = ["--skip="++show n]
+    toFlags TopoOrder = ["--topo-order"]
 
 nameRevs :: IO [String]
 nameRevs =
@@ -449,12 +450,12 @@ nameRevs =
                                | otherwise -> [sha,n]
                        _ -> error "bad stuff in nameRevs"
 
-revList :: String -> [RevListOption] -> IO String
+revList :: [String] -> [RevListOption] -> IO String
 revList version opts =
     do let flags = concatMap toFlags opts
        debugMessage "calling git rev-list"
        (Nothing, Just stdout, Nothing, pid) <-
-           createProcess (proc "git" ("rev-list":version:flags))
+           createProcess (proc "git" ("rev-list":flags++version))
                              { std_out = CreatePipe }
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
@@ -462,9 +463,11 @@ revList version opts =
          ExitSuccess -> return out
          ExitFailure _ -> fail "git rev-list failed"
 
-revListHashes :: IO [Sealed (Hash Commit)]
-revListHashes = do x <- revList "master" []
-                   return $ map (mkSHash Commit) $ words x
+revListHashes :: [Sealed (Hash Commit)] -> [RevListOption]
+              -> IO [Sealed (Hash Commit)]
+revListHashes version opts =
+    do x <- revList (map show version) opts
+       return $ map (mkSHash Commit) $ words x
 
 -- | FIXME: I believe that clone is porcelain...
 

@@ -41,8 +41,7 @@ import Iolaus.Patch.Patchy ( Patchy, writePatch, mergeFL, Apply,
                              commuteFL, commuteRL, apply,
                              description, summary )
 import Iolaus.Patch.Permutations ( commuteWhatWeCanRL, commuteWhatWeCanFL,
-                                 partitionFL, partitionRL,
-                                 remove_subsequenceRL, removeFL )
+                                   removeFL )
 import Iolaus.Patch.Viewing ( summarize )
 import Iolaus.Patch.Apply ( apply_to_slurpy, chunkify )
 import Iolaus.Patch.Prim ( Effect(effect), Prim, canonize, sort_coalesceFL,

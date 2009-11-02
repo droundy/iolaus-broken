@@ -1,10 +1,11 @@
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
 
-module Git.Helpers ( test, revListHeads,
+module Git.Helpers ( test, revListHeads, revListHeadsHashes,
                      slurpTree, writeSlurpTree, touchedFiles,
                      simplifyParents, configDefaults,
-                     diffCommit, mergeCommits, Strategy(..) ) where
+                     diffCommit, mergeCommits, Strategy(..),
+                     showCommit ) where
 
 import Prelude hiding ( catch )
 import Control.Exception ( catch )
@@ -34,15 +35,16 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       diffFiles, diffTreeCommit,
                       DiffOption( NameOnly, DiffRecursive ),
                       readTree, checkoutIndex,
-                      heads, revList, RevListOption(Skip),
+                      heads, revList, revListHashes, RevListOption,
                       -- mergeBase,
                       mergeIndex, readTreeMerge,
                       catTree, catBlob, catCommitTree )
 
+import Iolaus.Show ( pretty )
 import Iolaus.Progress ( debugMessage )
 import Iolaus.Flags ( Flag( Test, TestParents, NativeMerge, FirstParentMerge,
-                            IolausSloppyMerge, RecordFor,
-                            CauterizeAllHeads, CommutePast,
+                            IolausSloppyMerge, RecordFor, Summary, Verbose,
+                            CauterizeAllHeads, CommutePast, ShowHash,
                             GlobalConfig, SystemConfig ) )
 import Iolaus.FileName ( FileName, fp2fn )
 import Iolaus.IO ( ExecutableBit(..) )
@@ -53,10 +55,12 @@ import Iolaus.Lock ( removeFileMayNotExist, withTempDir )
 import Iolaus.RepoPath ( setCurrentDirectory, getCurrentDirectory, toFilePath )
 import Iolaus.Diff ( diff )
 import Iolaus.Patch ( Named, Prim, commute, apply_to_slurpy, mergeNamed,
-                      list_touched_files, infopatch )
+                      list_touched_files, infopatch,
+                      invert, summarize, showContextPatch )
 import Iolaus.TouchesFiles ( look_touch )
 import Iolaus.Ordered ( FL(..), (:>)(..), (+>+), unsafeCoerceP, mapFL_FL )
 import Iolaus.Sealed ( Sealed(..), FlippedSeal(..), mapSeal, mapSealM, unseal )
+import Iolaus.Printer ( putDocLn, prefix )
 
 #include "impossible.h"
 
@@ -376,12 +380,15 @@ diffCommit opts c0 =
        old <- slurpTree oldh
        return $ FlippedSeal $ diff [] old new
 
-revListHeads :: [Flag] -> [RevListOption] -> IO String
-revListHeads opts revlistopts =
+revListHeads :: [RevListOption] -> IO String
+revListHeads revlistopts =
     do hs <- cauterizeHeads `fmap` heads
-       Sealed t <- mergeCommits opts hs
-       c <- commitTree t (cauterizeHeads hs) "iolaus:temp"
-       revList (show c) (Skip 1:revlistopts)
+       revList (map show hs) revlistopts
+
+revListHeadsHashes :: [RevListOption] -> IO [Sealed (Hash Commit)]
+revListHeadsHashes revlistopts =
+    do hs <- cauterizeHeads `fmap` heads
+       revListHashes hs revlistopts
 
 configDefaults :: Maybe String -> String
                -> [Flag -> [Either String (String,String)]] -> [Flag] -> IO ()
@@ -397,3 +404,20 @@ configDefaults msuper cmd cs fs = mapM_ configit xs
                  else if SystemConfig `elem` fs
                       then [System]
                       else []
+
+showCommit :: [Flag] -> Hash Commit C(x) -> IO ()
+showCommit opts c =
+    do commit <- catCommit c
+       if ShowHash `elem` opts then putStrLn (show c)
+                                    else return ()
+       putStr $ pretty commit
+       if Summary `elem` opts
+           then do FlippedSeal ch <- diffCommit opts c
+                   putStrLn ""
+                   putDocLn $ prefix "    " $ summarize ch
+           else if Verbose `elem` opts
+                then do FlippedSeal ch <- diffCommit opts c
+                        new <- slurpTree (myTree commit)
+                        let Just old = apply_to_slurpy (invert ch) new
+                        putDocLn $ showContextPatch old ch
+                else return ()
