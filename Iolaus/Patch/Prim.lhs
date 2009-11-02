@@ -60,7 +60,7 @@ import Iolaus.Patch.Patchy ( Invert(..), Commute(..) )
 import Iolaus.Patch.Permutations () -- for Invert instance of FL
 import Iolaus.Show
 import Iolaus.Lcs2 ( nestedChanges )
-import Iolaus.Colors ( Color, colorOld, colorNew )
+import Iolaus.Colors ( colorOld, colorNew )
 import Iolaus.Printer ( Doc, text, blueText, colorPS,
                         ($$), (<+>), (<>), userchunkPS )
 import Iolaus.IO ( ExecutableBit(IsExecutable, NotExecutable) )
