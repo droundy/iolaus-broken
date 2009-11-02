@@ -60,7 +60,8 @@ import Iolaus.Patch.Patchy ( Invert(..), Commute(..) )
 import Iolaus.Patch.Permutations () -- for Invert instance of FL
 import Iolaus.Show
 import Iolaus.Lcs2 ( nestedChanges )
-import Iolaus.Printer ( Doc, Color(Red,Green), text, blueText, colorPS,
+import Iolaus.Colors ( Color, colorOld, colorNew )
+import Iolaus.Printer ( Doc, text, blueText, colorPS,
                         ($$), (<+>), (<>), userchunkPS )
 import Iolaus.IO ( ExecutableBit(IsExecutable, NotExecutable) )
 #include "impossible.h"
@@ -270,8 +271,8 @@ showChunk :: FileName -> B.ByteString
 showChunk f chs word old new =
            blueText "chunk" <+> userchunkPS chs <+> formatFileName f
                         <+> text (show word) $$
-              (colorPS Red $ B.concat old) <>
-              (colorPS Green $ B.concat new)
+              (colorPS colorOld $ B.concat old) <>
+              (colorPS colorNew $ B.concat new)
 
 try_to_shrink :: FL Prim C(x y) -> FL Prim C(x y)
 try_to_shrink = mapPrimFL try_harder_to_shrink

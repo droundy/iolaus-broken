@@ -27,9 +27,9 @@ import Iolaus.SlurpDirectory ( Slurpy, get_slurp, get_filecontents )
 import Iolaus.ByteStringUtils ( linesPS, unlinesPS )
 import qualified Data.ByteString as B ( ByteString, null, concat )
 import Iolaus.FileName ( FileName, fp2fn, fn2fp )
-import Iolaus.Printer
-    ( Doc, empty, vcat, text, blueText, Color(Red,Green), colorPS,
-      minus, plus, ($$), (<+>), (<>), prefix, unsafePackedString )
+import Iolaus.Colors ( colorOld, colorNew )
+import Iolaus.Printer ( Doc, empty, vcat, text, blueText, colorPS, minus, plus,
+                        ($$), (<+>), (<>), prefix, unsafePackedString )
 import Iolaus.Patch.Core ( Named(..) )
 import Iolaus.Patch.Prim ( Prim(..), formatFileName, showPrim,
                            Effect, effect,
@@ -63,8 +63,8 @@ showContextStuff s0 ps@(FP f (Chunk c _ _ _) :>: _) =
           scc w0 ws s (FP f' (Chunk c' w o n) :>: xs)
               | f' == f && c' == c =
                   precontext <> 
-                  (colorPS Red $ B.concat o) <>
-                  (colorPS Green $ B.concat n) <>
+                  (colorPS colorOld $ B.concat o) <>
+                  (colorPS colorNew $ B.concat n) <>
                   scc (w+length n) (drop (w+length o-w0) ws)
                       (fromJust $ apply_to_slurpy (FP f' (Chunk c' w o n)) s) xs
               where precontext =

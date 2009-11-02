@@ -39,9 +39,9 @@ Empty Document each \verb!$$! would add a \verb!'\n'! and you'd end up with
 This code was made generic in the element type by Juliusz Chroboczek.
 \begin{code}
 module Iolaus.Printer
-    (Doc, Color(..),
+    (Doc,
      hPutDoc, hPutDocLn, putDoc, putDocLn,
-     prefix, colorPS, text, printable, wrap_text, blueText, redText, greenText,
+     prefix, colorPS, text, printable, wrap_text, blueText,
      unsafeText, packedString, unsafePackedString, userchunkPS,
      empty, (<>), (<?>), (<+>), ($$), vcat, vsep, hcat,
      minus, newline, plus, space,
@@ -50,7 +50,6 @@ module Iolaus.Printer
 import Debug.Trace ( trace )
 import Data.Char ( isAscii, isPrint, isControl, ord, chr, intToDigit )
 import System.IO.Unsafe ( unsafePerformIO )
-import System.IO ( hIsTerminalDevice )
 import System.Environment ( getEnv )
 import Data.Bits ( bit, xor )
 
@@ -61,12 +60,12 @@ import qualified Data.ByteString as B (ByteString, hPut, null,
 import qualified Data.ByteString.Char8 as BC
     (unpack, pack, singleton, any, last)
 
-import Git.Plumbing ( getColorWithDefault )
+import Iolaus.Colors ( Color, colorCode, spaceColor, colorMeta, colorOld )
 
 data Printable = S !String
                | PS !B.ByteString
                | Both !String !B.ByteString
-               | GitDefaultColor !String !String
+               | GitDefaultColor !Color
                | ColorReset
 
 -- | 'space_p' is the 'Printable' representation of a space.
@@ -96,7 +95,7 @@ putDocLn :: Doc -> IO ()
 putDocLn = hPutDocLn stdout
 
 hPutDoc :: Handle -> Doc -> IO ()
-hPutDoc h d = hPrintPrintables h (renderWith (fancyPrinters h) d)
+hPutDoc h d = hPrintPrintables h (renderWith fancyPrinters d)
 
 hPutDocLn :: Handle -> Doc -> IO ()
 hPutDocLn h d = hPutDoc h (d <?> newline)
@@ -110,7 +109,7 @@ hPrintPrintable :: Handle -> Printable -> IO ()
 hPrintPrintable h (S ps) = hPutStr h ps
 hPrintPrintable h (PS ps) = B.hPut h ps
 hPrintPrintable h (Both _ ps) = B.hPut h ps
-hPrintPrintable h (GitDefaultColor c d) = hPutStr h $ getCWD c d
+hPrintPrintable h (GitDefaultColor c) = hPutStr h $ colorCode c
 hPrintPrintable h ColorReset = hPutStr h reset_color
 
 -- | a 'Doc' is a bit of enriched text. 'Doc's get concatanated using
@@ -126,8 +125,6 @@ data St = St { printers :: !Printers,
 data Printers = Printers { userchunkP :: !(Printable -> St -> Document),
                            defP :: !(Printable -> St -> Document) }
 
-data Color = Blue | Red | Green | Underline Color
-
 -- | 'Document' is a wrapper around '[Printable] -> [Printable]' which allows
 -- for empty Documents. The simplest 'Documents' are built from 'String's
 -- using 'text'.
@@ -135,11 +132,11 @@ data Document = Document ([Printable] -> [Printable])
               | Empty
 
 instance Show Doc where
-    show = concatMap toString . renderWith (fancyPrinters stdout)
+    show = concatMap toString . renderWith fancyPrinters
         where toString (S s) = s
               toString (PS ps) = BC.unpack ps
               toString (Both s _) = s
-              toString (GitDefaultColor c d) = getCWD c d
+              toString (GitDefaultColor c) = colorCode c
               toString ColorReset = reset_color
 
 -- | renders a 'Doc' into a list of 'Printables' using a set of
@@ -193,18 +190,17 @@ text :: String -> Doc
 -- | 'unsafeText' creates a 'Doc' from a 'String', using 'simplePrinter' directly
 unsafeText :: String -> Doc
 -- | 'blueText' creates a 'Doc' containing blue text from a @String@
-blueText, redText, greenText :: String -> Doc
 text = printable . S
 unsafeText = Doc . simplePrinter . S
-blueText = colorText Blue
-redText = colorText Red
-greenText = colorText Green
+
+blueText :: String -> Doc
+blueText = colorText colorMeta
 
 -- | 'colorText' creates a 'Doc' containing colored text from a @String@
 colorText :: Color -> String -> Doc
 colorText _ "" = empty
 colorText c s =
-    printable (color2printable c) <> text s <> printable ColorReset
+    printable (GitDefaultColor c) <> text s <> printable ColorReset
 
 colorPS :: Color -> B.ByteString -> Doc
 colorPS c ps
@@ -213,13 +209,13 @@ colorPS c ps
                   (w,more) ->
                      case B.spanEnd isWhite more of
                        (body,w2) ->
-                           printable (color2printable (Underline c)) <>
+                           printable (GitDefaultColor (spaceColor c)) <>
                            printable (PS w) <>
                            printable ColorReset <>
-                           printable (color2printable c) <>
+                           printable (GitDefaultColor c) <>
                            printable (PS body) <>
                            printable ColorReset <>
-                           printable (color2printable (Underline c)) <>
+                           printable (GitDefaultColor (spaceColor c)) <>
                            printable (PS w2) <>
                            printable ColorReset
     where isWhite = (`B.elem` (BC.pack "\n\t "))
@@ -339,20 +335,13 @@ data Policy = Policy { poEscape :: Bool   -- ^ overall use of escaping
 -- | 'getPolicy' returns a suitable policy for a given handle.
 -- The policy is chosen according to environment variables, and to the
 -- type of terminal which the handle represents
-getPolicy :: Handle -> Policy
-getPolicy handle = unsafePerformIO $
- do isTerminal <- hIsTerminalDevice handle
-    envDontEscapeAnything  <- getEnvBool "DARCS_DONT_ESCAPE_ANYTHING"
+getPolicy :: Policy
+getPolicy = unsafePerformIO $
+ do envDontEscapeAnything  <- getEnvBool "DARCS_DONT_ESCAPE_ANYTHING"
     envDontEscapeIsprint   <- getEnvBool "DARCS_DONT_ESCAPE_ISPRINT"
     envUseIsprint <- getEnvBool "DARCS_USE_ISPRINT" -- for backwards-compatibility
     envDontEscape8bit <- getEnvBool "DARCS_DONT_ESCAPE_8BIT"
     envDontEscapeTrailingCR <- getEnvBool "DARCS_DONT_ESCAPE_TRAILING_CR"
-
-    envDontColor         <- getEnvBool "DARCS_DONT_COLOR"
-    envAlwaysColor       <- getEnvBool "DARCS_ALWAYS_COLOR"
-
-    let haveColor = envAlwaysColor || isTerminal
-        doColor   = not envDontColor && haveColor
 
     return Policy { poEscape   = not envDontEscapeAnything,
                     poIsprint  = envDontEscapeIsprint || envUseIsprint,
@@ -368,9 +357,9 @@ getPolicy handle = unsafePerformIO $
 
 -- | @'fancyPrinters' h@ returns a set of printers suitable for outputting
 -- to @h@
-fancyPrinters :: Handle -> Printers
-fancyPrinters h = Printers { userchunkP  = userchunkPrinter (getPolicy h),
-                             defP       = escapePrinter (getPolicy h) }
+fancyPrinters :: Printers
+fancyPrinters = Printers { userchunkP = userchunkPrinter getPolicy,
+                           defP = escapePrinter getPolicy }
 
 userchunkPrinter :: Policy -> Printable -> St -> Document
 userchunkPrinter po p | not (poEscape po) = simplePrinter p
@@ -389,7 +378,7 @@ escapePrinter po
                    then escape po (BC.unpack ps)
                    else unsafePackedString ps
   epr (Both s _) = escape po s
-  epr (GitDefaultColor c d) = unsafeText (getCWD c d)
+  epr (GitDefaultColor c) = unsafeText (colorCode c)
   epr ColorReset = unsafeText reset_color
 
   isEndCR (S s)        = not (null s) && last s == '\r'
@@ -449,20 +438,8 @@ quoteChar c
 -- | @'mark_escape' policy doc@ marks @doc@ with the appropriate
 -- marking for escaped characters according to @policy@
 mark_escape :: Doc -> Doc
-mark_escape d = printable (color2printable Red) <> d <> printable ColorReset
-
-getCWD :: String -> String -> String
-getCWD c d = unsafePerformIO $ getColorWithDefault c d
-
-color2printable :: Color -> Printable
-color2printable Blue = GitDefaultColor "color.diff.meta" "blue bold"
-color2printable Red = GitDefaultColor "color.diff.old" "red bold"
-color2printable Green = GitDefaultColor "color.diff.new" "green bold"
-color2printable (Underline Red) =
-    GitDefaultColor "color.diff.old.space" "red ul"
-color2printable (Underline Green) =
-    GitDefaultColor "color.diff.new.space" "green ul"
-color2printable _ = GitDefaultColor  "color.unknown" "magenta"
+mark_escape d = printable (GitDefaultColor colorOld) <> d
+                <> printable ColorReset
 
 -- | the string to reset the terminal's color.
 reset_color :: String
