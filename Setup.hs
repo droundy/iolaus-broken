@@ -26,8 +26,9 @@ allTests =
           onetest prefix f =
               do fcontents <- words `fmap` cat f
                  let testFor k = "not-for-"++k `notElem` fcontents
-                 alwaysFails <- do amw <- amInWindows
-                                   return (amw && "fails-on-wine" `elem` fcontents)
+                 alwaysFails <-
+                     do amw <- amInWindows
+                        return (amw && "fails-on-wine" `elem` fcontents)
                  withDirectory ("tmp/"++f) $
                      do let testname = if "test-fails" `elem` fcontents
                                            || alwaysFails
@@ -40,7 +41,8 @@ allTests =
                                          [("EMAIL", "tester")]
                                pwd >>= setEnv "HOME"
                         return [testname]
-      networkTests <- concat `fmap` mapDirectory (onetest "network-") "tests/network"
+      networkTests <- concat `fmap`
+                      mapDirectory (onetest "network-") "tests/network"
       testSuite "network-test" (sort networkTests)
       alltests <- concat `fmap` mapDirectory (onetest "") "tests"
       let (failing, passing) = partition ("failing-" `isPrefixOf`) alltests
