@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
 
-module Git.Helpers ( test, revListHeads, revListHeadsHashes,
+module Git.Helpers ( test, testPredicate, revListHeads, revListHeadsHashes,
                      slurpTree, writeSlurpTree, touchedFiles,
                      simplifyParents, configDefaults,
                      diffCommit, mergeCommits, Strategy(..),
