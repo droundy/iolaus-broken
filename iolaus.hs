@@ -47,11 +47,11 @@ main = with_atexit $ withSignalsHandled $
     ["--help"]          -> help_cmd [] []
     ["--overview"]      -> help_cmd [Verbose] []
     ["--commands"]      -> list_available_commands
-    ["-v"]              -> putStrLn "iolaus"
-    ["--version"]       -> putStrLn "iolaus"
-    ["--exact-version"] -> do
-              putStrLn $ "iolaus compiled on "++__DATE__++", at "++__TIME__
-              putStrLn "context"
+    ["-V"]              -> print_version
+    ["--version"]       -> print_version
+    ["--exact-version"] ->
+        do putStrLn $ "iolaus compiled on "++__DATE__++", at "++__TIME__
+           print_version
     -- User called a normal iolaus command, "iolaus foo [args]".
     _ -> do
       hSetBinaryMode stdin True

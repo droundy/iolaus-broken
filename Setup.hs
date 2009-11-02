@@ -7,7 +7,9 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"],
                 (do putS "compiling with type witnesses enabled"
                     define "GADT_WITNESSES"
                     ghcFlags ["-fglasgow-exts"])] $
-       do hcFlags ["-Iinclude"]
+       do v <- autoPatchVersion NumberedPreRc
+          defineAs "IOLAUS_VERSION" (show v)
+          hcFlags ["-Iinclude"]
           ghcFlags ["-Wall","-threaded"]
           withDirectory "etc" $ etc "bash_completion.d/iolaus"
           withModule "System.Process.Redirects" $ define "HAVE_REDIRECTS"

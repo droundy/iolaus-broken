@@ -15,7 +15,7 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsection{arcs help}
+\subsection{iolaus help}
 \label{help}
 
 You could also call \verb|help| as a command.  This is equivalent to calling
@@ -24,6 +24,8 @@ the \verb|--help| to that command.  For example, \verb|arcs help query manifest|
 is equivalent to \verb|arcs query manifest --help|.
 
 \begin{code}
+{-# LANGUAGE CPP #-}
+
 module Iolaus.Help ( help_cmd, command_control_list, print_version,
                              list_available_commands
                            ) where
@@ -54,9 +56,7 @@ help_help :: String
 help_help =
  "help displays usage information for arcs in general or for a single\n" ++
  "command (for example, arcs help query manifest).\n\n"
-\end{code}
 
-\begin{code}
 help :: Command
 help = Command {command_name = "help",
                      command_help = help_help,
@@ -69,9 +69,7 @@ help = Command {command_name = "help",
                      command_argdefaults = nodefaults,
                      command_advanced_options = [],
                      command_basic_options = [help_on_match]}
-\end{code}
 
-\begin{code}
 help_cmd :: [Flag] -> [String] -> IO ()
 help_cmd _ [] = do putStrLn $ usage command_control_list
                    exitWith $ ExitSuccess
@@ -102,14 +100,10 @@ list_available_commands =
        putStrLn "--overview"
     where isRight (Right _) = True
           isRight _ = False
-\end{code}
 
-\begin{code}
 print_version :: IO () 
-print_version = putStrLn $ "arcs version"
-\end{code}
+print_version = putStrLn $ "iolaus version "++ IOLAUS_VERSION
 
-\begin{code}
 -- avoiding a module import cycle between Help and TheCommands
 command_control_list :: [CommandControl] 
 command_control_list =
