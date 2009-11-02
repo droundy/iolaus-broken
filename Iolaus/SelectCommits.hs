@@ -28,13 +28,13 @@ import Data.Char ( toUpper )
 import System.Exit ( exitWith, ExitCode(ExitSuccess) )
 import Control.Monad ( filterM )
 
-import Iolaus.Flags ( Flag( All, SeveralPatch ) )
+import Iolaus.Flags ( Flag( All, SeveralPatch, Verbose, Summary ) )
 import Iolaus.Utils ( promptCharFancy )
-import Iolaus.Sealed ( Sealed( Sealed ), mapSealM )
-import Iolaus.Show ( pretty )
+import Iolaus.Sealed ( Sealed( Sealed ), mapSealM, unseal )
 
 import Git.Dag ( isAncestorOf )
 import Git.Plumbing ( Hash, Commit, catCommit, myMessage )
+import Git.Helpers ( showCommit )
 
 data WhichChanges = Last | First
                     deriving (Eq, Show)
@@ -49,20 +49,20 @@ match [] _ = return True
 select_commits :: String -> [Flag] -> [Sealed (Hash Commit)]
                -> IO [Sealed (Hash Commit)]
 select_commits jn opts cs0 = do cs <- filterM (match opts) cs0
-                                text_select First [] jn opts cs
+                                text_select First [] jn opts cs []
 
 select_last_commits :: String -> [Flag] -> [Sealed (Hash Commit)]
                     -> IO [Sealed (Hash Commit)]
 select_last_commits jn opts cs0 = do cs <- filterM (match opts) cs0
-                                     text_select Last [] jn opts cs
+                                     text_select Last [] jn opts cs []
 
 text_select :: WhichChanges -> [Sealed (Hash Commit)]
-            -> String -> [Flag] -> [Sealed (Hash Commit)]
+            -> String -> [Flag] -> [Sealed (Hash Commit)] -> [Flag]
             -> IO [Sealed (Hash Commit)]
-text_select _ sofar _ _ [] = return sofar
-text_select _ sofar _ opts cs | All `elem` opts = return (sofar++cs)
-text_select w sofar jn opts (c:cs) =
-    do mapSealM catCommit c >>= (putStr . pretty)
+text_select _ sofar _ _ [] _ = return sofar
+text_select _ sofar _ opts cs _ | All `elem` opts = return (sofar++cs)
+text_select w sofar jn opts (c:cs) showopts =
+    do showCommit showopts `unseal` c
        doKey prompt options
     where
         Sealed a `iao` Sealed b = a `isAncestorOf` b
@@ -71,30 +71,30 @@ text_select w sofar jn opts (c:cs) =
              case w of
                First ->
                    case partition (`iao` c) cs of
-                     (ans,oths) -> text_select w (c:ans++sofar) jn opts oths
+                     (ans,oths) -> text_select w (c:ans++sofar) jn opts oths []
                Last ->
                    case partition (c `iao`) cs of
-                     (ans,oths) -> text_select w (c:ans++sofar) jn opts oths
+                     (ans,oths) -> text_select w (c:ans++sofar) jn opts oths []
            , KeyPress 'n' ("don't "++jn++" it") $
              case w of
                First -> text_select w sofar jn opts
-                        (filter (not . (c `iao`)) cs)
+                        (filter (not . (c `iao`)) cs) []
                Last -> text_select w sofar jn opts
-                       (filter (not . (`iao` c)) cs)
+                       (filter (not . (`iao` c)) cs) []
            , KeyPress 'w' ("wait and decide later") $
-             text_select w sofar jn opts (cs++[c])]
+             text_select w sofar jn opts (cs++[c]) []]
         options_view =
            [ KeyPress 'v' ("view this patch in full")
-             $ text_select w sofar jn opts (c:cs)
+             $ text_select w sofar jn opts (c:cs) [Verbose]
            , KeyPress 'p' ("view this patch in full with pager")
-           $ text_select w sofar jn opts (c:cs) ]
+           $ text_select w sofar jn opts (c:cs) [Verbose] ]
         options_summary =
            [ KeyPress 'x' ("view a summary of this patch")
-           $ text_select w sofar jn opts (c:cs) ]
+           $ text_select w sofar jn opts (c:cs) [Summary] ]
         options_help =
            [ KeyPress '?' ("show this help")
            $ do putStrLn $ helpFor jn options
-                text_select w sofar jn opts (c:cs) ]
+                text_select w sofar jn opts (c:cs) [] ]
         options_quit :: [KeyPress [Sealed (Hash Commit)]]
         options_quit =
            [ KeyPress 'd'
