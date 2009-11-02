@@ -78,9 +78,9 @@ text_select w sofar jn opts (c:cs) =
            , KeyPress 'n' ("don't "++jn++" it") $
              case w of
                First -> text_select w sofar jn opts
-                        (filter (not . (`iao` c)) cs)
-               Last -> text_select w sofar jn opts
                         (filter (not . (c `iao`)) cs)
+               Last -> text_select w sofar jn opts
+                       (filter (not . (`iao` c)) cs)
            , KeyPress 'w' ("wait and decide later") $
              text_select w sofar jn opts (cs++[c])]
         options_view =
