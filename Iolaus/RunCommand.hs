@@ -45,7 +45,6 @@ import Iolaus.Global ( setDebugMode, setTimingsMode, setVerboseMode )
 import Iolaus.Progress ( setProgressMode, debugMessage )
 import Iolaus.RepoPath ( getCurrentDirectory )
 import Iolaus.Hooks ( run_posthook, run_prehook )
-import Iolaus.Utils ( formatPath )
 
 import Git.Helpers ( configDefaults )
 
@@ -133,7 +132,7 @@ consider_running msuper cmd opts old_extra = do
  location <- command_prereq cmd opts
  case location of
    Left complaint -> fail $ "Unable to " ++
-                     formatPath ("arcs " ++ super_name msuper ++ command_name cmd) ++
+                     show ("iolaus "++super_name msuper++command_name cmd) ++
                      " here.\n\n" ++ complaint
    Right () -> do
     specops <- add_command_defaults cmd opts
