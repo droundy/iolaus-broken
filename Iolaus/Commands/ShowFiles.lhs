@@ -23,7 +23,7 @@
 
 module Iolaus.Commands.ShowFiles ( show_files, show_manifest ) where
 import Iolaus.Arguments ( Flag(..), working_repo_dir,
-                        files, directories, pending, nullFlag )
+                        files, directories, nullFlag )
 import Iolaus.Command ( Command(..), nodefaults, command_alias )
 import Iolaus.SlurpDirectory ( Slurpy, list_slurpy,
                              list_slurpy_files, list_slurpy_dirs )
@@ -37,13 +37,6 @@ import Git.LocateRepo ( amInRepository )
 \options{show files}
 
 \haskell{show_files_help}
-
-By default (and if the \verb!--pending! option is specified),
-the effect of pending patches on the repository is taken into account.
-In other words, if you add a file using {\tt iolaus add}, it
-immediately appears in the output of {\tt query manifest}, even if it
-is not yet recorded.  If you specify the \verb!--no-pending! option,
-{\tt query manifest} will only list recorded files (and directories).
 
 The \verb!--files! and \verb!--directories! options control whether
 files and directories are included in the output.  The
@@ -81,7 +74,7 @@ show_files = Command {
   command_get_arg_possibilities = return [],
   command_argdefaults = nodefaults,
   command_advanced_options = [],
-  command_basic_options = [files, directories, pending, nullFlag,
+  command_basic_options = [files, directories, nullFlag,
                           working_repo_dir] }
 
 show_manifest :: Command

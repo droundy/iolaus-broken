@@ -39,7 +39,7 @@ module Iolaus.Arguments ( Flag( .. ), flagToString,
                          recursive,
                          ask_long_comment, sendmail_cmd,
                          sign, verify, edit_description,
-                         reponame, creatorhash,
+                         reponame,
                          apply_conflict_options, reply,
                          pull_conflict_options, use_external_merge,
                          deps_sel, nocompress,
@@ -56,9 +56,8 @@ module Iolaus.Arguments ( Flag( .. ), flagToString,
                          match_several_or_range,
                          match_several_or_last, match_several_or_first,
                          config_defaults,
-                         pristine_tree,
                          sibling, flagsToSiblings, relink, nolinks,
-                         files, directories, pending,
+                         files, directories,
                          posthook_cmd, get_posthook_cmd,
                          prehook_cmd, get_prehook_cmd, nullFlag,
                          patch_select_flag,
@@ -114,7 +113,6 @@ getContent NoLeaveTestDir = NoContent
 getContent Timings = NoContent
 getContent Debug = NoContent
 getContent DebugVerbose = NoContent
-getContent DebugHTTP = NoContent
 getContent NormalVerbosity = NoContent
 getContent Quiet = NoContent
 getContent (Target s) = StringContent s
@@ -148,11 +146,9 @@ getContent AskDeps = NoContent
 getContent NoAskDeps = NoContent
 getContent RmLogFile = NoContent
 getContent (DistName s) = StringContent s
-getContent (CreatorHash s) = StringContent s
 getContent (SignAs s) = StringContent s
 getContent (SignSSL s) = StringContent s
 getContent (Verify s) = AbsoluteContent s
-getContent (VerifySSL s) = AbsoluteContent s
 getContent IgnoreTimes = NoContent
 getContent LookForAdds = NoContent
 getContent NoLookForAdds = NoContent
@@ -163,7 +159,6 @@ getContent Union = NoContent
 getContent Complement = NoContent
 getContent Sign = NoContent
 getContent NoSign = NoContent
-getContent HappyForwarding = NoContent
 getContent (Toks s) = StringContent s
 getContent (WorkDir s) = StringContent s
 getContent (RepoDir s) = StringContent s
@@ -212,17 +207,12 @@ getContent GlobalConfig = NoContent
 getContent SystemConfig = NoContent
 getContent ConfigDefault = NoContent
 getContent Disable = NoContent
-getContent PristinePlain = NoContent
-getContent PristineNone = NoContent
-getContent NoUpdateWorking = NoContent
 getContent Relink = NoContent
 getContent NoLinks = NoContent
 getContent Files = NoContent
 getContent NoFiles = NoContent
 getContent Directories = NoContent
 getContent NoDirectories = NoContent
-getContent Pending = NoContent
-getContent NoPending = NoContent
 getContent NoPosthook = NoContent
 getContent (Sibling s) = AbsoluteContent s
 getContent (PosthookCmd s) = StringContent s
@@ -414,7 +404,7 @@ disable :: IolausOption
 
 all_interactive, all_patches, interactive,
   diffflags, allow_problematic_filenames, noskip_boring,
-  ask_long_comment, match_one_nontag, creatorhash,
+  ask_long_comment, match_one_nontag,
   diff_cmd_flag, use_external_merge,
   pull_conflict_options, target, cc, apply_conflict_options, reply, xmloutput,
   distname_option, patchname_option, edit_description,
@@ -424,7 +414,7 @@ all_interactive, all_patches, interactive,
   match_several_or_first, author, help,
   help_on_match, allow_unrelated_repos,
   match_one, match_range, match_several, sendmail_cmd,
-  logfile, rmlogfile, from_opt, pristine_tree
+  logfile, rmlogfile, from_opt
 
       :: IolausOption
 
@@ -461,7 +451,7 @@ help_on_match = IolausNoArgOption [] ["match"] HelpOnMatch
 Every {\tt COMMAND} accepts the \verb!--disable! option, which can be used in
 \verb!.arcs-prefs/defaults! to disable some commands in the repository. This
 can be helpful if you want to protect the repository from accidental use of
-advanced commands like obliterate, unpull, unrecord or amend-record.
+advanced commands like obliterate, unrecord or amend-record.
 \begin{code}
 disable = IolausNoArgOption [] ["disable"] Disable
         "disable this command"
@@ -478,12 +468,11 @@ used to restore the default verbosity if \verb!--verbose! or \verb!--quiet! is i
 the defaults file.
 
 \begin{options}
---debug, --debug-http
+--debug
 \end{options}
 Many commands also accept the \verb!--debug! option, which causes iolaus to generate
 additional output that may be useful for debugging its behavior, but which otherwise
-would not be interesting. Option \verb!--debug-http! makes iolaus output debugging
-info for curl and libwww.
+would not be interesting.
 \begin{code}
 any_verbosity :: [IolausOption]
 any_verbosity =[IolausMultipleChoiceOption
@@ -491,8 +480,6 @@ any_verbosity =[IolausMultipleChoiceOption
                  "give only debug output",
                  IolausNoArgOption [] ["debug-verbose"] DebugVerbose
                  "give debug and verbose output",
-                 IolausNoArgOption [] ["debug-http"] DebugHTTP
-                 "give debug output for curl and libwww",
                  IolausNoArgOption ['v'] ["verbose"] Verbose
                  "give verbose output",
                  IolausNoArgOption ['q'] ["quiet"] Quiet
@@ -665,13 +652,6 @@ tag_on_test = IolausMultipleChoiceOption
 testByDefault :: [Flag] -> [Flag]
 testByDefault o = if NoTest `elem` o then o else Test:o
 
-pristine_tree =
-    IolausMultipleChoiceOption
-    [IolausNoArgOption [] ["plain-pristine-tree"] PristinePlain
-     "use a plain pristine tree [DEFAULT]",
-     IolausNoArgOption [] ["no-pristine-tree"] PristineNone
-     "use no pristine tree"]
-
 ask_long_comment =
     IolausMultipleChoiceOption
     [IolausNoArgOption [] ["edit-long-comment"] EditLongComment
@@ -805,9 +785,6 @@ recursive h
 xmloutput = IolausNoArgOption [] ["xml-output"] XMLOutput
         "generate XML formatted output"
 
-creatorhash = IolausArgOption [] ["creator-hash"] CreatorHash "HASH"
-              "specify hash of creator patch (see docs)"
-
 sign = IolausMultipleChoiceOption
        [IolausNoArgOption [] ["sign"] Sign
         "sign the patch with your gpg key",
@@ -829,8 +806,6 @@ config_defaults = [IolausNoArgOption [] ["config-default"] ConfigDefault
 verify = IolausMultipleChoiceOption
          [IolausAbsPathOption [] ["verify"] Verify "PUBRING"
           "verify that the patch was signed by a key in PUBRING",
-          IolausAbsPathOption [] ["verify-ssl"] VerifySSL "KEYS"
-          "verify using openSSL with authorized keys from file KEYS",
           IolausNoArgOption [] ["no-verify"] NonVerify
           "don't verify patch signature"]
 
@@ -916,37 +891,7 @@ action, but only print what would have happened.  Not all commands accept
 --summary, --no-summary
 \end{options}
 The \verb!--summary! option shows a summary of the patches that would have been
-pulled/pushed/whatever. The format is similar to the output format of
-\verb!cvs update! and looks like this:
-
-\begin{verbatim}
-A  ./added_but_not_recorded.c
-A! ./added_but_not_recorded_conflicts.c
-a  ./would_be_added_if_look_for_adds_option_was_used.h
-
-M  ./modified.t -1 +1
-M! ./modified_conflicts.t -1 +1
-
-R  ./removed_but_not_recorded.c
-R! ./removed_but_not_recorded_conflicts.c
-
-\end{verbatim}
-
-You can probably guess what the flags mean from the clever file names.
-\begin{description}
-\item{\texttt{A}} is for files that have been added but not recorded yet.
-\item{\texttt{a}} is for files found using the \verb!--look-for-adds! option available for
-\verb!whatsnew! and \verb!record!. They have not been added yet, but would be
-added automatically if \verb!--look-for-adds! were used with the next
-\verb!record! command.
-
-\item{\texttt{M}} is for files that have been modified in the working directory but not
-recorded yet. The number of added and subtracted lines is also shown.
-
-\item{\texttt{R}}  is for files that have been removed, but the removal is not
-recorded yet.
-\end{description}
-An exclamation mark appears next to any option that has a conflict.
+pulled/pushed/whatever.
 
 \begin{code}
 noskip_boring = IolausNoArgOption [] ["boring"]
@@ -1104,13 +1049,6 @@ directories = IolausMultipleChoiceOption
                "include directories in output [DEFAULT]",
                IolausNoArgOption [] ["no-directories"] NoDirectories
                "don't include directories in output"]
-
-pending :: IolausOption
-pending = IolausMultipleChoiceOption
-              [IolausNoArgOption [] ["pending"] Pending
-               "reflect pending patches in output [DEFAULT]",
-               IolausNoArgOption [] ["no-pending"] NoPending
-               "only included recorded patches in output"]
 
 nullFlag :: IolausOption        -- "null" is already taken
 nullFlag = IolausNoArgOption ['0'] ["null"] NullFlag
