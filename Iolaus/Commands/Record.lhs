@@ -32,10 +32,11 @@ import Iolaus.Lock ( readBinFile, writeBinFile, world_readable_temp,
 import Iolaus.Command ( Command(..), nodefaults )
 import Iolaus.Arguments ( Flag( PromptLongComment, NoEditLongComment,
                                 Quiet, EditLongComment, RmLogFile,
-                                LogFile, PatchName, All ),
+                                LogFile, PatchName, All,
+                                DeltaDebugWorkingSubset ),
                         working_repo_dir, mergeStrategy, commitApproach,
                         fixSubPaths, testByDefault,
-                        ask_long_comment,
+                        ask_long_comment, recordDeltaDebug,
                         all_interactive, notest,
                         author, patchname_option,
                         rmlogfile, logfile )
@@ -49,6 +50,7 @@ import Iolaus.Progress ( debugMessage )
 import Iolaus.Repository ( get_recorded_and_unrecorded, Unrecorded(..),
                            add_heads )
 import Iolaus.Sealed ( Sealed(Sealed) )
+import Iolaus.DeltaDebug ( largestPassingSet )
 
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( lsfiles, heads, commitTree )
@@ -84,18 +86,24 @@ record = Command {command_name = "record",
                        command_argdefaults = nodefaults,
                        command_advanced_options = [logfile, rmlogfile],
                        command_basic_options = [patchname_option, author]++
-                                               notest++[mergeStrategy,
-                                               commitApproach,
-                                               all_interactive,
-                                               ask_long_comment,
-                                               working_repo_dir]}
+                                               notest++recordDeltaDebug++
+                                               [mergeStrategy, commitApproach,
+                                                all_interactive,
+                                                ask_long_comment,
+                                                working_repo_dir]}
 
 record_cmd :: [Flag] -> [String] -> IO ()
 record_cmd opts args = do
     check_name_is_not_option opts
     files <- sort `fmap` fixSubPaths opts args
     handleJust only_successful_exits (\_ -> return ()) $ do
-    (old, Unrecorded allchs _) <- get_recorded_and_unrecorded opts
+    (old, Unrecorded allchs0 _) <- get_recorded_and_unrecorded opts
+    Sealed allchs <-
+        if DeltaDebugWorkingSubset `elem` opts
+        then do t <- writeSlurpTree old -- FIXME this issssss stupid
+                xs :> _ <- largestPassingSet t allchs0
+                return $ Sealed xs
+        else return $ Sealed allchs0
     with_selected_changes_to_files "record" opts old (map toFilePath files)
                                    allchs $ \ (ch:>_) ->
         do debugMessage "have finished selecting changes..."
@@ -111,7 +119,8 @@ record_cmd opts args = do
                                        (world_readable_temp "iolaus-record")
                     hs <- heads
                     (hs', Sealed newtree') <- simplifyParents opts hs newtree
-                    if Sealed newtree' /= Sealed newtree
+                    if Sealed newtree' /= Sealed newtree &&
+                       DeltaDebugWorkingSubset `notElem` opts
                       then do debugMessage "Testing on \"current\" tree"
                               test (testByDefault opts) newtree
                       else return []

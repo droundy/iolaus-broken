@@ -23,7 +23,7 @@
 
 module Iolaus.Arguments ( Flag( .. ), flagToString,
                           isin, arein, mergeStrategy, commitApproach,
-                         fixSubPaths, areFileArgs,
+                          recordDeltaDebug, fixSubPaths, areFileArgs,
                          IolausOption( .. ), option_from_iolausoption,
                          help, list_options, pull_apart_option,
                          max_count, help_on_match,
@@ -95,6 +95,7 @@ getContent (PatchName s) = StringContent s
 getContent (Output s) = AbsoluteOrStdContent s
 getContent NoCauterizeAllHeads = NoContent
 getContent CauterizeAllHeads = NoContent
+getContent DeltaDebugWorkingSubset = NoContent
 getContent ShowHash = NoContent
 getContent NoShowHash = NoContent
 getContent (CommutePast n) = StringContent (show n)
@@ -870,6 +871,11 @@ commitApproach = IolausMultipleChoiceOption
   where cp s = if all isDigit s
                then CommutePast (read s)
                else CommutePast (-1)
+
+recordDeltaDebug :: [IolausOption]
+recordDeltaDebug =
+    [IolausNoArgOption [] ["delta-debug"] DeltaDebugWorkingSubset
+     "use delta debugging to avoid recording bugs"]
 
 mergeStrategy :: IolausOption
 mergeStrategy = IolausMultipleChoiceOption 

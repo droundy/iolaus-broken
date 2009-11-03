@@ -24,6 +24,7 @@
 module Iolaus.Patch.Permutations ( removeFL, removeRL, removeCommon,
                                    commuteWhatWeCanFL, commuteWhatWeCanRL,
                                    commuteWhatWeCanRLFL,
+                                   commuteWhatWeCanToRightRLFL,
                                    partitionFL, partitionRL ) where
 
 import Data.Maybe ( catMaybes )
@@ -103,6 +104,16 @@ commuteWhatWeCanRL (x :<: xs :> p) =
     Just (p' :> x') -> case commuteWhatWeCanRL (xs :> p') of
                        a :> p'' :> c -> a :> p'' :> x' :<: c
 commuteWhatWeCanRL (NilRL :> y) = NilRL :> y :> NilRL
+
+commuteWhatWeCanToRightRLFL :: Commute p => (RL p :> FL p) C(x y)
+                            -> (FL p :> FL p) C(x y)
+commuteWhatWeCanToRightRLFL (NilRL :> xs) = (xs :> NilFL)
+commuteWhatWeCanToRightRLFL (x :<: xs :> ys) =
+    case commuteWhatWeCanFL (x :> ys) of
+      ok :> x' :> xs' ->
+          case commuteWhatWeCanToRightRLFL (xs :> ok) of
+            ok2 :> a ->
+                ok2 :> (a +>+ x' :>: xs')
 
 commuteWhatWeCanRLFL :: Commute p => (RL p :> FL p) C(x y)
                      -> (FL p :> FL p) C(x y)

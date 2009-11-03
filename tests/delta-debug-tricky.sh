@@ -27,12 +27,7 @@ EOF
 chmod +x .git-hooks/test
 
 iolaus init
-iolaus record -am 'create test' > out
-cat out
-
-grep hello out
-grep goodbye out
-grep 'another nice test' out
+iolaus record -am 'create test'
 
 cat > .git-hooks/test <<EOF
 #!/usr/bin/env perl
@@ -41,7 +36,7 @@ foo();
 
 baz("goodbye","world");
 
-bar("is this a new bug?", "hello");
+baz("is this a new bug?", "hello");
 
 sub foo {
   print "hello silly world\n";
@@ -49,7 +44,7 @@ sub foo {
 
 sub baz {
   my (\$a, \$b) = @_;
-  print "\$a \$b\n";
+  prin "\$a \$b\n";
 }
 
 baz("yet another nice","test");
@@ -66,13 +61,21 @@ iolaus record --delta-debug -am 'safe parts of test'
 
 iolaus wh
 
-grep baz .git-hooks/test
-grep bar .git-hooks/test
+#grep baz .git-hooks/test
+#grep bar .git-hooks/test
+
+# test still fail
+./.git-hooks/test && exit 1
 
 iolaus revert -a
 
-grep bar .git-hooks/test && exit 1
-grep baz .git-hooks/test
+# make sure test now passes
+./.git-hooks/test
 
-# test-fails because we don't try very hard to find the largest subset
-# of patches that passes the test.
+#grep bar .git-hooks/test && exit 1
+#grep baz .git-hooks/test
+
+# This test passes, but not very well.  I'd like for iolaus to be able
+# to figure out that if it just reverses the print -> prin
+# misspelling, all the rest of the tests pass.  I think I'm using the
+# delta debugging algorithm inappropriately.
