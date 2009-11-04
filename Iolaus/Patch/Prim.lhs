@@ -61,8 +61,7 @@ import Iolaus.Patch.Permutations () -- for Invert instance of FL
 import Iolaus.Show
 import Iolaus.Lcs2 ( nestedChanges )
 import Iolaus.Colors ( colorOld, colorNew )
-import Iolaus.Printer ( Doc, text, blueText, colorPS,
-                        ($$), (<+>), (<>), userchunkPS )
+import Iolaus.Printer ( Doc, text, blueText, colorPS, ($$), (<+>), (<>) )
 import Iolaus.IO ( ExecutableBit(IsExecutable, NotExecutable) )
 #include "impossible.h"
 
@@ -268,9 +267,8 @@ showRmDir d = blueText "rmdir" <+> formatFileName d
 
 showChunk :: FileName -> B.ByteString
           -> Int -> [B.ByteString] -> [B.ByteString] -> Doc
-showChunk f chs word old new =
-           blueText "chunk" <+> userchunkPS chs <+> formatFileName f
-                        <+> text (show word) $$
+showChunk f _ word old new =
+           blueText "chunk" <+> formatFileName f <+> text (show word) $$
               (colorPS colorOld $ B.concat old) <>
               (colorPS colorNew $ B.concat new)
 

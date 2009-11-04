@@ -23,6 +23,7 @@ import Iolaus.Arguments ( Flag(Summary, Verbose), mergeStrategy,
                           commit_format, working_repo_dir )
 import Iolaus.Command ( Command(..), nodefaults )
 import Iolaus.Sealed ( Sealed(Sealed) )
+import Iolaus.Printer ( putDocLn )
 
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( parseRev, nameRevs )
@@ -57,7 +58,7 @@ show_commit = Command {
 commit_cmd :: [Flag] -> [String] -> IO ()
 commit_cmd opts0 cs = mapM_ showc cs
     where showc c = do Sealed x <- parseRev c
-                       showCommit opts x
+                       showCommit opts x >>= putDocLn
           opts = if Summary `elem` opts0
                  then opts0
                  else Verbose:opts0

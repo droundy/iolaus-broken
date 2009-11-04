@@ -31,6 +31,7 @@ import Control.Monad ( filterM )
 import Iolaus.Flags ( Flag( All, SeveralPatch, Verbose, Summary ) )
 import Iolaus.Utils ( promptCharFancy )
 import Iolaus.Sealed ( Sealed( Sealed ), mapSealM, unseal )
+import Iolaus.Printer ( putDocLn )
 
 import Git.Dag ( isAncestorOf )
 import Git.Plumbing ( Hash, Commit, catCommit, myMessage )
@@ -62,7 +63,7 @@ text_select :: WhichChanges -> [Sealed (Hash Commit)]
 text_select _ sofar _ _ [] _ = return sofar
 text_select _ sofar _ opts cs _ | All `elem` opts = return (sofar++cs)
 text_select w sofar jn opts (c:cs) showopts =
-    do showCommit showopts `unseal` c
+    do showCommit showopts `unseal` c >>= putDocLn
        doKey prompt options
     where
         Sealed a `iao` Sealed b = a `isAncestorOf` b
