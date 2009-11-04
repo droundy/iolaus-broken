@@ -91,7 +91,8 @@ data GraphState = GS { allSpots :: [Spot],
 delo :: Sealed (Hash Commit) -> Spot -> Spot
 delo h s = s { overlapping = delete h $ overlapping s }
 addo :: Sealed (Hash Commit) -> Spot -> Spot
-addo h s = s { overlapping = h : delete h (overlapping s) }
+addo h s | Just h == homeIs s = AtHome (Just h) (overlapping s)
+         | otherwise = s { overlapping = h : delete h (overlapping s) }
 
 evolveSpots :: [Spot] -> [Spot]
 evolveSpots [] = []
@@ -101,21 +102,13 @@ evolveSpots (a:b)
       h `elem` overlapping a =
           evolveSpots (AtHome (homeIs a) (delete h $ overlapping a) : b)
 evolveSpots (a:b:c)
-    | Just h <- homeIs a,
-      h `elem` overlapping b =
-        AtHome (homeIs a) (overlapping a) : evolveSpots (delo h b:c)
-    | Just h <- homeIs b,
-      h `elem` overlapping a =
-        delo h a : evolveSpots (AtHome (homeIs b) (overlapping b):c)
     | [] <- overlapping a,
       o:_ <- overlapping b,
-      Just o `notElem` map homeIs c = a {overlapping = [o]} :
-                                      evolveSpots (delo o b : c)
+      Just o `notElem` map homeIs (b:c) = addo o a : evolveSpots (delo o b : c)
     | o:_ <- overlapping a,
-      Just o `elem` map homeIs c =
-          case evolveSpots (b:c) of
-            b':c' -> delo o a : addo o b' : c'
-            [] -> error "sagdsdg"
+      Just o `elem` map homeIs (b:c) = case evolveSpots (b:c) of
+                                         b':c' -> delo o a : addo o b' : c'
+                                         [] -> error "sagdsdg"
 evolveSpots (a:c) = a : evolveSpots c
 
 data G a = G (GraphState -> IO (GraphState, a))
