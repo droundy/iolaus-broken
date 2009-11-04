@@ -102,13 +102,12 @@ evolveSpots (a:b)
       h `elem` overlapping a =
           evolveSpots (AtHome (homeIs a) (delete h $ overlapping a) : b)
 evolveSpots (a:b:c)
-    | [] <- overlapping a,
-      o:_ <- overlapping b,
-      Just o `notElem` map homeIs (b:c) = addo o a : evolveSpots (delo o b : c)
-    | o:_ <- overlapping a,
-      Just o `elem` map homeIs (b:c) = case evolveSpots (b:c) of
-                                         b':c' -> delo o a : addo o b' : c'
-                                         [] -> error "sagdsdg"
+    | o:_ <- filter (`notElem` catMaybes (map homeIs (b:c))) $ overlapping b =
+             addo o a : evolveSpots (delo o b : c)
+    | o:_ <- filter (`elem` catMaybes (map homeIs (b:c))) $ overlapping a =
+             case evolveSpots (b:c) of
+               b':c' -> delo o a : addo o b' : c'
+               [] -> error "sagdsdg"
 evolveSpots (a:c) = a : evolveSpots c
 
 data G a = G (GraphState -> IO (GraphState, a))
