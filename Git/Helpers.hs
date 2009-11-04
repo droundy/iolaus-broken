@@ -285,7 +285,9 @@ mergeCommitsX Builtin [p1,p2] =
 mergeCommitsX Builtin _ = fail "Builtin can't do octopi"
 mergeCommitsX s xs = -- this is MergeN*
     case mergeBases xs of
-      [] -> do ts <- mapM (mapSealM catCommitTree) xs
+      [] -> do debugMessage $ "mergeCommitsX didn't find any mergeBases for "
+                            ++ unwords (map show xs)
+               ts <- mapM (mapSealM catCommitTree) xs
                sls <- mapM (mapSealM slurpTree) ts
                let diffempty (Sealed x,Sealed ss) =
                       do msg <- (concat.take 1.lines.myMessage)
@@ -296,7 +298,9 @@ mergeCommitsX s xs = -- this is MergeN*
                Sealed `fmap` writeSlurpTree
                           (fromJust $ apply_to_slurpy p empty_slurpy)
       Sealed ancestor:_ ->
-          do diffs <- newIORef M.empty
+          do debugMessage ("mergeCommitsX of "++unwords (map show xs)++
+                           " with ancestor "++show ancestor)
+             diffs <- newIORef M.empty
              pps <- mapM (mapSealM (bigDiff diffs s ancestor)) xs
              Sealed ps <- return $ mergeNamed pps
              oldest <- catCommitTree ancestor >>= slurpTree
@@ -423,6 +427,6 @@ showCommit opts c =
        let ps = if ShowParents `elem` opts
                 then case map show $ parents c of
                        [] -> empty
-                       ps -> text ("Parents: "++unwords ps)
+                       pars -> text ("Parents: "++unwords pars)
                 else empty
        return (x $$ ps $$ d)
