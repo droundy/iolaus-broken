@@ -105,7 +105,9 @@ instance Apply p => Apply (TaggedPatch p) where
 patch_choices :: Patchy p => FL p C(x y) -> PatchChoices p C(x y)
 patch_choices = fst . patch_choices_tps
 
-patch_choices_tps :: Patchy p => FL p C(x y) -> (PatchChoices p C(x y), FL (TaggedPatch p) C(x y))
+patch_choices_tps
+    :: Patchy p => FL p C(x y)
+    -> (PatchChoices p C(x y), FL (TaggedPatch p) C(x y))
 patch_choices_tps ps = let tps = zipWithFL TP [1..] ps
                        in (PCs $ zipWithFL (flip PC) (repeat InMiddle) tps, tps)
 
@@ -129,8 +131,9 @@ instance Commute p => Commute (PatchChoice p) where
 invertSeq :: (Invert p, Invert q) => (p :> q) C(x y) -> (q :> p) C(y x)
 invertSeq (x :> y) = (invert y :> invert x)
 
-separate_first_from_middle_last :: Patchy p => PatchChoices p C(x z)
-                                -> (FL (TaggedPatch p) :> FL (TaggedPatch p)) C(x z)
+separate_first_from_middle_last
+    :: Patchy p => PatchChoices p C(x z)
+    -> (FL (TaggedPatch p) :> FL (TaggedPatch p)) C(x z)
 separate_first_from_middle_last (PCs e) = pull_only_firsts e
 
 separate_first_middle_from_last :: Patchy p => PatchChoices p C(x z)
@@ -192,7 +195,8 @@ pull_middles_lasts easyPC =
 --        xs = f [] easyPC
 --    in (xs, unsafePerformIO (readIORef r))
 
-pull_firsts :: Patchy p => FL (PatchChoice p) C(x z) -> (FL (TaggedPatch p) :>  FL (PatchChoice p)) C(x z)
+pull_firsts :: Patchy p => FL (PatchChoice p) C(x z)
+            -> (FL (TaggedPatch p) :>  FL (PatchChoice p)) C(x z)
 pull_firsts e = case pull_first e of
                 Nothing -> (NilFL :> e)
                 Just (p:>e') -> case pull_firsts e' of

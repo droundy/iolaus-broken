@@ -19,6 +19,7 @@
 
 module Iolaus.Lcs2 ( patientLcs, nestedChanges ) where
 
+import Debug.Trace
 import Data.List ( sort )
 import Data.Array.ST
 import Control.Monad.ST
@@ -86,13 +87,18 @@ lcus xs0 ys0 = lcs (filter (`S.member`u) xs0) (filter (`S.member`u) ys0)
           gru [] = []
 
 
-mkdiff :: Ord a => (a -> Bool) -> Int -> [a] -> [a] -> [a] -> [(Int,[a],[a])]
+mkdiff :: (Show a, Ord a) =>
+          (a -> Bool) -> Int -> [a] -> [a] -> [a] -> [(Int,[a],[a])]
 mkdiff b ny (l:ls) (x:xs) (y:ys)
     | l == x && l == y = mkdiff b (ny+1) ls xs ys
 mkdiff boring ny (l:ls) xs ys
     | length lls > 0 && not (null rest) =
         if rmd == add
-        then error "bug in mkdiff"
+        then trace ("\npossible bug in mkdiff "++show rmd
+                    ++"\nfrom l:ls "++show (l:ls)
+                    ++"\nfrom xs "++show xs
+                    ++"\nfrom ys "++show ys)
+             mkdiff boring (ny+length add+1) ls restx resty
         else if not (null rmd) && not (null add) && boring l &&
                 take 1 restx /= take 1 resty
              then mkdiff boring ny ls xs ys

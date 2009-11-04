@@ -177,7 +177,7 @@ splitAtFL :: Int -> FL a C(x z) -> (FL a :> FL a) C(x z)
 splitAtFL 0 xs = NilFL :> xs
 splitAtFL _ NilFL = NilFL :> NilFL
 splitAtFL n (x:>:xs) = case splitAtFL (n-1) xs of
-                       (xs':>xs'') -> (x:>:xs' :> xs'')
+                       xs':>xs'' -> x:>:xs' :> xs''
 
 -- 'bunchFL n' groups patches into batches of n, except that it always puts
 -- the first patch in its own group, this being a recognition that the

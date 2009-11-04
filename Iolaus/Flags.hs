@@ -23,11 +23,11 @@ import Iolaus.RepoPath ( AbsolutePath, AbsolutePathOrStd )
 -- passed to iolaus, or to one of its commands.
 data Flag = Help | ListOptions | NoTest | Test | TestParents
           | NoCauterizeAllHeads | CauterizeAllHeads | CommutePast Int
-          | RecordFor String
+          | DeltaDebugWorkingSubset | RecordFor String
           | NoTagOnTest | TagOnTest
                | HelpOnMatch | OnlyChangesToFiles
                | LeaveTestDir | NoLeaveTestDir
-               | Timings | Debug | DebugVerbose | DebugHTTP
+               | Timings | Debug | DebugVerbose
                | Verbose | NormalVerbosity | Quiet
                | Target String | Cc String
                | Output AbsolutePathOrStd | OutputAutoName AbsolutePath
@@ -43,12 +43,11 @@ data Flag = Help | ListOptions | NoTest | Test | TestParents
                | DistName String | All
                | Recursive | NoRecursive | Reorder
                | RestrictPaths | DontRestrictPaths
-               | AskDeps | NoAskDeps | IgnoreTimes | LookForAdds | NoLookForAdds
-               | AnyOrder | CreatorHash String
+               | AskDeps | NoAskDeps | IgnoreTimes
+               | LookForAdds | NoLookForAdds | AnyOrder
                | Intersection | Union | Complement
                | Sign | SignAs String | NoSign | SignSSL String
-               | HappyForwarding
-               | Verify AbsolutePath | VerifySSL AbsolutePath
+               | Verify AbsolutePath
                | EditDescription | NoEditDescription
                | Toks String
                | EditLongComment | NoEditLongComment | PromptLongComment
@@ -72,10 +71,8 @@ data Flag = Help | ListOptions | NoTest | Test | TestParents
                | NonApply | NonVerify
                | DryRun | ConfigDefault | GlobalConfig | SystemConfig
                | Disable
-               | PristinePlain | PristineNone | NoUpdateWorking
                | Sibling AbsolutePath | Relink | NoLinks
                | Files | NoFiles | Directories | NoDirectories
-               | Pending | NoPending
                | PosthookCmd String | NoPosthook
                | PrehookCmd String  | NoPrehook
                | UMask String
