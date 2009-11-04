@@ -267,7 +267,7 @@ showRmDir d = blueText "rmdir" <+> formatFileName d
 
 showChunk :: FileName -> B.ByteString
           -> Int -> [B.ByteString] -> [B.ByteString] -> Doc
-showChunk f chs word old new =
+showChunk f _ word old new =
            blueText "chunk" <+> formatFileName f <+> text (show word) $$
               (colorPS colorOld $ B.concat old) <>
               (colorPS colorNew $ B.concat new)

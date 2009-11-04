@@ -20,7 +20,7 @@ import System.IO ( hPutStrLn )
 import System.IO.Unsafe ( unsafeInterleaveIO )
 import Data.List ( sort )
 import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
-import Data.Map as M ( Map, insert, empty, lookup )
+import qualified Data.Map as M ( Map, insert, empty, lookup )
 import Data.Maybe ( isJust )
 import Data.ByteString as B ( hPutStr )
 
@@ -45,7 +45,7 @@ import Iolaus.Progress ( debugMessage )
 import Iolaus.Flags ( Flag( Test, TestParents, NativeMerge, FirstParentMerge,
                             IolausSloppyMerge, RecordFor, Summary, Verbose,
                             CauterizeAllHeads, CommutePast, ShowHash,
-                            GlobalConfig, SystemConfig ) )
+                            ShowParents, GlobalConfig, SystemConfig ) )
 import Iolaus.FileName ( FileName, fp2fn )
 import Iolaus.IO ( ExecutableBit(..) )
 import Iolaus.SlurpDirectoryInternal
@@ -60,7 +60,7 @@ import Iolaus.Patch ( Named, Prim, commute, apply_to_slurpy, mergeNamed,
 import Iolaus.TouchesFiles ( look_touch )
 import Iolaus.Ordered ( FL(..), (:>)(..), (+>+), unsafeCoerceP, mapFL_FL )
 import Iolaus.Sealed ( Sealed(..), FlippedSeal(..), mapSeal, mapSealM, unseal )
-import Iolaus.Printer ( putDocLn, prefix )
+import Iolaus.Printer ( Doc, empty, text, prefix, ($$) )
 
 #include "impossible.h"
 
@@ -285,7 +285,9 @@ mergeCommitsX Builtin [p1,p2] =
 mergeCommitsX Builtin _ = fail "Builtin can't do octopi"
 mergeCommitsX s xs = -- this is MergeN*
     case mergeBases xs of
-      [] -> do ts <- mapM (mapSealM catCommitTree) xs
+      [] -> do debugMessage $ "mergeCommitsX didn't find any mergeBases for "
+                            ++ unwords (map show xs)
+               ts <- mapM (mapSealM catCommitTree) xs
                sls <- mapM (mapSealM slurpTree) ts
                let diffempty (Sealed x,Sealed ss) =
                       do msg <- (concat.take 1.lines.myMessage)
@@ -296,7 +298,9 @@ mergeCommitsX s xs = -- this is MergeN*
                Sealed `fmap` writeSlurpTree
                           (fromJust $ apply_to_slurpy p empty_slurpy)
       Sealed ancestor:_ ->
-          do diffs <- newIORef M.empty
+          do debugMessage ("mergeCommitsX of "++unwords (map show xs)++
+                           " with ancestor "++show ancestor)
+             diffs <- newIORef M.empty
              pps <- mapM (mapSealM (bigDiff diffs s ancestor)) xs
              Sealed ps <- return $ mergeNamed pps
              oldest <- catCommitTree ancestor >>= slurpTree
@@ -405,19 +409,24 @@ configDefaults msuper cmd cs fs = mapM_ configit xs
                       then [System]
                       else []
 
-showCommit :: [Flag] -> Hash Commit C(x) -> IO ()
+showCommit :: [Flag] -> Hash Commit C(x) -> IO Doc
 showCommit opts c =
     do commit <- catCommit c
-       if ShowHash `elem` opts then putStrLn (show c)
-                                    else return ()
-       putStr $ pretty commit
-       if Summary `elem` opts
-           then do FlippedSeal ch <- diffCommit opts c
-                   putStrLn ""
-                   putDocLn $ prefix "    " $ summarize ch
-           else if Verbose `elem` opts
-                then do FlippedSeal ch <- diffCommit opts c
-                        new <- slurpTree (myTree commit)
-                        let Just old = apply_to_slurpy (invert ch) new
-                        putDocLn $ showContextPatch old ch
-                else return ()
+       let x = if ShowHash `elem` opts then text (show c) $$
+                                            text (pretty commit)
+                                       else text (pretty commit)
+       d <- if Summary `elem` opts
+            then do FlippedSeal ch <- diffCommit opts c
+                    return $ prefix "    " (summarize ch)
+            else if Verbose `elem` opts
+                 then do FlippedSeal ch <- diffCommit opts c
+                         new <- slurpTree (myTree commit)
+                         let Just old = apply_to_slurpy (invert ch) new
+                         return $ showContextPatch old ch
+                 else return empty
+       let ps = if ShowParents `elem` opts
+                then case map show $ parents c of
+                       [] -> empty
+                       pars -> text ("Parents: "++unwords pars)
+                else empty
+       return (x $$ ps $$ d)

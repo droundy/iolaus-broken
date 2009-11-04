@@ -4,7 +4,6 @@
 module Git.Dag ( parents, ancestors, allAncestors, isAncestorOf, notIn,
                  mergeBases, cauterizeHeads, dag2commit,
                  makeDag, Dag(..), greatGrandFather,
-                 commonAncestors, uncommonAncestors,
                  Bisection(..), bisect, bisectionPlan ) where
 
 import Data.Maybe ( catMaybes )
@@ -32,17 +31,6 @@ genealogy = unsafePerformIO $ newIORef M.empty
 isAncestorOf :: Hash Commit C(x) -> Hash Commit C(y) -> Bool
 a `isAncestorOf` b = Sealed a `S.member` ancestors b
 
-commonAncestors :: Hash Commit C(x) -> Hash Commit C(y)
-                -> S.Set (Sealed (Hash Commit))
-commonAncestors a b = S.intersection (ancestors a) (ancestors b)
-
-uncommonAncestors :: [Sealed (Hash Commit)] -> S.Set (Sealed (Hash Commit))
-uncommonAncestors xs = S.difference (S.unions axs) com
-    where axs = map (unseal ancestors) xs
-          com = int S.empty axs
-          int i [] = i
-          int i (s:ss) = int (S.intersection i s) ss
-
 notIn ::  [Sealed (Hash Commit)] ->  [Sealed (Hash Commit)]
       -> [Sealed (Hash Commit)]
 notIn them us = newestFirst $ S.toList justhem
@@ -52,9 +40,14 @@ notIn them us = newestFirst $ S.toList justhem
 
 mergeBases :: [Sealed (Hash Commit)] -> [Sealed (Hash Commit)]
 mergeBases [] = []
-mergeBases (h:hs) = mb (unseal ancestors h) hs
-    where mb a [] = fmb 0 [] $ S.toList a
-          mb a (x:xs) = mb (S.intersection a $ unseal ancestors x) xs
+mergeBases hs = fmb 0 [] $ filter isok ourancestors
+    where ourancestors = S.toList (S.unions $
+                                   S.fromList hs:map (unseal ancestors) hs)
+          isok x = -- we're a potential merge base if everyone is either
+                   -- our ancestor our our descendent.
+                   x `notElem` hs && all isok' ourancestors
+              where isok' y = y `iao` x || x `iao` y || x == y
+          Sealed a `iao` Sealed b = a `isAncestorOf` b
           fmb _ sofar [] = sofar
           fmb na sofar (x:xs) = if nx > na
                                 then fmb nx [x] xs
