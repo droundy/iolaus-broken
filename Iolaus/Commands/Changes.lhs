@@ -159,7 +159,9 @@ putGenS mn l s = do let newspots = evolveSpots (allSpots s)
                  (a' : c') =
                  case overlapping a `intersect` overlapping a' of
                    o:_ -> draw o 'I' ++ betw (a:c) (a':c')
-                   [] -> ' ' : betw (a:c) (a':c')
+                   [] -> case overlapping a' of
+                           [o] -> draw o '_' ++ betw (a:c) (a':c')
+                           _ -> ' ' : betw (a:c) (a':c')
           mkpref [] [] = ""
           mkpref _ _ = "XXX"
           betw (a : b : c )
