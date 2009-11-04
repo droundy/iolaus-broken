@@ -7,8 +7,8 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"],
                 (do putS "compiling with type witnesses enabled"
                     define "GADT_WITNESSES"
                     ghcFlags ["-fglasgow-exts"])] $
-       do v <- autoPatchVersion NumberedPreRc
-          defineAs "IOLAUS_VERSION" (show v)
+       do autoPatchVersion NumberedPreRc >>= replace "IOLAUS_VERSION"
+          createFile "Iolaus/Help.lhs"
           hcFlags ["-Iinclude"]
           ghcFlags ["-Wall","-threaded"]
           withDirectory "etc" $ etc "bash_completion.d/iolaus"

@@ -24,8 +24,6 @@ the \verb|--help| to that command.  For example, \verb|arcs help query manifest|
 is equivalent to \verb|arcs query manifest --help|.
 
 \begin{code}
-{-# LANGUAGE CPP #-}
-
 module Iolaus.Help ( help_cmd, command_control_list, print_version,
                              list_available_commands
                            ) where
