@@ -33,6 +33,7 @@ import Iolaus.SlurpDirectory ( Slurpy )
 import Iolaus.Sealed ( Sealed(..), mapSealM, unseal )
 
 import Git.Plumbing ( Hash, Commit, emptyCommit, heads, headNames, remoteHeads,
+                      tagNames,
                       writetree, updateindex, updateref, sendPack )
 import Git.Helpers ( touchedFiles, slurpTree, mergeCommits )
 import Git.Dag ( parents, cauterizeHeads )
@@ -97,7 +98,8 @@ push_heads repo cs =
        let newhs = cauterizeHeads (hs++cs)
            empties = take (length hs - length newhs) $
                      repeat $ Sealed emptyCommit
-       sendPack repo (zip (newhs++empties) masters)
+       tns <- tagNames
+       sendPack repo (zip (newhs++empties) masters) (map snd tns)
 
 masters :: [String]
 masters = "refs/heads/master" :

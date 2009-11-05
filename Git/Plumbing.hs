@@ -6,7 +6,7 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag, emptyCommit,
                       catTree, TreeEntry(..),
                       catCommit, CommitEntry(..),
                       catCommitTree, parseRev,
-                      heads, remoteHeads, headNames, remoteHeadNames,
+                      heads, remoteHeads, headNames, tagNames, remoteHeadNames,
                       clone, gitInit, fetchPack, sendPack, listRemotes,
                       checkoutCopy,
                       lsfiles, lssomefiles, lsothers,
@@ -21,7 +21,7 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag, emptyCommit,
                       getColor, getColorWithDefault,
                       getAllConfig, getConfig, setConfig, unsetConfig,
                       ConfigOption(..),
-                      headhash, commitTree ) where
+                      commitTree ) where
 
 import System.IO ( Handle, hGetContents, hPutStr, hClose )
 -- import System.IO.Pipe ( openPipe )
@@ -243,17 +243,6 @@ diffTreeCommit opts c fs =
          ExitSuccess -> return out
          ExitFailure _ -> fail "git diff-tree failed"
 
-headhash :: IO (Sealed (Hash Commit))
-headhash =
-    do debugMessage "calling git show-ref -h"
-       (Nothing, Just stdout, Nothing, pid) <-
-           createProcess (proc "git" ["show-ref","-h"]) { std_out = CreatePipe }
-       out <- hGetContents stdout
-       ec <- length out `seq` waitForProcess pid
-       case ec of
-         ExitSuccess -> return $ mkSHash Commit out
-         ExitFailure _ -> fail "git show-ref failed"
-
 updateIndexForceRemove :: FilePath -> IO ()
 updateIndexForceRemove fp =
     do debugMessage "calling git update-index --force-remove"
@@ -338,7 +327,7 @@ heads =
 
 remoteHeads :: String -> IO [Sealed (Hash Commit)]
 remoteHeads repo =
-    do debugMessage "calling git show-ref"
+    do debugMessage "calling git ls-remote"
        (Nothing, Just stdout, Nothing, pid) <-
            createProcess (proc "git" ["ls-remote", "--heads",repo])
                              { std_out = CreatePipe }
@@ -346,12 +335,11 @@ remoteHeads repo =
        ec <- length out `seq` waitForProcess pid
        case ec of
          ExitSuccess -> return $ map (mkSHash Commit) $ lines out
-         ExitFailure _ -> fail "parseRev failed"
+         ExitFailure _ -> fail "ls-remote failed"
 
 headNames :: IO [(Sealed (Hash Commit), String)]
 headNames =
-    do debugMessage "calling git show-ref"
-       (Nothing, Just stdout, Nothing, pid) <-
+    do (Nothing, Just stdout, Nothing, pid) <-
            createProcess (proc "git" ["show-ref", "--heads"])
                              { std_out = CreatePipe }
        out <- hGetContents stdout
@@ -360,6 +348,18 @@ headNames =
          ExitSuccess -> return $ map parse $ lines out
          ExitFailure _ -> fail "git show-ref failed"
     where parse l = (mkSHash Commit l, drop 41 l)
+
+tagNames :: IO [(Sealed (Hash Tag), String)]
+tagNames =
+    do (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git" ["show-ref", "--tags"])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ map parse $ lines out
+         ExitFailure _ -> return [] -- show-ref fails if there are no tags
+    where parse l = (mkSHash Tag l, drop 41 l)
 
 remoteHeadNames :: String -> IO [(Sealed (Hash Commit), String)]
 remoteHeadNames repo =
@@ -747,13 +747,13 @@ fetchPack repo0 =
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git fetch-pack failed"
 
-sendPack :: String -> [(Sealed (Hash Commit), String)] -> IO ()
-sendPack repo0 xs =
+sendPack :: String -> [(Sealed (Hash Commit), String)] -> [String] -> IO ()
+sendPack repo0 xs ts =
     do repo <- parseRemote repo0
        debugMessage ("calling git send-pack --force "++repo)
        let revs = map (\ (h,r) -> show h++':':r) xs
        (Nothing, Nothing, Nothing, pid) <-
-           createProcess (proc "git" ("send-pack":"--force":repo:revs))
+           createProcess (proc "git" ("send-pack":"--force":repo:revs++ts))
        ec <- waitForProcess pid
        case ec of
          ExitSuccess -> return ()
