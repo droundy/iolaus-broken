@@ -38,7 +38,8 @@ import Iolaus.SelectCommits ( select_commits )
 
 import Git.Dag ( notIn )
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( heads, remoteHeads, listRemotes, fetchPack )
+import Git.Plumbing ( heads, remoteHeads, remoteTagNames,
+                      listRemotes, fetchPack )
 import Git.Helpers ( test, slurpTree, mergeCommits )
 
 pull_description :: String
@@ -102,6 +103,11 @@ pull_cmd opts repodirs@(_:_) =
              do test (testByDefault opts) newtree
                 add_heads opts newhs'
                 apply nps
+                tns <- concat `fmap` mapM remoteTagNames repodirs
+                let writeTag (h,n) | take 10 n == "refs/tags/" =
+                                       writeFile (".git/"++n) (show h)
+                    writeTag _ = return ()
+                mapM_ writeTag tns
 pull_cmd _ [] = fail "No default repository to pull from, please specify one"
 \end{code}
 

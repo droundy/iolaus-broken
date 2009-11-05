@@ -6,7 +6,8 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag, emptyCommit,
                       catTree, TreeEntry(..),
                       catCommit, CommitEntry(..),
                       catCommitTree, parseRev,
-                      heads, remoteHeads, headNames, tagNames, remoteHeadNames,
+                      heads, remoteHeads, headNames, tagNames,
+                      remoteHeadNames, remoteTagNames,
                       clone, gitInit, fetchPack, sendPack, listRemotes,
                       checkoutCopy,
                       lsfiles, lssomefiles, lsothers,
@@ -373,6 +374,19 @@ remoteHeadNames repo =
          ExitSuccess -> return $ map parse $ lines out
          ExitFailure _ -> fail "git ls-remote failed"
     where parse l = (mkSHash Commit l, drop 41 l)
+
+remoteTagNames :: String -> IO [(Sealed (Hash Tag), String)]
+remoteTagNames repo =
+    do debugMessage "calling git ls-remote"
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git" ["ls-remote", "--tags",repo])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ map parse $ filter ('^' `notElem`) $ lines out
+         ExitFailure _ -> return []
+    where parse l = (mkSHash Tag l, drop 41 l)
 
 parseRev :: String -> IO (Sealed (Hash Commit))
 parseRev s =
