@@ -67,10 +67,14 @@ select_not_touching files pc = force_firsts xs pc
                fc :> mc :> _ -> ct (map fix files) (fc +>+ mc)
 
 fix :: FilePath -> FilePath
-fix f | take 1 (reverse f) == "/" = fix $ reverse $ drop 1 $ reverse f
-fix "" = "."
-fix "." = "."
-fix f = "./" ++ f
+fix ('.':'/':x) = fix0 x
+fix x = fix0 x
+
+fix0 :: FilePath -> FilePath
+fix0 f | take 1 (reverse f) == "/" = fix $ reverse $ drop 1 $ reverse f
+fix0 "" = "."
+fix0 "." = "."
+fix0 f = "./" ++ f
 
 choose_touching :: Patchy p => [FilePath] -> FL p C(x y) -> Sealed (FL p C(x))
 choose_touching [] p = seal p
@@ -81,12 +85,14 @@ look_touch :: Patchy p => [FilePath] -> p C(x y) -> Bool
 look_touch fs p = fst $ look_touch0 fs p
 
 look_touch0 :: Patchy p => [FilePath] -> p C(x y) -> (Bool, [FilePath])
-look_touch0 fs p = (any (\tf -> any (affects tf) fs) (list_touched_files p)
-                   || fs' /= fs, fs')
+look_touch0 fs0 p = (any (\tf -> any (affects tf) fs)
+                         (map fix $ list_touched_files p)
+                    || fs' /= fs, fs')
     where affects touched f | touched == f = True
           affects t f = case splitAt (length f) t of
                         (t', '/':_) -> t' == f
                         _ -> case splitAt (length t) f of
                              (f', '/':_) -> f' == t
                              _ -> False
+          fs = map fix fs0
           fs' = fs -- sort $ apply_to_filepaths p fs
