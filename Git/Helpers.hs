@@ -387,12 +387,16 @@ diffCommit opts c0 =
 revListHeads :: [RevListOption] -> IO String
 revListHeads revlistopts =
     do hs <- cauterizeHeads `fmap` heads
-       revList (map show hs) revlistopts
+       if null hs
+          then return ""
+          else revList (map show hs) revlistopts
 
 revListHeadsHashes :: [RevListOption] -> IO [Sealed (Hash Commit)]
 revListHeadsHashes revlistopts =
     do hs <- cauterizeHeads `fmap` heads
-       revListHashes hs revlistopts
+       if null hs
+          then return []
+          else revListHashes hs revlistopts
 
 configDefaults :: Maybe String -> String
                -> [Flag -> [Either String (String,String)]] -> [Flag] -> IO ()
