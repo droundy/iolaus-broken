@@ -316,8 +316,7 @@ writetree =
 
 heads :: IO [Sealed (Hash Commit)]
 heads =
-    do debugMessage "calling git rev-parse"
-       (Nothing, Just stdout, Nothing, pid) <-
+    do (Nothing, Just stdout, Nothing, pid) <-
            createProcess (proc "git" ["rev-parse", "--branches"])
                              { std_out = CreatePipe }
        out <- hGetContents stdout
@@ -390,8 +389,7 @@ remoteTagNames repo =
 
 parseRev :: String -> IO (Sealed (Hash Commit))
 parseRev s =
-    do debugMessage "calling git rev-parse"
-       (Nothing, Just stdout, Just stderr, pid) <-
+    do (Nothing, Just stdout, Just stderr, pid) <-
            createProcess (proc "git" ["rev-parse", "--verify",s])
 #ifdef HAVE_REDIRECTS
                    { std_err = Just CreatePipe, std_out = CreatePipe }

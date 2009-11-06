@@ -54,7 +54,7 @@ import Iolaus.DeltaDebug ( largestPassingSet )
 
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( lsfiles, heads, commitTree )
-import Git.Helpers ( test, writeSlurpTree, simplifyParents )
+import Git.Helpers ( testCommits, testMessage, writeSlurpTree, simplifyParents )
 
 #include "impossible.h"
 
@@ -119,19 +119,22 @@ record_cmd opts args = do
                                        (world_readable_temp "iolaus-record")
                     hs <- heads
                     (hs', Sealed newtree') <- simplifyParents opts hs newtree
-                    if Sealed newtree' /= Sealed newtree &&
-                       DeltaDebugWorkingSubset `notElem` opts
-                      then do debugMessage "Testing on \"current\" tree"
-                              test (testByDefault opts) newtree
-                      else return []
-                    debugMessage "Testing on \"canonical\" tree"
-                    testedby <- test (testByDefault opts) newtree'
+                    testedby <- testMessage (testByDefault opts)
                     let -- FIXME join with Signed-off-by:
                         cleanup ("":"":r) = cleanup ("":r)
                         cleanup (a:b) = a : cleanup b
                         cleanup [] = []
                         message = (unlines $ cleanup $ name:my_log++testedby)
                     com <- commitTree newtree' hs' message
+                    -- we'll first run the test on the commit in its
+                    -- "primitive" context...
+                    debugMessage "Testing on \"canonical\" tree..."
+                    testCommits (testByDefault opts) "Testing" [Sealed com]
+                    -- now let's just check that the merged version
+                    -- actually passes the tests...
+                    debugMessage "Testing on \"current\" tree..."
+                    testCommits (testByDefault opts) "Automerge" (Sealed com:hs)
+                    debugMessage "Recording the new commit..."
                     add_heads opts [Sealed com]
                     putStrLn ("Finished recording patch '"++ name ++"'")
 

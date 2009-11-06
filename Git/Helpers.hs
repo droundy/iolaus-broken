@@ -1,7 +1,8 @@
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
 
-module Git.Helpers ( test, testPredicate, revListHeads, revListHeadsHashes,
+module Git.Helpers ( test, testCommits, testMessage, testPredicate,
+                     revListHeads, revListHeadsHashes,
                      slurpTree, writeSlurpTree, touchedFiles,
                      simplifyParents, configDefaults,
                      diffCommit, mergeCommits, Strategy(..),
@@ -74,6 +75,26 @@ commitTouches :: Sealed (Hash Commit) -> IO [FilePath]
 commitTouches (Sealed c) =
     lines `fmap` diffTreeCommit [NameOnly, DiffRecursive] c []
 
+testCommits :: [Flag] -> String -> [Sealed (Hash Commit)]
+            -> IO (Sealed (Hash Commit))
+testCommits opts msg hs0 =
+    do let hs = sort $ cauterizeHeads hs0
+       k <- hashObject (`hPutStrLn` show hs)
+       mt <- (Just `fmap` parseRev ("refs/tested/"++show k))
+             `catch` (\_ -> return Nothing)
+       case mt of
+         Just c -> return c
+         Nothing ->
+             do Sealed t <- mergeCommits opts hs
+                x <- testPredicate opts t
+                case x of
+                  Just m -> do let msg' = case m of [] -> [msg]
+                                                    _ -> msg:"":m
+                               c <- commitTree t hs (unlines msg')
+                               updateref ("refs/tested/"++show k) c
+                               return (Sealed c)
+                  Nothing -> fail "testCommits failed"
+
 test :: [Flag] -> Hash Tree C(x) -> IO [String]
 test opts t =
     do x <- testPredicate opts t
@@ -81,11 +102,23 @@ test opts t =
          Just m -> return m
          Nothing -> fail "test failed"
 
+testMessage :: [Flag] -> IO [String]
+testMessage opts | Test `elem` opts || TestParents `elem` opts =
+    do havet <- doesFileExist ".git-hooks/test"
+       if not havet
+          then return []
+          else testedon `catch` \_ -> testedby
+    where testedon = do x <- uname
+                        return ["","Tested-on: "++x]
+          testedby = do x <- committer
+                        return ["","Tested-by: "++x]
+testMessage _ = return []
+
 testPredicate :: [Flag] -> Hash Tree C(x) -> IO (Maybe [String])
-testPredicate opts t | Test `elem` opts || TestParents `elem` opts =
- do havet <- doesFileExist ".git-hooks/test"
+testPredicate opts t =
+ do msg <- testMessage opts
     here <- getCurrentDirectory
-    if not havet
+    if null msg
      then return (Just [])
      else withTempDir "testing" $ \tdir -> do
        setCurrentDirectory here
@@ -98,13 +131,7 @@ testPredicate opts t | Test `elem` opts || TestParents `elem` opts =
        setCurrentDirectory here
        case ec of
          ExitFailure _ -> return Nothing
-         ExitSuccess -> testedMessage
-    where testedMessage = Just `fmap` (testedon `catch` \_ -> testedby)
-          testedon = do x <- uname
-                        return ["","Tested-on: "++x]
-          testedby = do x <- committer
-                        return ["","Tested-by: "++x]
-testPredicate _ _ = return $ Just []
+         ExitSuccess -> return (Just msg)
 
 slurpTree :: Hash Tree C(x) -> IO (Slurpy C(x))
 slurpTree = slurpTreeHelper (fp2fn ".")
@@ -387,12 +414,16 @@ diffCommit opts c0 =
 revListHeads :: [RevListOption] -> IO String
 revListHeads revlistopts =
     do hs <- cauterizeHeads `fmap` heads
-       revList (map show hs) revlistopts
+       if null hs
+          then return ""
+          else revList (map show hs) revlistopts
 
 revListHeadsHashes :: [RevListOption] -> IO [Sealed (Hash Commit)]
 revListHeadsHashes revlistopts =
     do hs <- cauterizeHeads `fmap` heads
-       revListHashes hs revlistopts
+       if null hs
+          then return []
+          else revListHashes hs revlistopts
 
 configDefaults :: Maybe String -> String
                -> [Flag -> [Either String (String,String)]] -> [Flag] -> IO ()
