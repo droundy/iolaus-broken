@@ -34,7 +34,7 @@ import Iolaus.Patch.Core ( Named(..) )
 import Iolaus.Patch.Prim ( Prim(..), is_chunk,
                            DirPatchType(..), FilePatchType(..) )
 import Iolaus.SlurpDirectory ( Slurpy, withSlurpy )
-import Iolaus.IO ( WriteableDirectory(..) )
+import Iolaus.IO ( WriteableDirectory(..), mReadFilePS )
 --import Iolaus.FilePathMonad ( withFilePaths, withSubPaths )
 #include "impossible.h"
 import Iolaus.Ordered ( FL(..), (:>)(..), mapFL_FL, spanFL, unsafeCoerceS )
@@ -106,6 +106,10 @@ instance Apply Prim where
     apply (FP f AddFile) = mCreateFile f
     apply (FP f (Chmod x)) = mSetFileExecutable f x
     apply p@(FP _ (Chunk _ _ _ _)) = applyFL (p :>: NilFL)
+    apply (FP f (Binary o n)) = do x <- mReadFilePS f
+                                   if x /= o
+                                      then fail "binary patch fails"
+                                      else mWriteFilePS f n 
     apply (DP d AddDir) = mCreateDirectory d
     apply (DP d RmDir) = mRemoveDirectory d
     apply (Move f f') = mRename f f'

@@ -28,7 +28,7 @@ import Iolaus.Ordered ( FL(..), unsafeCoerceP, unsafeCoerceS )
 import Data.List ( partition, sort )
 import Data.List ( intersperse )
 import qualified Data.ByteString.Char8 as BC ( pack )
-import qualified Data.ByteString as B (empty, ByteString)
+import qualified Data.ByteString as B (empty, elem, ByteString)
 
 import Iolaus.Ordered ( (+>+) )
 import Iolaus.Lcs2 ( patientLcs )
@@ -37,7 +37,7 @@ import Iolaus.IO ( ExecutableBit(..) )
 import Iolaus.SlurpDirectory ( slurp_name, is_dir, is_file,
                                get_filehash, get_dirhash, get_fileEbit,
                                get_dircontents, get_filecontents )
-import Iolaus.Patch ( Prim, chunk, chunkify,
+import Iolaus.Patch ( Prim, binary, chunk, chunkify,
                       apply_to_slurpy, move, canonize, rmfile, rmdir,
                       addfile, adddir, chmod, invert )
 
@@ -164,12 +164,17 @@ diff_files :: FilePath -> B.ByteString -> B.ByteString
 diff_files f o n | linesPS o == [B.empty] && linesPS n == [B.empty] = id
                  | linesPS o == [B.empty] = diff_from_empty id f n
                  | linesPS n == [B.empty] = diff_from_empty invert f o
-diff_files f o n = if o == n
-                   then id
-                   else (canonize (chunk f newlines 0
-                                             (chunkify newlines o)
-                                             (chunkify newlines n)) +>+)
---                   else (canonize (hunk f 1 (linesPS o) (linesPS n)) +>+)
+diff_files f o n =
+    if o == n
+    then id
+    else if isbin o || isbin n
+         then (binary f o n :>:)
+         else (canonize (chunk f newlines 0
+                                   (chunkify newlines o)
+                                   (chunkify newlines n)) +>+)
+
+isbin :: B.ByteString -> Bool
+isbin = B.elem 0
 
 newlines :: B.ByteString
 newlines = BC.pack " ,\n()"
@@ -179,11 +184,9 @@ diff_from_empty :: (Prim C(x x) -> Prim C(x x)) -> FilePath -> B.ByteString
 diff_from_empty inv f b =
     if b == B.empty
     then id
-    else let p = chunk f newlines 0 [] $ chunkify newlines b
-                 --if BC.last b == '\n'
-                 --then hunk f 1 [] $ init $ linesPS b
-                 --else hunk f 1 [B.empty] $ linesPS b
-         in (inv p:>:)
+    else if isbin b
+         then (binary f B.empty b :>:)
+         else (inv (chunk f newlines 0 [] $ chunkify newlines b):>:)
 
 diff_removed :: [FilePath] -> Slurpy C(x)
              -> (FL Prim C(x x) -> FL Prim C(x x))

@@ -34,7 +34,7 @@ data Spot = AtHome { homeIs :: Maybe (Sealed (Hash Commit)),
                      overlapping :: [Sealed (Hash Commit)] }
           | Away { homeIs :: Maybe (Sealed (Hash Commit)),
                    overlapping :: [Sealed (Hash Commit)] }
-            deriving ( Show )
+            deriving ( Show, Eq )
 
 data GraphState = GS { allSpots :: [Spot],
                        colors :: [(Sealed (Hash Commit), Color)] }
@@ -144,8 +144,10 @@ node n ps name = G addit
                          addit s'
           addit s = do let s0 = if Just n `elem` map homeIs (allSpots s)
                                 then s
-                                else s { allSpots = allSpots s ++
-                                                    [Away (Just n) []] }
+                                else s { allSpots =
+                                             filter (/= Away Nothing [])
+                                                    (allSpots s)
+                                                    ++[Away (Just n) []] }
                        (s',_) <- putGenS (Just n) name s0
                        let oldps = catMaybes $ map homeIs $ allSpots s'
                            newps = nub (concatMap treeit $ oldps++[n]++ps)
@@ -173,7 +175,6 @@ node n ps name = G addit
                                  Just cn -> cn : delete cn unused
                                  Nothing -> unused
                            cs' = zip (newps \\ oldps) choices ++ cs
-                       --putStrLn ("newterms are "++show newterms)
                        return (GS newspots cs',())
 
 

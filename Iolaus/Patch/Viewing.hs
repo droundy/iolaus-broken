@@ -26,6 +26,7 @@ import Data.List ( sort )
 import Iolaus.SlurpDirectory ( Slurpy, get_slurp, get_filecontents )
 import Iolaus.ByteStringUtils ( linesPS, unlinesPS )
 import qualified Data.ByteString as B ( ByteString, null, concat )
+import qualified Data.ByteString.Char8 as BC ( lines )
 import Iolaus.FileName ( FileName, fp2fn, fn2fp )
 import Iolaus.Colors ( colorOld, colorNew )
 import Iolaus.Printer ( Doc, empty, vcat, text, blueText, colorPS, minus, plus,
@@ -98,7 +99,10 @@ gen_summary p
    $$ vcat themods
     where themods = map summ $ combine $ sort $ concat $ mapFL s p
           s :: Prim C(x y) -> [(FileName, Int, Int, Int, Bool)]
-          s (FP f (Chunk _ _ o n)) = [(f, length o, length n, 0, False)]
+          s (FP f (Chunk _ _ o n)) = [(f, olines, nlines, 0, False)]
+              where olines = length $ BC.lines $ B.concat o
+                    nlines = length $ BC.lines $ B.concat n
+          s (FP f (Binary _ _)) = [(f, 1, 1, 0, False)]
           s (FP f (Chmod _)) = [(f, 0, 0, 0, False)]
           s (FP f AddFile) = [(f, -1, 0, 0, False)]
           s (FP f RmFile) = [(f, 0, -1, 0, False)]

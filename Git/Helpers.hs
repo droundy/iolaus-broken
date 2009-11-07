@@ -105,7 +105,7 @@ testCommits opts msg hs0 =
                                c <- commitTree t hs (unlines msg')
                                updateref ("refs/tested/"++show k) c
                                return (Sealed c)
-                  Nothing -> fail "testCommits failed"
+                  Nothing -> fail "test failed"
 
 test :: [Flag] -> Hash Tree C(x) -> IO [String]
 test opts t =
