@@ -18,6 +18,7 @@
 module Iolaus.Commands ( command_control_list ) where
 
 import Iolaus.Commands.Record ( record )
+import Iolaus.Commands.Amend ( amend_record )
 import Iolaus.Commands.Unrecord ( unrecord )
 import Iolaus.Commands.Add ( add )
 import Iolaus.Commands.Mv ( mv )
@@ -45,6 +46,7 @@ command_control_list =
      Command_data changes,
      Command_data unrecord,
      Command_data record,
+     Command_data amend_record,
      Command_data revert,
      Command_data unrevert,
      Command_data show_command,

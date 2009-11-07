@@ -20,7 +20,8 @@
 
 #include "gadts.h"
 
-module Iolaus.SelectCommits ( select_commits, select_last_commits ) where
+module Iolaus.SelectCommits ( select_commits, select_last_commits,
+                              select_commit ) where
 
 import System.IO
 import Data.List ( intersperse, partition, isInfixOf )
@@ -38,7 +39,7 @@ import Git.Dag ( isAncestorOf )
 import Git.Plumbing ( Hash, Commit, catCommit, myMessage )
 import Git.Helpers ( showCommit )
 
-data WhichChanges = Last | First
+data WhichChanges = Last | First | One
                     deriving (Eq, Show)
 
 match :: [Flag] -> Sealed (Hash Commit) -> IO Bool
@@ -47,6 +48,16 @@ match (SeveralPatch p:_) x =
        return (p `isInfixOf` myMessage ce)
 match (_:fs) x = match fs x
 match [] _ = return True
+
+select_commit :: String -> [Flag] -> [Sealed (Hash Commit)]
+               -> IO (Sealed (Hash Commit))
+select_commit jn opts cs0 =
+    do cs <- filterM (match opts) cs0
+       if DryRun `elem` opts
+          then do putStrLn ("Would "++jn++" the following commits:")
+                  putGraph opts (`elem` cs) cs
+                  exitWith ExitSuccess
+          else head `fmap` text_select One [] jn opts cs []
 
 select_commits :: String -> [Flag] -> [Sealed (Hash Commit)]
                -> IO [Sealed (Hash Commit)]
@@ -72,7 +83,9 @@ text_select :: WhichChanges -> [Sealed (Hash Commit)]
             -> String -> [Flag] -> [Sealed (Hash Commit)] -> [Flag]
             -> IO [Sealed (Hash Commit)]
 text_select _ sofar _ _ [] _ = return sofar
-text_select _ sofar _ opts cs _ | All `elem` opts = return (sofar++cs)
+text_select w sofar _ opts cs _
+    | All `elem` opts && w == One = return (take 1 $ sofar++cs)
+    | All `elem` opts = return (sofar++cs)
 text_select w sofar jn opts (c:cs) showopts =
     do showCommit showopts `unseal` c >>= putDocLn
        doKey prompt options
@@ -87,12 +100,14 @@ text_select w sofar jn opts (c:cs) showopts =
                Last ->
                    case partition (c `iao`) cs of
                      (ans,oths) -> text_select w (c:ans++sofar) jn opts oths []
+               One -> return [c]
            , KeyPress 'n' ("don't "++jn++" it") $
              case w of
                First -> text_select w sofar jn opts
                         (filter (not . (c `iao`)) cs) []
                Last -> text_select w sofar jn opts
                        (filter (not . (`iao` c)) cs) []
+               One -> text_select w sofar jn opts cs []
            , KeyPress 'w' ("wait and decide later") $
              text_select w sofar jn opts (cs++[c]) []]
         options_view =
