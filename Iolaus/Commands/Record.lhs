@@ -53,8 +53,9 @@ import Iolaus.Sealed ( Sealed(Sealed) )
 import Iolaus.DeltaDebug ( largestPassingSet )
 
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( lsfiles, heads, commitTree )
-import Git.Helpers ( testCommits, testMessage, writeSlurpTree, simplifyParents )
+import Git.Plumbing ( lsfiles, heads )
+import Git.Helpers ( testCommits, testMessage, commitTreeNicely,
+                     writeSlurpTree, simplifyParents )
 
 #include "impossible.h"
 
@@ -125,7 +126,7 @@ record_cmd opts args = do
                         cleanup (a:b) = a : cleanup b
                         cleanup [] = []
                         message = (unlines $ cleanup $ name:my_log++testedby)
-                    com <- commitTree newtree' hs' message
+                    com <- commitTreeNicely newtree' hs' message
                     -- we'll first run the test on the commit in its
                     -- "primitive" context...
                     debugMessage "Testing on \"canonical\" tree..."

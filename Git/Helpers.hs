@@ -2,6 +2,7 @@
 #include "gadts.h"
 
 module Git.Helpers ( test, testCommits, testMessage, testPredicate,
+                     commitTreeNicely,
                      revListHeads, revListHeadsHashes,
                      slurpTree, writeSlurpTree, touchedFiles,
                      simplifyParents, configDefaults,
@@ -74,6 +75,17 @@ touchedFiles =
 commitTouches :: Sealed (Hash Commit) -> IO [FilePath]
 commitTouches (Sealed c) =
     lines `fmap` diffTreeCommit [NameOnly, DiffRecursive] c []
+
+commitTreeNicely :: Hash Tree C(x) -> [Sealed (Hash Commit)] -> String
+                 -> IO (Hash Commit C(x))
+commitTreeNicely t hs0 msg =
+    do let hs1 = cauterizeHeads hs0
+       hs <- if length hs1 < 2
+             then return hs1
+             else do k <- hashObject (`hPutStrLn` show (sort hs1))
+                     ((:[]) `fmap` parseRev ("refs/tested/"++show k))
+                            `catch` (\_ -> return hs1)
+       commitTree t hs msg
 
 testCommits :: [Flag] -> String -> [Sealed (Hash Commit)]
             -> IO (Sealed (Hash Commit))
