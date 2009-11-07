@@ -133,7 +133,7 @@ record_cmd opts args = do
                     -- now let's just check that the merged version
                     -- actually passes the tests...
                     debugMessage "Testing on \"current\" tree..."
-                    testCommits (testByDefault opts) "Automerge" (Sealed com:hs)
+                    testCommits (testByDefault opts) "Merge" (Sealed com:hs)
                     debugMessage "Recording the new commit..."
                     add_heads opts [Sealed com]
                     putStrLn ("Finished recording patch '"++ name ++"'")
