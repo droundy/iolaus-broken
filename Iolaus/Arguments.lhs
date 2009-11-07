@@ -24,6 +24,7 @@
 module Iolaus.Arguments ( Flag( .. ), flagToString,
                           isin, arein, mergeStrategy, commitApproach,
                           recordDeltaDebug, fixSubPaths, areFileArgs,
+                          dryrun,
                          IolausOption( .. ), option_from_iolausoption,
                          help, list_options, pull_apart_option,
                          max_count, help_on_match,
@@ -894,7 +895,15 @@ use_external_merge = IolausArgOption [] ["external-merge"]
 The \verb!--dry-run! option will cause iolaus not to actually take the specified
 action, but only print what would have happened.  Not all commands accept
 \verb!--dry-run!, but those that do should accept the \verb!--summary!  option.
+\begin{code}
 
+dryrun :: String -> IolausOption
+dryrun v = IolausMultipleChoiceOption
+           [IolausNoArgOption [] ["dry-run"] DryRun
+            ("don't actually "++v++", just show what we would "++v),
+            IolausNoArgOption [] ["no-dry-run"] DryRun ("do actually "++v)]
+
+\end{code}
 \begin{options}
 --summary, --no-summary
 \end{options}

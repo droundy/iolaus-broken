@@ -65,7 +65,7 @@ changes = Command {command_name = "changes",
                                             all_interactive]}
 
 changes_cmd :: [Flag] -> [String] -> IO ()
-changes_cmd opts _ | Graph `elem` opts = heads >>= putGraph opts
+changes_cmd opts _ | Graph `elem` opts = heads >>= putGraph opts (const True)
 changes_cmd opts _ =
     do cs <- revListHeadsHashes flags
        mapM_ (showC `unseal`) $ filt cs

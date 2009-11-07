@@ -170,17 +170,20 @@ node n ps name = G addit
                        return (GS newspots cs',())
 
 
-putGraph :: [Flag] -> [Sealed (Hash Commit)] -> IO ()
-putGraph opts hs0 = runG $ putGr opts hs0
+putGraph :: [Flag] -> (Sealed (Hash Commit) -> Bool)
+         -> [Sealed (Hash Commit)] -> IO ()
+putGraph opts isok hs0 = runG $ putGr opts isok hs0
 
-putGr :: [Flag] -> [Sealed (Hash Commit)] -> G ()
-putGr opts hs0 =
+putGr :: [Flag] -> (Sealed (Hash Commit) -> Bool)
+      -> [Sealed (Hash Commit)] -> G ()
+putGr opts isok hs0 =
     do ps <- getParents
        case cauterizeHeads (ps++hs0) of
          [] -> return ()
+         h:xs | not (isok h) -> putGr opts isok xs
          h:xs -> do let hs = filter (`elem` hs0) xs
                     pict <- io $ showCommit opts `unseal` h
                     let n:body = lines $ show pict
                     node h (parents `unseal` h) n
                     mapM_ putS body
-                    putGr opts hs
+                    putGr opts isok hs

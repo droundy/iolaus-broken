@@ -26,13 +26,13 @@ import System.Exit ( exitWith, ExitCode(ExitSuccess) )
 
 import Iolaus.Workaround ( getCurrentDirectory )
 import Iolaus.Command ( Command(..) )
-import Iolaus.Arguments ( Flag, working_repo_dir, summary,
+import Iolaus.Arguments ( Flag, working_repo_dir, summary, dryrun,
                           match_several_or_first, all_interactive, remote_repo )
 import Iolaus.Repository ( push_heads )
 import Iolaus.SelectCommits ( select_commits )
 
 import Git.Dag ( notIn )
-import Git.Plumbing ( listRemotes, heads, remoteHeads )
+import Git.Plumbing ( listRemotes, heads, remoteHeads, fetchPack )
 import Git.LocateRepo ( amInRepository )
 #include "impossible.h"
 
@@ -62,7 +62,8 @@ push = Command {command_name = "push",
                 command_advanced_options = [remote_repo],
                 command_basic_options = [match_several_or_first,
                                          all_interactive,
-                                         summary, working_repo_dir]}
+                                         summary, dryrun "push",
+                                         working_repo_dir]}
     where deforigin _ _ [] = return ["origin"]
           deforigin _ _ xs = return xs
 
@@ -75,10 +76,12 @@ push_cmd opts [repodir] =
             fail "Cannot push from repository to itself."
        -- absolute '.' also taken into account by fix_filepath
        hs <- remoteHeads repodir
+       if null hs then return () -- nothing to fetch
+                  else fetchPack repodir -- so we can see what they've got!
        ourhs <- heads
        topush <- select_commits "push" opts (reverse $ ourhs `notIn` hs)
        when (null topush) $ do putStrLn "No patches to push!"
-                               exitWith ExitSuccess       
+                               exitWith ExitSuccess
        push_heads repodir topush
 push_cmd _ _ = impossible
 \end{code}

@@ -28,10 +28,11 @@ import Data.Char ( toUpper )
 import System.Exit ( exitWith, ExitCode(ExitSuccess) )
 import Control.Monad ( filterM )
 
-import Iolaus.Flags ( Flag( All, SeveralPatch, Verbose, Summary ) )
+import Iolaus.Flags ( Flag( All, SeveralPatch, Verbose, Summary, DryRun ) )
 import Iolaus.Utils ( promptCharFancy )
 import Iolaus.Sealed ( Sealed( Sealed ), mapSealM, unseal )
 import Iolaus.Printer ( putDocLn )
+import Iolaus.Graph ( putGraph )
 
 import Git.Dag ( isAncestorOf )
 import Git.Plumbing ( Hash, Commit, catCommit, myMessage )
@@ -49,13 +50,23 @@ match [] _ = return True
 
 select_commits :: String -> [Flag] -> [Sealed (Hash Commit)]
                -> IO [Sealed (Hash Commit)]
-select_commits jn opts cs0 = do cs <- filterM (match opts) cs0
-                                text_select First [] jn opts cs []
+select_commits jn opts cs0 =
+    do cs <- filterM (match opts) cs0
+       if DryRun `elem` opts
+          then do putStrLn ("Would "++jn++" the following commits:")
+                  putGraph opts (`elem` cs) cs
+                  exitWith ExitSuccess
+          else text_select First [] jn opts cs []
 
 select_last_commits :: String -> [Flag] -> [Sealed (Hash Commit)]
                     -> IO [Sealed (Hash Commit)]
-select_last_commits jn opts cs0 = do cs <- filterM (match opts) cs0
-                                     text_select Last [] jn opts cs []
+select_last_commits jn opts cs0 =
+    do cs <- filterM (match opts) cs0
+       if DryRun `elem` opts
+          then do putStrLn ("Would "++jn++" the following commits:")
+                  putGraph opts (`elem` cs) cs
+                  exitWith ExitSuccess
+          else text_select Last [] jn opts cs []
 
 text_select :: WhichChanges -> [Sealed (Hash Commit)]
             -> String -> [Flag] -> [Sealed (Hash Commit)] -> [Flag]
