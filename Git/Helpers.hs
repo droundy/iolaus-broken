@@ -42,12 +42,12 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       mergeIndex, readTreeMerge,
                       catTree, catBlob, catCommitTree )
 
-import Iolaus.Show ( pretty )
 import Iolaus.Progress ( debugMessage )
 import Iolaus.Flags ( Flag( Test, TestParents, NativeMerge, FirstParentMerge,
                             IolausSloppyMerge, RecordFor, Summary, Verbose,
                             CauterizeAllHeads, CommutePast, ShowHash,
-                            ShowParents, GlobalConfig, SystemConfig ) )
+                            ShowParents, GlobalConfig, SystemConfig,
+                            ShowTested ) )
 import Iolaus.FileName ( FileName, fp2fn )
 import Iolaus.IO ( ExecutableBit(..) )
 import Iolaus.SlurpDirectoryInternal
@@ -456,8 +456,8 @@ showCommit :: [Flag] -> Hash Commit C(x) -> IO Doc
 showCommit opts c =
     do commit <- catCommit c
        let x = if ShowHash `elem` opts then text (show c) $$
-                                            text (pretty commit)
-                                       else text (pretty commit)
+                                            text (mypretty commit)
+                                       else text (mypretty commit)
        d <- if Summary `elem` opts
             then do FlippedSeal ch <- diffCommit opts c
                     return $ prefix "    " (summarize ch)
@@ -473,3 +473,17 @@ showCommit opts c =
                        pars -> text ("Parents: "++unwords pars)
                 else empty
        return (x $$ ps $$ d)
+    where
+      mypretty ce
+          | myAuthor ce == myCommitter ce =
+              myAuthor ce++"\n  * "++n++"\n"++unlines (map ("    "++) cl)
+          | otherwise =
+              myAuthor ce++"\n"++myCommitter ce++
+                  "\n  * "++n++"\n"++unlines (map ("    "++) cl)
+          where n:cl0 = lines $ myMessage ce
+                cl = if ShowTested `elem` opts
+                     then cl0
+                     else reverse $ clearout $ reverse cl0
+                clearout (x:xs) | take 6 x == "Tested" = dropWhile (=="") xs
+                                | otherwise = x:xs
+                clearout [] = []

@@ -101,6 +101,8 @@ getContent HideMerges = NoContent
 getContent ShowParents = NoContent
 getContent ShowHash = NoContent
 getContent NoShowHash = NoContent
+getContent ShowTested = NoContent
+getContent HideTested = NoContent
 getContent (CommutePast n) = StringContent (show n)
 getContent (RecordFor r) = StringContent r
 getContent Verbose = NoContent
@@ -935,6 +937,9 @@ commit_format =
      [IolausNoArgOption [] ["show-hash"] ShowHash "show commit hash",
       IolausNoArgOption [] ["no-show-hash"] NoShowHash
                             "don't show commit hash"],
+     IolausMultipleChoiceOption
+     [IolausNoArgOption [] ["show-tested"] ShowTested "show Tested-On note",
+      IolausNoArgOption [] ["hide-tested"] HideTested "hide Tested-On note"],
      IolausMultipleChoiceOption
      [IolausNoArgOption ['s'] ["summary"] Summary "summarize commit changes",
       IolausNoArgOption ['u'] ["show-patch"] Verbose "show commit changes"],
