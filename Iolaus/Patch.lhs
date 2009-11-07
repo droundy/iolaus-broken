@@ -19,9 +19,9 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Iolaus.Patch ( Prim, Named, Patchy, Apply, apply,
                       rmfile, addfile, chmod, rmdir, adddir, move,
-                      chunkify, chunk, description,
+                      chunkify, binary, chunk, description,
                       showContextPatch, showPatch, showNicely,
-                      infopatch, thing, things, is_similar, is_addfile,
+                      infopatch, thing, things, is_addfile,
                       Effect, effect, writePatch, is_adddir,
                       Invert, invert, invertFL, invertRL, identity,
                       Commute, commute, merge, list_touched_files, commuteFL,
@@ -47,8 +47,8 @@ import Iolaus.Patch.Viewing ( summarize )
 import Iolaus.Patch.Apply ( apply_to_slurpy, chunkify )
 import Iolaus.Patch.Prim ( Effect(effect), Prim, canonize, sort_coalesceFL,
                            rmdir, rmfile, adddir, addfile, chmod,
-                           chunk, move, is_adddir, is_addfile,
-                           is_similar, try_to_shrink, try_shrinking_inverse )
+                           binary, chunk, move, is_adddir, is_addfile,
+                           try_to_shrink, try_shrinking_inverse )
 import Iolaus.Patch.Merge ( mergeNamed )
 \end{code}
 

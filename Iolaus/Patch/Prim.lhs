@@ -30,9 +30,9 @@ module Iolaus.Patch.Prim
          is_identity,
          formatFileName,
          adddir, addfile,
-         chunk, move, rmdir, rmfile, chmod,
+         chunk, binary, move, rmdir, rmfile, chmod,
          is_addfile, is_chunk,
-         is_similar, is_adddir, is_filepatch,
+         is_adddir,
          canonize, try_to_shrink,
          subcommutes, sort_coalesceFL, join,
          splatter, splatterFL,
@@ -75,6 +75,7 @@ data FilePatchType C(x y) = RmFile | AddFile
                           | Chmod ExecutableBit
                           | Chunk !B.ByteString !Int
                                   [B.ByteString] [B.ByteString]
+                          | Binary B.ByteString B.ByteString
                             deriving (Eq,Ord)
 
 data DirPatchType C(x y) = RmDir | AddDir
@@ -96,19 +97,10 @@ nullP = sloppyIdentity
 
 is_identity :: Prim C(x y) -> EqCheck C(x y)
 is_identity (FP _ (Chunk _ _ old new)) | old == new = unsafeCoerceP IsEq
+is_identity (FP _ (Binary o n)) | o == n = unsafeCoerceP IsEq
 is_identity (Move old new) | old == new = unsafeCoerceP IsEq
 is_identity Identity = IsEq
 is_identity _ = NotEq
-
--- FIXME: The following code needs to be moved.
-
--- | Tells you if two patches are in the same category, human-wise.
--- Currently just returns true if they are filepatches on the same
--- file.
-is_similar :: Prim C(x y) -> Prim C(a b) -> Bool
-is_similar (FP f _) (FP f' _) = f == f'
-is_similar (DP f _) (DP f' _) = f == f'
-is_similar _ _ = False
 
 is_addfile :: Prim C(x y) -> Bool
 is_addfile (FP _ AddFile) = True
@@ -139,6 +131,9 @@ chunk :: FilePath -> B.ByteString -> Int
 chunk f c w o n = seq ccc (FP (n_fn f) ccc)
     where ccc = Chunk c w o n
 
+binary :: FilePath -> B.ByteString -> B.ByteString -> Prim C(x y)
+binary f o n = FP (n_fn f) (Binary o n)
+
 chmod :: FilePath -> ExecutableBit -> Prim C(x y)
 chmod f x = FP (n_fn f) (Chmod x)
 \end{code}
@@ -154,6 +149,7 @@ instance Invert Prim where
     invert (FP f (Chmod IsExecutable)) = FP f (Chmod NotExecutable)
     invert (FP f (Chmod NotExecutable)) = FP f (Chmod IsExecutable)
     invert (FP f (Chunk chs w old new))  = FP f $ Chunk chs w new old
+    invert (FP f (Binary o n)) = FP f (Binary n o)
     invert (DP d RmDir) = DP d AddDir
     invert (DP d AddDir) = DP d RmDir
     invert (Move f f') = Move f' f
@@ -185,92 +181,30 @@ instance Show (FilePatchType C(x y)) where
     showsPrec _ (Chmod IsExecutable) = showString "Chmod IsExecutable"
     showsPrec _ (Chmod NotExecutable) = showString "Chmod NotExecutable"
     showsPrec _ (Chunk _ _ _ _) = showString "Chunk not shown"
+    showsPrec _ (Binary _ _) = showString "binary"
 
 instance Show (DirPatchType C(x y)) where
     showsPrec _ RmDir = showString "RmDir"
     showsPrec _ AddDir = showString "AddDir"
 
-{-
-instance Show (Prim C(x y))  where
-    show p = renderString (showPrim p) ++ "\n"
--}
-
 formatFileName :: FileName -> Doc
 formatFileName = blueText . encode_white . toFilePath
 
 showPrim :: Prim C(a b) -> Doc
-showPrim (FP f AddFile) = showAddFile f
-showPrim (FP f RmFile)  = showRmFile f
-showPrim (FP f (Chmod x)) = showChmod f x
-showPrim (FP f (Chunk chs line old new))  = showChunk f chs line old new
-showPrim (DP d AddDir) = showAddDir d
-showPrim (DP d RmDir)  = showRmDir d
-showPrim (Move f f') = showMove f f'
-showPrim Identity = blueText "{}"
-
-\end{code}
-
-
-\paragraph{Add file}
-Add an empty file to the tree.
-
-\verb!addfile filename!
-\begin{code}
-showAddFile :: FileName -> Doc
-showAddFile f = blueText "addfile" <+> formatFileName f
-\end{code}
-
-
-\paragraph{Set executable bit}
-
-\verb!chmod +/-x filename!
-\begin{code}
-showChmod :: FileName -> ExecutableBit -> Doc
-showChmod f IsExecutable = blueText "chmod +x" <+> formatFileName f
-showChmod f NotExecutable = blueText "chmod -x" <+> formatFileName f
-\end{code}
-
-\paragraph{Remove file}
-Delete a file from the tree.
-
-\verb!rmfile filename!
-\begin{code}
-showRmFile :: FileName -> Doc
-showRmFile f = blueText "rmfile" <+> formatFileName f
-\end{code}
-
-\paragraph{Move}
-Rename a file or directory.
-
-\verb!move oldname newname!
-\begin{code}
-showMove :: FileName -> FileName -> Doc
-showMove d d' = blueText "move" <+> formatFileName d <+> formatFileName d'
-\end{code}
-
-\paragraph{Add dir}
-Add an empty directory to the tree.
-
-\verb!adddir filename!
-\begin{code}
-showAddDir :: FileName -> Doc
-showAddDir d = blueText "adddir" <+> formatFileName d
-\end{code}
-
-\paragraph{Remove dir}
-Delete a directory from the tree.
-
-\verb!rmdir filename!
-\begin{code}
-showRmDir :: FileName -> Doc
-showRmDir d = blueText "rmdir" <+> formatFileName d
-
-showChunk :: FileName -> B.ByteString
-          -> Int -> [B.ByteString] -> [B.ByteString] -> Doc
-showChunk f _ word old new =
+showPrim (FP f AddFile) = blueText "addfile" <+> formatFileName f
+showPrim (FP f RmFile)  = blueText "rmfile" <+> formatFileName f
+showPrim (FP f (Chmod IsExecutable)) = blueText "chmod +x" <+> formatFileName f
+showPrim (FP f (Chmod NotExecutable)) = blueText "chmod -x" <+> formatFileName f
+showPrim (FP f (Chunk _ word old new)) =
            blueText "chunk" <+> formatFileName f <+> text (show word) $$
               (colorPS colorOld $ B.concat old) <>
               (colorPS colorNew $ B.concat new)
+showPrim (FP f (Binary _ _)) = blueText "binary" <+> formatFileName f
+showPrim (DP d AddDir) = blueText "adddir" <+> formatFileName d
+showPrim (DP d RmDir) = blueText "rmdir" <+> formatFileName d
+showPrim (Move f f') =
+    blueText "rmdir" <+> formatFileName f <+> formatFileName f'
+showPrim Identity = blueText "{}"
 
 try_to_shrink :: FL Prim C(x y) -> FL Prim C(x y)
 try_to_shrink = mapPrimFL try_harder_to_shrink
@@ -621,7 +555,8 @@ commuteFP f (x :> Chmod e) = Succeeded (FP f (Chmod e) :>
 commuteFP f (Chunk c w1 o1 n1 :> Chunk c2 w2 o2 n2)
     | c == c2 =
         toPerhaps $ commuteChunk f (Chunk c w1 o1 n1 :> Chunk c2 w2 o2 n2)
--- FIXME: add commmute for chunks
+commuteFP _ (Binary _ _ :> _) = Failed
+commuteFP _ (_ :> Binary _ _) = Failed
 commuteFP _ _ = Unknown
 
 splatterFL :: FL Prim C(x y) -> FL Prim C(x y)
@@ -643,6 +578,8 @@ splatter (FP f (Chunk c1 w1 o1 n1) :> FP f' (Chunk c2 w2 o2 n2))
     | otherwise = Nothing
     where ln1 = length n1
           lo2 = length o2
+splatter (FP f (Binary o n1) :> FP f' (Binary o1 n))
+    | f == f' && n1 == o1 = Just (FP f (Binary o n))
 splatter _ = Nothing
 
 
