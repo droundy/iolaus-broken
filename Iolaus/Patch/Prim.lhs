@@ -26,7 +26,6 @@ module Iolaus.Patch.Prim
        ( Prim(..), showPrim,
          DirPatchType(..), FilePatchType(..),
          CommuteFunction, Perhaps(..),
-         nullP, is_null_patch,
          is_identity,
          formatFileName,
          adddir, addfile,
@@ -85,14 +84,6 @@ instance MyEq FilePatchType where
 
 instance MyEq DirPatchType where
     unsafeCompare a b = a == unsafeCoerceP b
-
-is_null_patch :: Prim C(x y) -> Bool
-is_null_patch (FP _ (Chunk _ _ [] [])) = True
-is_null_patch Identity = True
-is_null_patch _ = False
-
-nullP :: Prim C(x y) -> EqCheck C(x y)
-nullP = sloppyIdentity
 
 is_identity :: Prim C(x y) -> EqCheck C(x y)
 is_identity (FP _ (Chunk _ _ old new)) | old == new = unsafeCoerceP IsEq
@@ -356,7 +347,7 @@ sort_coalesceFL = mapPrimFL sort_coalesceFL2
 -- | The heart of "sort_coalesceFL"
 sort_coalesceFL2 :: FL Prim C(x y) -> FL Prim C(x y)
 sort_coalesceFL2 NilFL = NilFL
-sort_coalesceFL2 (x:>:xs) | IsEq <- nullP x = sort_coalesceFL2 xs
+sort_coalesceFL2 (x:>:xs) | IsEq <- sloppyIdentity x = sort_coalesceFL2 xs
 sort_coalesceFL2 (x:>:xs) | IsEq <- is_identity x = sort_coalesceFL2 xs
 sort_coalesceFL2 (x:>:xs) = either id id $ push_coalesce_patch x $ sort_coalesceFL2 xs
 
@@ -383,7 +374,7 @@ push_coalesce_patch :: Prim C(x y) -> FL Prim C(y z)
 push_coalesce_patch new NilFL = Left (new:>:NilFL)
 push_coalesce_patch new ps@(p:>:ps')
     = case join (new :> p) of
-      Just new' | IsEq <- nullP new' -> Right ps'
+      Just new' | IsEq <- sloppyIdentity new' -> Right ps'
                 | otherwise -> Right $ either id id $ push_coalesce_patch new' ps'
       Nothing -> if comparePrim new p == LT then Left (new:>:ps)
                             else case commute (new :> p) of
