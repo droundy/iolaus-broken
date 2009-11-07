@@ -63,6 +63,7 @@ data Flag = Help | ListOptions | NoTest | Test | TestParents
                | Interactive
                | DiffCmd String
                | ExternalMerge String | Summary | NoSummary
+               | ShowMerges | HideMerges
                | ShowParents | ShowHash | NoShowHash
                | Unified | Reverse | Graph
                | Complete | Lazy | Ephemeral

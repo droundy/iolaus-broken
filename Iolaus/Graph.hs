@@ -22,11 +22,11 @@ module Iolaus.Graph ( putGraph ) where
 import Data.List ( nub, delete, (\\), intersect )
 import Data.Maybe ( isJust, fromJust, catMaybes, maybeToList )
 
-import Iolaus.Arguments ( Flag )
-import Iolaus.Sealed ( Sealed, unseal )
+import Iolaus.Arguments ( Flag(ShowMerges) )
+import Iolaus.Sealed ( Sealed(Sealed), unseal )
 import Iolaus.Colors ( Color, resetCode, colorCode, rainbow )
 
-import Git.Plumbing ( Hash, Commit )
+import Git.Plumbing ( Hash, Commit, catCommit, myMessage, myParents )
 import Git.Helpers ( showCommit )
 import Git.Dag ( cauterizeHeads, parents )
 
@@ -193,6 +193,17 @@ putGr opts isok hs0 =
          h:xs -> do let hs = filter (`elem` hs0) xs
                     pict <- io $ showCommit opts `unseal` h
                     let n:body = lines $ show pict
-                    node h (parents `unseal` h) n
+                    pars <- io $ interestingParents opts h
+                    node h pars n
                     mapM_ putS body
                     putGr opts isok hs
+
+interestingParents :: [Flag] -> Sealed (Hash Commit)
+                   -> IO [Sealed (Hash Commit)]
+interestingParents opts h = concat `fmap` mapM ip (parents `unseal` h)
+    where ip (Sealed c) = do cc <- catCommit c
+                             if take 5 (myMessage cc) == "Merge" &&
+                                length (myParents cc) > 1 &&
+                                ShowMerges `notElem` opts
+                               then interestingParents opts (Sealed c)
+                               else return [Sealed c]
