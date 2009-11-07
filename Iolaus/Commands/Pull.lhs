@@ -76,8 +76,8 @@ pull = Command {command_name = "pull",
                 command_basic_options = [all_interactive,
                                          pull_conflict_options,
                                          match_several_or_first]++
-                                         notest++[dryrun "pull",
-                                                  working_repo_dir]}
+                                         notest++dryrun "pull"++
+                                         [working_repo_dir]}
     where deforigin _ _ [] = return ["origin"]
           deforigin _ _ xs = return xs
 

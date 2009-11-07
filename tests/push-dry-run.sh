@@ -30,7 +30,7 @@ iolaus push --all ../temp
 echo another patch > bar
 iolaus record -am another
 
-iolaus push --dry-run ../temp > out
+iolaus push --dry-run -s ../temp > out
 cat out
 
 grep -i 'would push' out

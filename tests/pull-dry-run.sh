@@ -19,8 +19,11 @@ iolaus pull --dry-run ../temp > out
 grep -i 'would pull' out
 grep addbar out && exit 1
 grep addfile out
+grep foo out && exit 1
 
-iolaus pull --dry-run ../temp > out
+iolaus pull --dry-run --summary ../temp > out
+cat out
 
 grep addbar out && exit 1
 grep addfile out
+grep foo out

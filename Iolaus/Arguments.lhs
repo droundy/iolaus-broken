@@ -897,11 +897,12 @@ action, but only print what would have happened.  Not all commands accept
 \verb!--dry-run!, but those that do should accept the \verb!--summary!  option.
 \begin{code}
 
-dryrun :: String -> IolausOption
+dryrun :: String -> [IolausOption]
 dryrun v = IolausMultipleChoiceOption
            [IolausNoArgOption [] ["dry-run"] DryRun
             ("don't actually "++v++", just show what we would "++v),
             IolausNoArgOption [] ["no-dry-run"] DryRun ("do actually "++v)]
+           : commit_format
 
 \end{code}
 \begin{options}
