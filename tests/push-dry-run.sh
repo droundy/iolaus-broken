@@ -24,3 +24,18 @@ grep addbar out
 iolaus push --dry-run ../temp > out
 
 grep addbar out
+
+iolaus push --all ../temp
+
+echo another patch > bar
+iolaus record -am another
+
+iolaus push --dry-run ../temp > out
+cat out
+
+grep -i 'would push' out
+grep addfile out && exit 1
+grep addbar out && exit 1
+grep another out
+
+

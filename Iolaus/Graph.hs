@@ -130,6 +130,13 @@ putS l = G $ putGenS Nothing l
 getParents :: G [Sealed (Hash Commit)]
 getParents = G $ \s -> return (s, catMaybes $ map homeIs $ allSpots s)
 
+rmParent :: Sealed (Hash Commit) -> G ()
+rmParent p = G $ \s -> return (s { allSpots = map rmp $ allSpots s }, ())
+    where rmp s | homeIs s == Just p
+                    = s { homeIs = Nothing,
+                          overlapping = filter (/= p) $ overlapping s }
+          rmp s = s { overlapping = filter (/= p) $ overlapping s }
+
 node :: Sealed (Hash Commit) -> [Sealed (Hash Commit)] -> String -> G ()
 node n ps name = G addit
     where addit s | not $ null $ concatMap overlapping $ allSpots s =
@@ -180,7 +187,8 @@ putGr opts isok hs0 =
     do ps <- getParents
        case cauterizeHeads (ps++hs0) of
          [] -> return ()
-         h:xs | not (isok h) -> putGr opts isok xs
+         h:xs | not (isok h) -> do rmParent h
+                                   putGr opts isok xs
          h:xs -> do let hs = filter (`elem` hs0) xs
                     pict <- io $ showCommit opts `unseal` h
                     let n:body = lines $ show pict
