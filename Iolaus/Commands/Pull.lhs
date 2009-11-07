@@ -32,7 +32,7 @@ import Iolaus.Arguments
 import Iolaus.Patch ( apply, merge )
 import Iolaus.Ordered ( (:/\:)(..), (:\/:)(..) )
 import Iolaus.Diff ( diff )
-import Iolaus.Sealed ( Sealed(..) )
+import Iolaus.Sealed ( Sealed(..), mapSealM )
 import Iolaus.Repository ( add_heads, slurp_working, slurp_recorded )
 import Iolaus.SelectCommits ( select_commits )
 
@@ -40,7 +40,7 @@ import Git.Dag ( notIn )
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( heads, remoteHeads, remoteTagNames,
                       listRemotes, fetchPack )
-import Git.Helpers ( test, slurpTree, mergeCommits )
+import Git.Helpers ( testCommits, slurpTree, mergeCommits )
 
 pull_description :: String
 pull_description =
@@ -93,14 +93,14 @@ pull_cmd opts repodirs@(_:_) =
        newhs' <- select_commits "pull" opts (reverse $ newhs `notIn` hs)
        when (null newhs') $ do putStrLn "No patches to pull!"
                                exitWith ExitSuccess
-       Sealed newtree <- mergeCommits opts (hs++newhs')
-       new <- slurpTree newtree
+       Sealed new <- mergeCommits opts (hs++newhs') >>= mapSealM slurpTree
        case merge (diff opts old work :\/: diff opts old new) of
          Nothing ->
              do putStrLn "Unwilling to pull when it conflicts with working..."
                 exitWith (ExitFailure 1)
          Just (nps :/\: _) ->
-             do test (testByDefault opts) newtree
+             do testCommits (testByDefault opts)
+                            (unwords $ "Merge":repodirs) (hs++newhs')
                 add_heads opts newhs'
                 apply nps
                 tns <- concat `fmap` mapM remoteTagNames repodirs
