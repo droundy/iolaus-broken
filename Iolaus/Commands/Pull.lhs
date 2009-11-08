@@ -26,15 +26,17 @@ import Control.Monad ( when )
 
 import Iolaus.Command ( Command(..) )
 import Iolaus.Arguments
-    ( Flag, pull_conflict_options, all_interactive, repo_combinator,
+    ( Flag(All), pull_conflict_options, all_interactive, repo_combinator,
       match_several_or_first, dryrun,
       notest, testByDefault, mergeStrategy, working_repo_dir, remote_repo )
-import Iolaus.Patch ( apply, merge )
-import Iolaus.Ordered ( (:/\:)(..), (:\/:)(..) )
+import Iolaus.Patch ( apply, merge, mergeNamed, infopatch, patchcontents,
+                      invert )
+import Iolaus.Ordered ( (:/\:)(..), (:\/:)(..), (+>+), mapFL_FL )
 import Iolaus.Diff ( diff )
 import Iolaus.Sealed ( Sealed(..), mapSealM )
 import Iolaus.Repository ( add_heads, slurp_working, slurp_recorded )
 import Iolaus.SelectCommits ( select_commits )
+import Iolaus.Utils ( askUser )
 
 import Git.Dag ( notIn )
 import Git.LocateRepo ( amInRepository )
@@ -95,20 +97,36 @@ pull_cmd opts repodirs@(_:_) =
        when (null newhs') $ do putStrLn "No patches to pull!"
                                exitWith ExitSuccess
        Sealed new <- mergeCommits opts (hs++newhs') >>= mapSealM slurpTree
-       case merge (diff opts old work :\/: diff opts old new) of
-         Nothing ->
-             do putStrLn "Unwilling to pull when it conflicts with working..."
-                exitWith (ExitFailure 1)
-         Just (nps :/\: _) ->
-             do testCommits (testByDefault opts)
-                            (unwords $ "Merge":repodirs) (hs++newhs')
-                add_heads opts newhs'
-                apply nps
-                tns <- concat `fmap` mapM remoteTagNames repodirs
-                let writeTag (h,n) | take 10 n == "refs/tags/" =
-                                       writeFile (".git/"++n) (show h)
-                    writeTag _ = return ()
-                mapM_ writeTag tns
+       let workp = diff opts old work
+           newp = diff opts old new
+       Sealed nps <-
+           case merge (workp :\/: newp) of
+           Nothing | All `elem` opts ->
+            do putStrLn "Unwilling to pull -a when it conflicts with working..."
+               exitWith $ ExitFailure 1
+           Nothing ->
+             do putStrLn "This conflicts with working..."
+                yn <- askUser "Are you sure you want to pull? "
+                case yn of
+                  'y':_ ->
+                      case mergeNamed
+                           [Sealed $ mapFL_FL (infopatch "working") workp,
+                            Sealed $ mapFL_FL (infopatch $ head repodirs) newp]
+                      of
+                        Sealed xs -> return $ Sealed $ invert workp +>+
+                                                       mapFL_FL patchcontents xs
+                  _ -> do putStrLn "Pull cancelled."
+                          exitWith (ExitFailure 1)
+           Just (nps :/\: _) -> return (Sealed nps)
+       testCommits (testByDefault opts)
+                       (unwords $ "Merge":repodirs) (hs++newhs')
+       add_heads opts newhs'
+       apply nps
+       tns <- concat `fmap` mapM remoteTagNames repodirs
+       let writeTag (h,n) | take 10 n == "refs/tags/" =
+                              writeFile (".git/"++n) (show h)
+           writeTag _ = return ()
+       mapM_ writeTag tns
 pull_cmd _ [] = fail "No default repository to pull from, please specify one"
 \end{code}
 

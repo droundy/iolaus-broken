@@ -26,4 +26,11 @@ iolaus pull -a ../temp1 && exit 1
 
 iolaus pull -ap addbaz ../temp1
 grep morning baz
+
+# pulling everything still fails to to a conflict in working
+iolaus pull -a ../temp1 && exit 1
+
+echo yy | iolaus pull ../temp1
+grep working bar
+
 cd ..
