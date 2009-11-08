@@ -752,9 +752,11 @@ fetchPack :: String -> IO ()
 fetchPack repo0 =
     do repo <- parseRemote repo0
        debugMessage ("calling git fetch-pack --all "++repo)
-       (Nothing, Nothing, Nothing, pid) <-
+       (Nothing, Just o, Nothing, pid) <-
            createProcess (proc "git" ["fetch-pack", "--all", repo])
-       ec <- waitForProcess pid
+                         { std_out = CreatePipe }
+       out <- hGetContents o
+       ec <- length out `seq` waitForProcess pid
        case ec of
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git fetch-pack failed"

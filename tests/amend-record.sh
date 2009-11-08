@@ -23,7 +23,8 @@ echo y | iolaus amend-record -a
 iolaus changes > ch
 cat ch
 grep 'make test more' ch
-grep Tested- ch
+grep Tested- ch && exit 1
+iolaus changes --show-tested | grep Tested-
 
 iolaus changes -v | grep 'hi there' && exit 1
 iolaus changes -v | grep 'hello there'

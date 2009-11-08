@@ -29,25 +29,35 @@ import Data.Char ( toUpper )
 import System.Exit ( exitWith, ExitCode(ExitSuccess) )
 import Control.Monad ( filterM )
 
-import Iolaus.Flags ( Flag( All, SeveralPatch, Verbose, Summary, DryRun ) )
+import Iolaus.Flags ( Flag( All, SeveralPatch, Verbose, Summary, DryRun,
+                            ShowMerges ) )
 import Iolaus.Utils ( promptCharFancy )
 import Iolaus.Sealed ( Sealed( Sealed ), mapSealM, unseal )
 import Iolaus.Printer ( putDocLn )
 import Iolaus.Graph ( putGraph )
 
 import Git.Dag ( isAncestorOf )
-import Git.Plumbing ( Hash, Commit, catCommit, myMessage )
+import Git.Plumbing ( Hash, Commit, catCommit, myMessage, myParents )
 import Git.Helpers ( showCommit )
 
 data WhichChanges = Last | First | One
                     deriving (Eq, Show)
 
 match :: [Flag] -> Sealed (Hash Commit) -> IO Bool
-match (SeveralPatch p:_) x =
+match opts x =
+    do Sealed ce <- mapSealM catCommit x
+       if ShowMerges `notElem` opts &&
+          take 5 (myMessage ce) == "Merge" &&
+          length (myParents ce) > 1
+         then return False
+         else matchPat opts x
+
+matchPat :: [Flag] -> Sealed (Hash Commit) -> IO Bool
+matchPat (SeveralPatch p:_) x =
     do Sealed ce <- mapSealM catCommit x
        return (p `isInfixOf` myMessage ce)
-match (_:fs) x = match fs x
-match [] _ = return True
+matchPat (_:fs) x = matchPat fs x
+matchPat [] _ = return True
 
 select_commit :: String -> [Flag] -> [Sealed (Hash Commit)]
                -> IO (Sealed (Hash Commit))

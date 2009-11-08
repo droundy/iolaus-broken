@@ -14,4 +14,5 @@ iolaus record -am addtest --debug
 
 iolaus changes > ch
 cat ch
-grep Tested- ch
+grep Tested- ch && exit 1
+iolaus changes --show-tested | grep Tested-
