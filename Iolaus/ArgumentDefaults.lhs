@@ -32,7 +32,10 @@ add_default_flags com (o:os) already =
     do x <- find_option [RepositoryOnly] com already o
        y <- find_option [Global] com (already++x) o
        z <- find_option [System] com (already++x++y) o
-       add_default_flags com os (already++x++y++z)
+       xa <- find_option [RepositoryOnly] "all" already o
+       ya <- find_option [Global] "all" (already++x) o
+       za <- find_option [System] "all" (already++x++y) o
+       add_default_flags com os (already++x++y++z++xa++ya++za)
 
 find_option :: [ConfigOption] -> String -> [Flag] -> IolausOption -> IO [Flag]
 find_option zz com already (IolausNoArgOption _ [n] o _)
