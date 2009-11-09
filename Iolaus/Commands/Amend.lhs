@@ -47,13 +47,14 @@ import Iolaus.Progress ( debugMessage )
 import Iolaus.Repository ( get_recorded_and_unrecorded, Unrecorded(..),
                            add_heads, decapitate )
 import Iolaus.Commands.Record ( get_log )
-import Iolaus.Sealed ( Sealed(Sealed), mapSealM )
+import Iolaus.Sealed ( Sealed(Sealed), unseal, mapSealM )
 import Iolaus.DeltaDebug ( largestPassingSet )
 
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( lsfiles, heads, catCommit, myMessage )
 import Git.Helpers ( testCommits, testMessage, commitTreeNicely,
                      writeSlurpTree, simplifyParents )
+import Git.Dag ( parents )
 
 #include "impossible.h"
 
@@ -123,7 +124,8 @@ amend_record_cmd opts args = do
                         oldmsg = (line1,reverse $ clean $ reverse restl)
                     (name, my_log, _) <- get_log opts (Just oldmsg)
                                        (world_readable_temp "iolaus-record")
-                    hs <- filter (/=toamend) `fmap` heads
+                    hs <- ((unseal parents toamend++).filter (/=toamend))
+                          `fmap` heads
                     (hs', Sealed newtree') <- simplifyParents opts hs newtree
                     testedby <- testMessage (testByDefault opts)
                     let -- FIXME join with Signed-off-by:
