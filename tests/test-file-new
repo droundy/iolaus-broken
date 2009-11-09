@@ -1,0 +1,8 @@
+evolveSpots (a:b)
+    | Just h <- homeIs a,
+      h `elem` overlapping a =
+          evolveSpots (AtHome (homeIs a) (delete h $ overlapping a) : b)
+evolveSpots (a:b:c)
+    | Just h <- homeIs a,
+      h `elem` overlapping b =
+        AtHome (homeIs a) (overlapping a) : evolveSpots (delo h b:c)

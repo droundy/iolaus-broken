@@ -1,0 +1,6 @@
+evolveSpots (a:b) | isJust (overlapping a) && overlapping a == homeIs a =
+                      evolveSpots (AtHome (homeIs a) Nothing : b)
+evolveSpots (a:b:c)
+    | homeIs a == overlapping b && isJust (homeIs a) =
+        AtHome (homeIs a) (overlapping a) :
+        evolveSpots (b {overlapping=Nothing}:c)
