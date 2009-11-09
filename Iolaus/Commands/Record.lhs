@@ -15,8 +15,9 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsection{iolaus record}
-\label{record}
+iolaus record
+-------------
+
 \begin{code}
 {-# LANGUAGE CPP, PatternGuards #-}
 
@@ -58,22 +59,6 @@ import Git.Helpers ( testCommits, testMessage, commitTreeNicely,
                      writeSlurpTree, simplifyParents )
 
 #include "impossible.h"
-
-record_description :: String
-record_description =
- "Save changes in the working copy to the repository as a patch."
-\end{code}
-
-\options{record}
-
-If you provide one or more files or directories as additional arguments
-to record, you will only be prompted to changes in those files or
-directories.
-\begin{code}
-record_help :: String
-record_help = show $ wrap_text 80 $
- "Record is used to name a set of changes and record the patch to the "++
- "repository."
 
 record :: Command
 record = Command {command_name = "record",
@@ -160,35 +145,46 @@ check_name_is_not_option opts = do
                         _   -> keepAsking
                 keepAsking
             else return ()
-\end{code}
-Each patch is given a name, which typically would consist of a brief
-description of the changes.  This name is later used to describe the patch.
-The name must fit on one line (i.e.\ cannot have any embedded newlines).  If
-you have more to say, stick it in the log.
-\begin{code}
+
+record_description :: String
+record_description =
+ "Save changes in the working copy to the repository as a patch."
+
+record_help :: String
+record_help = show $ wrap_text 80 $
+ "Record is used to name a set of changes and record the patch to the "++
+ "repository."
 \end{code}
 
-\label{DARCS_EDITOR}
+\haskell{record_description}
+
+\options{record}
+
+If you provide one or more files or directories as additional arguments
+to record, you will only be prompted to changes in those files or
+directories.
+
+Each patch is given a name, which typically would consist of a brief
+description of the changes.  This name is later used to describe the patch.
+The name must fit on one line (i.e. cannot have any embedded newlines).  If
+you have more to say, stick it in the log.
+
 Finally, each changeset should have a full log (which may be empty).  This
 log is for detailed notes which are too lengthy to fit in the name.  If you
 answer that you do want to create a comment file, iolaus will open an editor
-so that you can enter the comment in.  The choice of editor proceeds as
-follows.  If one of the \verb!$DARCS_EDITOR!, \verb!$VISUAL! or
-\verb!$EDITOR! environment variables is defined, its value is used (with
-precedence proceeding in the order listed).  If not, ``vi'', ``emacs'',
-``emacs~-nw'' and ``nano'' are tried in that order.
+so that you can enter the comment in.
 
 \begin{options}
 --logfile
 \end{options}
 
 If you wish, you may specify the patch name and log using the
-\verb!--logfile! flag.  If you do so, the first line of the specified file
-will be taken to be the patch name, and the remainder will be the ``long
-comment''.  This feature can be especially handy if you have a test that
+`--logfile` flag.  If you do so, the first line of the specified file
+will be taken to be the patch name, and the remainder will be the "long
+comment".  This feature can be especially handy if you have a test that
 fails several times on the record (thus aborting the record), so you don't
 have to type in the long comment multiple times. The file's contents will
-override the \verb!--patch-name! option.
+override the `--patch-name` option.
 
 \begin{code}
 data PName = FlagPatchName String | PriorPatchName String | NoPatchName
@@ -309,20 +305,20 @@ copy of the source tree (in a temporary directory), then it runs the test,
 using its return value to decide if the record is valid.  If it is not valid,
 the record will be aborted.  This is a handy way to avoid making stupid
 mistakes.  It also can be
-tediously slow, so there is an option (\verb!--no-test!) to skip the test.
+tediously slow, so there is an option (`--no-test`) to skip the test.
 
-You can also use \verb!--test-parents! if iolaus is to fast
+You can also use `--test-parents` if iolaus is to fast
 for you, which will cause record to seek out the minimal context in
-which the new patch will pass the test this is currently \emph{very}
+which the new patch will pass the test this is currently *very*
 slow, as it doesn't do any bisection at all.
 
 \begin{options}
 --interactive, --all
 \end{options}
 
-By default, \verb!record! works interactively. Probably the only thing
-you need to know about using this is that you can press \verb!?! at
+By default, `record` works interactively. Probably the only thing
+you need to know about using this is that you can press `?` at
 the prompt to be shown a list of the rest of the options and what they
 do. The rest should be clear from there.  The opposite is
-\verb!--all!, which causes iolaus not to prompt you, but simply to
+`--all`, which causes iolaus not to prompt you, but simply to
 record all changes.

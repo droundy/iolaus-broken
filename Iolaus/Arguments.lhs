@@ -984,51 +984,46 @@ repo_combinator =
      "take complement of repositories (in order listed)"]
 
 options_latex :: [IolausOption] -> String
-options_latex opts = "\\begin{tabular}{lll}\n"++
-                     unlines (map option_latex opts)++
-                     "\\end{tabular}\n"
+options_latex opts = unlines (map ("    "++) $ concatMap option_latex opts)
 
-latex_help :: String -> String
-latex_help h
-    = "\\begin{minipage}{7cm}\n\\raggedright\n" ++ h ++ "\\end{minipage}\n"
-
-option_latex :: IolausOption -> String
+option_latex :: IolausOption -> [String]
 option_latex (IolausNoArgOption a b _ h) =
-    show_short_options a ++ show_long_options b ++ latex_help h ++ "\\\\"
+    [show_short_options a ++ show_long_options b ++ h]
 option_latex (IolausArgOption a b _ arg h) =
-    show_short_options a ++
-    show_long_options (map (++(" "++arg)) b) ++ latex_help h ++ "\\\\"
+    [show_short_options a ++
+     show_long_options (map (++(" "++arg)) b) ++ h]
 option_latex (IolausAbsPathOrStdOption a b _ arg h) =
-    show_short_options a ++
-    show_long_options (map (++(" "++arg)) b) ++ latex_help h ++ "\\\\"
+    [show_short_options a ++
+     show_long_options (map (++(" "++arg)) b) ++ h]
 option_latex (IolausAbsPathOption a b _ arg h) =
-    show_short_options a ++
-    show_long_options (map (++(" "++arg)) b) ++ latex_help h ++ "\\\\"
+    [show_short_options a ++
+     show_long_options (map (++(" "++arg)) b) ++ h]
 option_latex (IolausOptAbsPathOption a b _ _ arg h) =
-    show_short_options a ++
-    show_long_options (map (++("[="++arg++"]")) b) ++ latex_help h ++ "\\\\"
+    [show_short_options a ++
+     show_long_options (map (++("[="++arg++"]")) b) ++ h]
 option_latex (IolausMultipleChoiceOption os) =
-    unlines (map option_latex os)
+    concatMap option_latex os
 
 show_short_options :: [Char] -> String
-show_short_options [] = "&"
-show_short_options [c] = "\\verb!-"++[c]++"! &"
-show_short_options (c:cs) = "\\verb!-"++[c]++"!,"++show_short_options cs
+show_short_options [] = "\t"
+show_short_options [c] = "-"++[c]++"\t"
+show_short_options (c:cs) = "-"++[c]++","++show_short_options cs
 
 show_long_options :: [String] -> String
-show_long_options [] = " &"
-show_long_options [s] = "\\verb!--" ++ s ++ "! &"
-show_long_options (s:ss)
-    = "\\verb!--" ++ s ++ "!,"++ show_long_options ss
+show_long_options [] = "\t"
+show_long_options [s] = "--" ++ s ++ "\t"
+show_long_options (s:ss) = "--" ++ s ++ ","++ show_long_options ss
 
-relink, sibling :: IolausOption
+relink :: IolausOption
 relink = IolausNoArgOption [] ["relink"] Relink
          "relink internal data to a sibling"
 
+sibling :: IolausOption
 sibling = IolausAbsPathOption [] ["sibling"] Sibling "URL"
           "specify a sibling directory"
 
--- | 'flagsToSiblings' collects the contents of all @Sibling@ flags in a list of flags.
+-- | 'flagsToSiblings' collects the contents of all @Sibling@ flags in
+-- a list of flags.
 flagsToSiblings :: [Flag] -> [AbsolutePath]
 flagsToSiblings ((Sibling s) : l) = s : (flagsToSiblings l)
 flagsToSiblings (_ : l) = flagsToSiblings l

@@ -19,8 +19,14 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"],
           doc
           allTests
 
-doc = do markdownToHtml ".iolaus.css" "README.md" "index.html"
-         addDependencies "html" ["index.html"]
+doc =
+    do privateExecutable "preproc" "preproc.hs" []
+       rule ["doc/manual.md"] ["preproc","doc/iolaus.md"] $
+            do x <- systemOut "./preproc" ["doc/iolaus.md"]
+               mkFile "doc/manual.md" x
+       markdownToHtml ".iolaus.css" "README.md" "index.html"
+       markdownToHtml ".iolaus.css" "doc/manual.md" "manual.html"
+       addDependencies "html" ["index.html", "manual.html"]
 
 allTests =
    do here <- pwd
