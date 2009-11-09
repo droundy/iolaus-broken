@@ -185,7 +185,7 @@ diff_from_empty inv f b =
     if b == B.empty
     then id
     else if isbin b
-         then (binary f B.empty b :>:)
+         then (inv (binary f B.empty b) :>:)
          else (inv (chunk f newlines 0 [] $ chunkify newlines b):>:)
 
 diff_removed :: [FilePath] -> Slurpy C(x)

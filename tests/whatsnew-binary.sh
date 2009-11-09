@@ -19,3 +19,9 @@ iolaus whatsnew
 iolaus whatsnew | grep hello && exit 1
 
 iolaus whatsnew | grep binary
+
+# The following triggered a bug in Diff...
+rm bin
+date >> foo
+echo hello >> foo1
+iolaus whatsnew
