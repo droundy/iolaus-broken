@@ -67,14 +67,16 @@ iolaus pull -a ../temp
 cat foo
 diff -u foo - <<EOF
 a
-B
 ||| BC >>>
+B
 C
+d
 <<< BC |||
 ||| CCD >>>
+b
 CC
-<<< CCD |||
 D
+<<< CCD |||
 e
 EOF
 
