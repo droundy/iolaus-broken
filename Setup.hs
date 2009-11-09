@@ -16,7 +16,11 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"],
           executable "iolaus" "iolaus.hs" []
           executable "git-imof" "git-imof.hs" []
           enforceAllPrivacy
+          doc
           allTests
+
+doc = do markdownToHtml ".iolaus.css" "README.md" "index.html"
+         addDependencies "html" ["index.html"]
 
 allTests =
    do here <- pwd
