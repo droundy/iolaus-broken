@@ -2,6 +2,7 @@
 #include "gadts.h"
 module Iolaus.Patch.Merge ( mergeNamed ) where
 
+import Debug.Trace
 import Iolaus.Utils ( nubsort )
 import Iolaus.Patch.Patchy ( Patchy, invert, commuteRL, commuteFL, identity )
 import Iolaus.Patch.Prim ( Prim(..), FilePatchType(Chunk), Effect, splatter )
@@ -63,8 +64,9 @@ mkIdentity :: [Sealed (Named String Prim C(x))]
              -> Named String Prim C(x x)
 mkIdentity xs = case splatterNamed $ mkFL xs of
                   Just a -> a
-                  Nothing -> error ("xxxxxx\n"++show (length xs))
-                            --  NamedP "identity" identity
+                  Nothing -> trace ("Ignoring conflict of size "++
+                                    show (length xs)++"?")
+                             NamedP "identity" identity
     where mkFL (Sealed z:zs) = z :>: invert z :>: mkFL zs
           mkFL [] = NilFL
 
