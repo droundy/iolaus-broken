@@ -12,3 +12,7 @@
   In short, record may be the *only* scenario in which we interact
   with this particular remote, so *never* contacting the remote on
   record doesn't sound like such a hot idea.
+
+- Make amend --record-for REPO refuse to amend a patch that is present
+  in REPO, thus adding considerable safety, and at the same time
+  limiting the number of choices presented to our user.
