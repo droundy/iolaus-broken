@@ -15,40 +15,24 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsection{iolaus initialize}\label{initialize}
 \begin{code}
-module Iolaus.Commands.Init ( initialize, initialize_cmd ) where
+module Iolaus.Commands.Initialize ( initialize, initialize_cmd ) where
 import Iolaus.Command ( Command(..), nodefaults )
 import Iolaus.Arguments ( Flag, working_repo_dir )
 
 import Git.LocateRepo ( amNotInRepository )
 import Git.Plumbing ( gitInit )
-\end{code}
 
-\options{initialize}
-
-\haskell{initialize_description}
-
-\begin{code}
 initialize_description :: String
 initialize_description = "Initialize a new source tree as an iolus repository."
-\end{code}
-Call \verb|initialize| once for each project you work on. Run it from
-the top level directory of the project, with the project files already
-there.  \verb|initialize| will set up all the directories and files
-iolaus needs in order to start keeping track of revisions for your
-project.
 
-\begin{code}
 initialize_help :: String
 initialize_help =
  "Call initialize once for each project you work on. Run it from the top\n"++
  "level directory of the project, with the project files already there.\n"++
  "Initialize will set up all the directories and files iolaus needs in order to\n"++
  "start keeping track of revisions for your project.\n"
-\end{code}
 
-\begin{code}
 initialize :: Command
 initialize = Command {command_name = "initialize",
                          command_help = initialize_help,
@@ -61,10 +45,14 @@ initialize = Command {command_name = "initialize",
                          command_argdefaults = nodefaults,
                          command_advanced_options = [],
                          command_basic_options = [working_repo_dir]}
-\end{code}
 
-\begin{code}
 initialize_cmd :: [Flag] -> [String] -> IO ()
 initialize_cmd _ _ = gitInit []
 \end{code}
+
+Call `initialize` once for each project you work on. Run it from
+the top level directory of the project, with the project files already
+there.  `initialize` will set up all the directories and files
+iolaus needs in order to start keeping track of revisions for your
+project.
 

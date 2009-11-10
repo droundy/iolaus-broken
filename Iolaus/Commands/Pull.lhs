@@ -15,10 +15,7 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsection{iolaus pull}
 \begin{code}
-{-# LANGUAGE CPP #-}
-
 module Iolaus.Commands.Pull ( pull ) where
 
 import System.Exit ( ExitCode(..), exitWith )
@@ -47,12 +44,7 @@ import Git.Helpers ( testCommits, slurpTree, mergeCommits )
 pull_description :: String
 pull_description =
  "Copy and apply patches from another repository to this one."
-\end{code}
 
-\options{pull}
-
-\haskell{pull_help}
-\begin{code}
 pull_help :: String
 pull_help =
  "Pull is used to bring changes made in another repository into the current\n"++
@@ -130,19 +122,18 @@ pull_cmd opts repodirs@(_:_) =
 pull_cmd _ [] = fail "No default repository to pull from, please specify one"
 \end{code}
 
-
 \begin{options}
 --patches, --tags
 \end{options}
 
-The \verb!--patches!, and \verb!--tags!  options can be used to select
+The `--patches`, and `--tags`  options can be used to select
 which patches to pull, as described in subsection~\ref{selecting}.
 
 \begin{options}
 --no-test, --test
 \end{options}
 
-If you specify the \verb!--test! option, pull will run the test (if a
+If you specify the `--test` option, pull will run the test (if a
 test exists) on a scratch copy of the repository contents prior to
 actually performing the pull.  If the test fails, the pull will be
 aborted.

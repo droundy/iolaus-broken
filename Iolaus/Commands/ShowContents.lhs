@@ -15,7 +15,6 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsubsection{iolaus show contents}
 \begin{code}
 module Iolaus.Commands.ShowContents ( show_contents ) where
 
@@ -33,15 +32,10 @@ import Iolaus.Sealed ( Sealed(..), mapSealM )
 import Git.Plumbing ( parseRev, catCommitTree )
 import Git.Helpers ( slurpTree )
 import Git.LocateRepo ( amInRepository )
-\end{code}
 
-\options{show contents}
-\begin{code}
 show_contents_description :: String
 show_contents_description = "Outputs a specific version of a file."
-\end{code}
-\haskell{show_contents_help}
-\begin{code}
+
 show_contents_help :: String
 show_contents_help =
   "Show contents can be used to display an earlier version of some file(s).\n"++
@@ -61,9 +55,7 @@ show_contents = Command {command_name = "contents",
                               command_argdefaults = nodefaults,
                               command_advanced_options = [],
                               command_basic_options = [match_one, working_repo_dir]}
-\end{code}
 
-\begin{code}
 show_contents_cmd :: [Flag] -> [String] -> IO ()
 show_contents_cmd opts args =
     do path_list <- fixSubPaths opts args

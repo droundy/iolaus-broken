@@ -15,7 +15,6 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsection{iolaus push}
 \begin{code}
 {-# LANGUAGE CPP #-}
 
@@ -39,11 +38,7 @@ import Git.LocateRepo ( amInRepository )
 push_description :: String
 push_description =
  "Push patches from this repository to another one."
-\end{code}
 
-\options{push}
-\haskell{push_help}
-\begin{code}
 push_help :: String
 push_help =
  "Push is the opposite of pull.  Push allows you to copy changes from the\n"++

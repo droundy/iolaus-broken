@@ -15,8 +15,6 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsection{iolaus record}
-\label{record}
 \begin{code}
 {-# LANGUAGE CPP, PatternGuards #-}
 
@@ -47,27 +45,21 @@ import Iolaus.Progress ( debugMessage )
 import Iolaus.Repository ( get_recorded_and_unrecorded, Unrecorded(..),
                            add_heads, decapitate )
 import Iolaus.Commands.Record ( get_log )
-import Iolaus.Sealed ( Sealed(Sealed), mapSealM )
+import Iolaus.Sealed ( Sealed(Sealed), unseal, mapSealM )
 import Iolaus.DeltaDebug ( largestPassingSet )
 
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( lsfiles, heads, catCommit, myMessage )
 import Git.Helpers ( testCommits, testMessage, commitTreeNicely,
                      writeSlurpTree, simplifyParents )
+import Git.Dag ( parents )
 
 #include "impossible.h"
 
 amend_record_description :: String
 amend_record_description =
  "Amend a recent commit."
-\end{code}
 
-\options{amend-record}
-
-If you provide one or more files or directories as additional arguments
-to amend, you will only be prompted to changes in those files or
-directories.
-\begin{code}
 amend_record_help :: String
 amend_record_help = show $ wrap_text 80 $
  "Amend-record is used to amend a commit."
@@ -123,7 +115,8 @@ amend_record_cmd opts args = do
                         oldmsg = (line1,reverse $ clean $ reverse restl)
                     (name, my_log, _) <- get_log opts (Just oldmsg)
                                        (world_readable_temp "iolaus-record")
-                    hs <- filter (/=toamend) `fmap` heads
+                    hs <- ((unseal parents toamend++).filter (/=toamend))
+                          `fmap` heads
                     (hs', Sealed newtree') <- simplifyParents opts hs newtree
                     testedby <- testMessage (testByDefault opts)
                     let -- FIXME join with Signed-off-by:
@@ -169,3 +162,7 @@ check_name_is_not_option opts = do
 \end{code}
 
 Amend is much like record.
+
+If you provide one or more files or directories as additional arguments
+to amend, you will only be prompted to changes in those files or
+directories.

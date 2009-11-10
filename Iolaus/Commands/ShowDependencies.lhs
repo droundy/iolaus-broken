@@ -15,7 +15,6 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsubsection{iolaus show dependencies}
 \begin{code}
 module Iolaus.Commands.ShowDependencies ( show_dependencies ) where
 
@@ -31,24 +30,14 @@ import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( Hash, Commit,
                       heads, nameRevs, catCommit )
 import Git.Helpers ( writeSlurpTree, diffCommit, simplifyParents )
-\end{code}
 
-\options{show dependencies}
-
-\haskell{show_dependencies_help}
-
-\begin{code}
 show_dependencies_description :: String
 show_dependencies_description = "Show a given dependencies."
-\end{code}
 
-\begin{code}
 show_dependencies_help :: String
 show_dependencies_help =
  "The dependencies command nicely shows a dependencies."
-\end{code}
 
-\begin{code}
 show_dependencies :: Command
 show_dependencies = Command {
   command_name = "dependencies",

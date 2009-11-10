@@ -15,7 +15,6 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsubsection{iolaus show tags}
 \begin{code}
 module Iolaus.Commands.ShowTags ( show_tags ) where
 
@@ -24,24 +23,14 @@ import Iolaus.Arguments ( Flag(..), working_repo_dir )
 import Iolaus.Command ( Command(..), nodefaults )
 
 import Git.LocateRepo ( amInRepository )
-\end{code}
 
-\options{show tags}
-
-\haskell{show_tags_help}
-
-\begin{code}
 show_tags_description :: String
 show_tags_description = "Show all tags in the repository."
-\end{code}
 
-\begin{code}
 show_tags_help :: String
 show_tags_help =
  "The tags command outputs a list of all tags in the repository."
-\end{code}
 
-\begin{code}
 show_tags :: Command
 show_tags = Command {
   command_name = "tags",

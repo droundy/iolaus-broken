@@ -15,7 +15,6 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsubsection{iolaus show commit}
 \begin{code}
 module Iolaus.Commands.ShowCommit ( show_commit ) where
 
@@ -28,13 +27,7 @@ import Iolaus.Printer ( putDocLn )
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( parseRev, nameRevs )
 import Git.Helpers ( showCommit )
-\end{code}
 
-\options{show commit}
-
-\haskell{show_commit_help}
-
-\begin{code}
 show_commit_description :: String
 show_commit_description = "Show a given commit."
 

@@ -15,8 +15,6 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsubsection{iolaus show files}
-\label{show-files}
 \begin{code}
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
@@ -32,36 +30,16 @@ import Iolaus.Sealed ( Sealed(..), mapSealM )
 import Git.Plumbing ( parseRev, catCommitTree )
 import Git.Helpers ( slurpTree )
 import Git.LocateRepo ( amInRepository )
-\end{code}
 
-\options{show files}
-
-\haskell{show_files_help}
-
-The \verb!--files! and \verb!--directories! options control whether
-files and directories are included in the output.  The
-\verb!--no-files!  and \verb!--no-directories! options have the
-reverse effect.  The default is to include files, but not directories.
-
-If you specify the \verb!--null! option, the file names are written to
-standard output in unescaped form, and separated by ASCII NUL bytes.
-This format is suitable for further automatic processing (for example,
-using \verb!xargs -0!).
-
-\begin{code}
 show_files_description :: String
 show_files_description = "Show version-controlled files in the working copy."
-\end{code}
 
-\begin{code}
 show_files_help :: String
 show_files_help =
  "The files command lists the version-controlled files in the\n"++
  "working copy.  The similar manifest command, lists the same\n"++
  "files, excluding any directories.\n"
-\end{code}
 
-\begin{code}
 show_files :: Command
 show_files = Command {
   command_name = "files",
@@ -103,3 +81,14 @@ manifest_cmd to_list opts _ =
     where output_null name = do { putStr name ; putChar '\0' }
           output = if NullFlag `elem` opts then output_null else putStrLn
 \end{code}
+
+The `--files` and `--directories` options control whether
+files and directories are included in the output.  The
+`--no-files` and `--no-directories` options have the
+reverse effect.  The default is to include files, but not directories.
+
+If you specify the `--null` option, the file names are written to
+standard output in unescaped form, and separated by ASCII NUL bytes.
+This format is suitable for further automatic processing (for example,
+using `xargs -0`).
+

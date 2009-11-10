@@ -15,7 +15,6 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsection{iolaus add}
 \begin{code}
 module Iolaus.Commands.Add ( add ) where
 
@@ -28,27 +27,17 @@ import Iolaus.Arguments (noskip_boring, allow_problematic_filenames,
                        Flag, fixSubPaths,
                       )
 import Iolaus.RepoPath ( toFilePath )
-\end{code}
 
-\begin{code}
 add_description :: String
 add_description =
  "Add one or more new files or directories."
-\end{code}
 
-\options{add}
-
-\haskell{add_help}
-
-\begin{code}
 add_help :: String
 add_help =
  "Add needs to be called whenever you add a new file or directory to your\n"++
  "project.  Of course, it also needs to be called when you first create the\n"++
  "project, to let iolaus know which files should be kept track of.\n"
-\end{code}
 
-\begin{code}
 add :: Command
 add = Command {command_name = "add",
                     command_help = add_help,
@@ -64,6 +53,11 @@ add = Command {command_name = "add",
                     [noskip_boring, allow_problematic_filenames,
                      recursive "add contents of subdirectories",
                      working_repo_dir]}
+
+add_cmd :: [Flag] -> [String] -> IO ()
+add_cmd opts args =
+ do origfiles <- map toFilePath `fmap` fixSubPaths opts args
+    updateindex origfiles
 \end{code}
 
 Iolaus will refuse to add a file or directory that differs from an existing
@@ -79,12 +73,5 @@ Perhaps you want to make symbolic links \emph{to} the files in iolaus instead?
 \end{options}
 
 By default iolaus will ignore all files that match any of the boring patterns.
-If you want to add such a file anyway you must use the \verb!--boring! option.
-
-\begin{code}
-add_cmd :: [Flag] -> [String] -> IO ()
-add_cmd opts args =
- do origfiles <- map toFilePath `fmap` fixSubPaths opts args
-    updateindex origfiles
-\end{code}
+If you want to add such a file anyway you must use the `--boring` option.
 

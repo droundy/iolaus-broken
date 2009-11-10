@@ -15,7 +15,6 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsubsection{iolaus show authors}
 \begin{code}
 module Iolaus.Commands.ShowAuthors ( show_authors ) where
 
@@ -30,25 +29,15 @@ import Iolaus.Lock ( readBinFile )
 
 import Git.Plumbing ( RevListOption(Authors) )
 import Git.Helpers ( revListHeads )
-\end{code}
 
-\options{show authors}
-
-\haskell{show_authors_help}
-
-\begin{code}
 show_authors_description :: String
 show_authors_description = "Show all authors in the repository."
-\end{code}
 
-\begin{code}
 show_authors_help :: String
 show_authors_help =
  "The authors command writes a list of all authors in the repository to\n" ++
  "standard output."
-\end{code}
 
-\begin{code}
 show_authors :: Command
 show_authors = Command {
   command_name = "authors",

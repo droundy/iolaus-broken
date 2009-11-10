@@ -19,7 +19,6 @@
 
 module Iolaus.Lcs2 ( patientLcs, nestedChanges ) where
 
-import Debug.Trace
 import Data.List ( sort )
 import Data.Array.ST
 import Control.Monad.ST
@@ -52,10 +51,12 @@ genNestedChanges (br:brs) i0 o0 n0 = nc i0 (lcus ol nl) ol nl
                 (_,[]) -> impossible
           easydiff i o n = genNestedChanges brs i oo nn
               where (oo, nn) = (concat o, concat n)
-genNestedChanges [] i o n = mkdiff (`elem` borings) i (patientLcs o n) o n
+genNestedChanges [] i o n = mkdiff (all (`elem` borings)) i mylcs o n
+        where mylcs = patientLcs (filter (`notElem` borings) o)
+                                 (filter (`notElem` borings) n)
 
 borings :: [B.ByteString]
-borings = map BC.pack ["", " ", ")", "(", ","]
+borings = map BC.pack ["", "\n", " ", ")", "(", ","]
 
 byparagraph :: [B.ByteString] -> [[B.ByteString]]
 byparagraph [] = []
@@ -88,41 +89,41 @@ lcus xs0 ys0 = lcs (filter (`S.member`u) xs0) (filter (`S.member`u) ys0)
 
 
 mkdiff :: (Show a, Ord a) =>
-          (a -> Bool) -> Int -> [a] -> [a] -> [a] -> [(Int,[a],[a])]
+          ([a] -> Bool) -> Int -> [a] -> [a] -> [a] -> [(Int,[a],[a])]
 mkdiff b ny (l:ls) (x:xs) (y:ys)
     | l == x && l == y = mkdiff b (ny+1) ls xs ys
-mkdiff boring ny (l:ls) xs ys
-    | length lls > 0 && not (null rest) =
+mkdiff boring ny (l:ls) xs ys =
         if rmd == add
-        then trace ("\npossible bug in mkdiff "++show rmd
-                    ++"\nfrom l:ls "++show (l:ls)
-                    ++"\nfrom xs "++show xs
-                    ++"\nfrom ys "++show ys)
-             mkdiff boring (ny+length add+1) ls restx resty
-        else if not (null rmd) && not (null add) && boring l &&
-                take 1 restx /= take 1 resty
-             then mkdiff boring ny ls xs ys
-             else (ny, rmd, add) :
+        then mkdiff boring (ny+length add+1) ls restx resty
+        else if boring rmd && boring add
+             then case lcs rmd add of
+                    [] -> prefixPostfixDiff ny rmd add ++
+                          mkdiff boring (ny+length add+1) ls restx resty
+                    ll -> mkdiff (const False) ny ll rmd add ++
+                          mkdiff boring  (ny+length add+1) ls restx resty
+             else prefixPostfixDiff ny rmd add ++
                   mkdiff boring (ny+length add+1) ls restx resty
-    where (lls, rest) = span (==l) (l:ls)
-          l2:_ = rest
-          rmd0 = takels lls xs ++ takeWhile (/= l2) (dropls lls xs)
-          add0 = takels lls ys ++ takeWhile (/= l2) (dropls lls ys)
-          takels zs lis = take (length lis - length (dropls zs lis)) lis
-          dropls (z:zs) lis = dropls zs $ drop 1 $ dropWhile (/=z) lis
-          dropls [] lis = lis
-          rmd = reverse $ dropls lls $ reverse rmd0
-          add = reverse $ dropls lls $ reverse add0
-          restx = drop (length rmd + 1) xs
-          resty = drop (length add + 1) ys
-mkdiff b ny (l:ls) xs ys =
-    (ny, rmd, add) : mkdiff b (ny+length add+1) ls restx resty
     where rmd = takeWhile (/= l) xs
           add = takeWhile (/= l) ys
           restx = drop (length rmd + 1) xs
           resty = drop (length add + 1) ys
 mkdiff _ _ [] [] [] = []
-mkdiff _ ny [] xs ys = [(ny, xs, ys)]
+mkdiff boring ny [] rmd add =
+    if boring rmd && boring add
+    then case lcs rmd add of [] -> prefixPostfixDiff ny rmd add
+                             ll -> mkdiff (const False) ny ll rmd add
+    else prefixPostfixDiff ny rmd add
+
+prefixPostfixDiff :: Ord a => Int -> [a] -> [a] -> [(Int,[a],[a])]
+prefixPostfixDiff _ [] [] = []
+prefixPostfixDiff ny [] ys = [(ny,[],ys)]
+prefixPostfixDiff ny xs [] = [(ny,xs,[])]
+prefixPostfixDiff ny (x:xs) (y:ys)
+    | x == y = prefixPostfixDiff (ny+1) xs ys
+    | otherwise = [(ny,x : reverse rxs',y : reverse rys')]
+    where (rxs',rys') = dropPref (reverse xs) (reverse ys)
+          dropPref (a:as) (b:bs) | a == b = dropPref as bs
+          dropPref as bs = (as,bs)
 
 -- | The patientLcs algorithm is inspired by the "patience" algorithm
 -- (for which I don't have a reference handy), in that it looks for

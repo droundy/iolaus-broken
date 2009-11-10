@@ -7,8 +7,8 @@
 *.hi
 config.d
 *.depend
-grit
 iolaus
+preproc
 git-imof
 *.log
 .package.conf
@@ -20,3 +20,4 @@ try-*
 .latest*
 Iolaus/Help.lhs
 *.html
+manual

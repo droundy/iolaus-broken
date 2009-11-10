@@ -15,7 +15,6 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsection{iolaus revert}
 \begin{code}
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
@@ -45,28 +44,18 @@ import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( lsfiles, diffTrees )
 import Git.Helpers ( writeSlurpTree )
 
-\end{code}
-\begin{code}
+
 revert_description :: String
 revert_description =
  "Revert to the recorded version (not always reversible)."
-\end{code}
 
-\options{revert}
-
-\haskell{revert_help} The actions of a revert may be reversed using the
-unrevert command (see subsection~\ref{unrevert}).  However, if you've made
-changes since the revert your mileage may vary, so please be careful.
-
-\begin{code}
 revert_help :: String
 revert_help =
  "Revert is used to undo changes made to the working copy which have\n"++
  "not yet been recorded.  You will be prompted for which changes you\n"++
  "wish to undo. The last revert can be undone safely using the unrevert\n"++
  "command if the working copy was not modified in the meantime.\n"
-\end{code}
-\begin{code}
+
 revert :: Command
 revert = Command {command_name = "revert",
                        command_help = revert_help,
@@ -80,11 +69,7 @@ revert = Command {command_name = "revert",
                        command_advanced_options = [],
                        command_basic_options = [mergeStrategy,all_interactive,
                                                 working_repo_dir]}
-\end{code}
-You can give revert optional arguments indicating files or directories.  If
-you do so it will only prompt you to revert changes in those files or in
-files in those directories.
-\begin{code}
+
 revert_cmd :: [Flag] -> [String] -> IO ()
 revert_cmd opts args =
     do files <- sort `fmap` fixSubPaths opts args
@@ -117,3 +102,10 @@ write_unrevert s p =
        diffTrees [] old new [] >>= writeFile ".git/unrevert"
 \end{code}
 
+The actions of a revert may be reversed using the unrevert command
+(see subsection~\ref{unrevert}).  However, if you've made changes
+since the revert your mileage may vary, so please be careful.
+
+You can give revert optional arguments indicating files or
+directories.  If you do so it will only prompt you to revert changes
+in those files or in files in those directories.

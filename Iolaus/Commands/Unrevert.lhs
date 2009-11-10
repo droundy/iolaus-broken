@@ -15,12 +15,7 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsection{iolaus unrevert}\label{unrevert}
 \begin{code}
-{-# LANGUAGE CPP #-}
-
-#include "gadts.h"
-
 module Iolaus.Commands.Unrevert ( unrevert ) where
 
 import System.Directory ( removeFile )
@@ -34,22 +29,13 @@ import Git.Plumbing ( gitApply )
 unrevert_description :: String
 unrevert_description =
  "Undo the last revert (may fail if changes after the revert)."
-\end{code}
 
-\options{unrevert}
-
-\haskell{unrevert_help}
-\begin{code}
 unrevert_help :: String
 unrevert_help =
  "Unrevert is used to undo the results of a revert command. It is only\n"++
  "guaranteed to work properly if you haven't made any changes since the\n"++
  "revert was performed.\n"
-\end{code}
-The command makes a best effort to merge the unreversion with any changes
-you have since made.  In fact, unrevert should even work if you've recorded
-changes since reverting.
-\begin{code}
+
 unrevert :: Command
 unrevert = Command {command_name = "unrevert",
                          command_help = unrevert_help,
@@ -63,9 +49,12 @@ unrevert = Command {command_name = "unrevert",
                          command_advanced_options = [],
                          command_basic_options = [all_interactive,
                                                   working_repo_dir]}
-\end{code}
-\begin{code}
+
 unrevert_cmd :: [Flag] -> [String] -> IO ()
 unrevert_cmd _ _ = do gitApply ".git/unrevert"
                       removeFile ".git/unrevert"
 \end{code}
+
+The command makes a best effort to merge the unreversion with any changes
+you have since made.  In fact, unrevert should even work if you've recorded
+changes since reverting.

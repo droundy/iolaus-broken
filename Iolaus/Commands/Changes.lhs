@@ -74,9 +74,3 @@ changes_cmd opts _ =
                        putStrLn ""
           filt = if Reverse `elem` opts then reverse else id
 \end{code}
-
-\subsection{iolaus changes}
-
-\options{changes}
-
-\haskell{changes_help}

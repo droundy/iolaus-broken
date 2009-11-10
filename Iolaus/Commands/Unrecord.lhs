@@ -15,11 +15,7 @@
 %  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 %  Boston, MA 02110-1301, USA.
 
-\subsection{iolaus unrecord}
-\label{unrecord}
 \begin{code}
-{-# LANGUAGE CPP #-}
-
 module Iolaus.Commands.Unrecord ( unrecord ) where
 
 import Iolaus.Command ( Command(..), nodefaults )
@@ -31,50 +27,11 @@ import Iolaus.SelectCommits ( select_last_commits )
 import Git.Dag ( allAncestors )
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( heads )
-#include "gadts.h"
 
 unrecord_description :: String
 unrecord_description =
  "Remove recorded patches without changing the working copy."
-\end{code}
 
-\options{unrecord}
-
-\haskell{unrecord_help}
-
-Unrecord can be thought of as undo-record.
-If a record is followed by an unrecord, everything looks like before
-the record; all the previously unrecorded changes are back, and can be
-recorded again in a new patch. The unrecorded patch however is actually
-removed from your repository, so there is no way to record it again to get
-it back.\footnote{The patch file itself is not actually deleted, but its
-context is lost, so it cannot be reliably read---your only choice would be
-to go in by hand and read its contents.}.
-
-If you want to remove
-the changes from the working copy too (where they otherwise will show
-up as unrecorded changes again), you'll also need to \verb!iolaus revert!.
-To do unrecord and revert in one go, you can use \verb!iolaus obliterate!.
-
-If you don't revert after unrecording, then the changes made by the
-unrecorded patches are left in your working tree.  If these patches are
-actually from another repository, interaction (either pushes or pulls) with
-that repository may be massively slowed down, as iolaus tries to cope with
-the fact that you appear to have made a large number of changes that
-conflict with those present in the other repository.  So if you really want
-to undo the result of a \emph{pull} operation, use obliterate! Unrecord is
-primarily intended for when you record a patch, realize it needs just one
-more change, but would rather not have a separate patch for just that one
-change.
-
-\newcommand{\pullwarning}[1]{
-\textbf{WARNING:} #1 should not be run when there is a possibility
-that another user may be pulling from the same repository.  Attempting to do so
-may cause repository corruption.}
-
-\pullwarning{Unrecord}
-
-\begin{code}
 unrecord_help :: String
 unrecord_help =
  "Unrecord does the opposite of record in that it makes the changes from\n"++
@@ -106,3 +63,15 @@ unrecord_cmd opts _ =
        decapitate opts toremove
 \end{code}
 
+Unrecord can be thought of as undo-record.  If a record is followed by
+an unrecord, everything looks like before the record; all the
+previously unrecorded changes are back, and can be recorded again in a
+new patch.
+
+If you want to remove the changes from the working copy too (where
+they otherwise will show up as unrecorded changes again), you'll also
+need to `iolaus revert`.
+
+Unrecord should not be run when there is a possibility that another
+user may be pulling from the same repository.  Attempting to do so may
+cause severe confusion.
