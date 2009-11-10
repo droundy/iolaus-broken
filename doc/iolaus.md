@@ -2,3 +2,4 @@
 
 <img alt="legendary head management" src="doc/hydra.svg" align="right">
 
+[about](index.html)

@@ -2,7 +2,7 @@
 
 set -ev
 
-./Setup.hs test --disable-optimize -j2
+./Setup.hs test html --disable-optimize -j2
 
 # now rerun the tests with type witnesses enabled!
 ./Setup.hs --with-type-witnesses --disable-optimize -j2 test

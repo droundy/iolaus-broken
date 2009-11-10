@@ -3,6 +3,8 @@ Iolaus
 
 <img alt="legendary head management" src="doc/hydra.svg" align="right">
 
+[manual](manual.html)
+
 > On Lerna's murderous hound, the many-headed hydra, he set his
 > branding-iron...
 
