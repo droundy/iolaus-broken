@@ -194,7 +194,7 @@ showPrim (FP f (Binary _ _)) = blueText "binary" <+> formatFileName f
 showPrim (DP d AddDir) = blueText "adddir" <+> formatFileName d
 showPrim (DP d RmDir) = blueText "rmdir" <+> formatFileName d
 showPrim (Move f f') =
-    blueText "rmdir" <+> formatFileName f <+> formatFileName f'
+    blueText "mv" <+> formatFileName f <+> formatFileName f'
 showPrim Identity = blueText "{}"
 
 try_to_shrink :: FL Prim C(x y) -> FL Prim C(x y)

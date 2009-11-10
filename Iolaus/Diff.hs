@@ -201,12 +201,14 @@ diff_removed fps s
 similar :: Slurpy C(x) -> Slurpy C(x) -> Bool
 similar aaa bbb
     | afile /= bfile = False
-    | afile = length (patientLcs (linesPS $ get_filecontents aaa)
-                                 (linesPS $ get_filecontents bbb))
-              > 40
+    | afile = length (patientLcs lsaaa lsbbb)
+              > (max 1 (min (length lsaaa `div` 2)
+                       (min (length lsbbb `div` 2) 40)))
     | otherwise = compared (sort $ get_dircontents aaa)
                            (sort $ get_dircontents bbb)
-    where afile = is_file aaa
+    where lsaaa = linesPS $ get_filecontents aaa
+          lsbbb = linesPS $ get_filecontents bbb
+          afile = is_file aaa
           bfile = is_file bbb
           compared (a:as) (b:bs)
               | slurp_name a == slurp_name b = similar a b || compared as bs
