@@ -25,6 +25,7 @@ doc =
        xs <- (filter (/= "Show.lhs") .
               filter (".lhs" `isSuffixOf`)) `fmap` ls "Iolaus/Commands"
        hs <- mapM commandPage $ xs
+       mkdir "manual"
        rule ["manual/manual.md"] ("preproc":"doc/iolaus.md":hs) $
             do x <- systemOut "./preproc" ["doc/iolaus.md"]
                let toc = sort $ zipWith mklink xs hs
