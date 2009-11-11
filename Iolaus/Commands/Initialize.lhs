@@ -50,9 +50,3 @@ initialize_cmd :: [Flag] -> [String] -> IO ()
 initialize_cmd _ _ = gitInit []
 \end{code}
 
-Call `initialize` once for each project you work on. Run it from
-the top level directory of the project, with the project files already
-there.  `initialize` will set up all the directories and files
-iolaus needs in order to start keeping track of revisions for your
-project.
-

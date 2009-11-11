@@ -20,8 +20,6 @@ module Iolaus.Commands ( command_control_list ) where
 import Iolaus.Commands.Record ( record )
 import Iolaus.Commands.Amend ( amend_record )
 import Iolaus.Commands.Unrecord ( unrecord )
-import Iolaus.Commands.Add ( add )
-import Iolaus.Commands.Mv ( mv )
 import Iolaus.Commands.Whatsnew ( whatsnew )
 import Iolaus.Commands.Changes ( changes )
 import Iolaus.Commands.Get ( get )
@@ -40,9 +38,7 @@ import Iolaus.Command ( CommandControl( Command_data, -- Hidden_command,
 command_control_list :: [CommandControl]
 command_control_list =
     [Group_name "Changing and querying the working copy:",
-     Command_data add,
      Command_data whatsnew,
-     Command_data mv,
      Command_data changes,
      Command_data unrecord,
      Command_data record,

@@ -151,39 +151,7 @@ record_help :: String
 record_help = show $ wrap_text 80 $
  "Record is used to name a set of changes and record the patch to the "++
  "repository."
-\end{code}
 
-\haskell{record_description}
-
-\options{record}
-
-If you provide one or more files or directories as additional arguments
-to record, you will only be prompted to changes in those files or
-directories.
-
-Each patch is given a name, which typically would consist of a brief
-description of the changes.  This name is later used to describe the patch.
-The name must fit on one line (i.e. cannot have any embedded newlines).  If
-you have more to say, stick it in the log.
-
-Finally, each changeset should have a full log (which may be empty).  This
-log is for detailed notes which are too lengthy to fit in the name.  If you
-answer that you do want to create a comment file, iolaus will open an editor
-so that you can enter the comment in.
-
-\begin{options}
---logfile
-\end{options}
-
-If you wish, you may specify the patch name and log using the
-`--logfile` flag.  If you do so, the first line of the specified file
-will be taken to be the patch name, and the remainder will be the "long
-comment".  This feature can be especially handy if you have a test that
-fails several times on the record (thus aborting the record), so you don't
-have to type in the long comment multiple times. The file's contents will
-override the `--patch-name` option.
-
-\begin{code}
 data PName = FlagPatchName String | PriorPatchName String | NoPatchName
 
 get_log :: [Flag] -> Maybe (String, [String]) -> IO String ->
@@ -286,8 +254,34 @@ only_successful_exits (ExitException ExitSuccess) = Just ()
 only_successful_exits _ = Nothing
 \end{code}
 
+If you provide one or more files or directories as additional arguments
+to record, you will only be prompted to changes in those files or
+directories.
+
+Each patch is given a name, which typically would consist of a brief
+description of the changes.  This name is later used to describe the patch.
+The name must fit on one line (i.e. cannot have any embedded newlines).  If
+you have more to say, stick it in the log.
+
+Finally, each changeset should have a full log (which may be empty).  This
+log is for detailed notes which are too lengthy to fit in the name.  If you
+answer that you do want to create a comment file, iolaus will open an editor
+so that you can enter the comment in.
+
 \begin{options}
---cauterize-all
+--logfile
+\end{options}
+
+If you wish, you may specify the patch name and log using the
+`--logfile` flag.  If you do so, the first line of the specified file
+will be taken to be the patch name, and the remainder will be the "long
+comment".  This feature can be especially handy if you have a test that
+fails several times on the record (thus aborting the record), so you don't
+have to type in the long comment multiple times. The file's contents will
+override the `--patch-name` option.
+
+\begin{options}
+--cauterize-all, --record-for, --commute-past
 \end{options}
 
 Describe this please.

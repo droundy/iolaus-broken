@@ -102,9 +102,9 @@ write_unrevert s p =
        diffTrees [] old new [] >>= writeFile ".git/unrevert"
 \end{code}
 
-The actions of a revert may be reversed using the unrevert command
-(see subsection~\ref{unrevert}).  However, if you've made changes
-since the revert your mileage may vary, so please be careful.
+The actions of a revert may be reversed using [iolaus
+unrevert](unrevert.html).  However, if you've made changes since the
+revert your mileage may vary, so please be careful.
 
 You can give revert optional arguments indicating files or
 directories.  If you do so it will only prompt you to revert changes

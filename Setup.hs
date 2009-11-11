@@ -30,11 +30,18 @@ doc =
             do x <- systemOut "./preproc" ["doc/iolaus.md"]
                let toc = sort $ zipWith mklink xs hs
                    mklink lhs h = "["++cmd lhs++"]("++h++")  "
-               mkFile "manual/manual.md" (unlines $ x:toc)
-       markdownToHtml ".iolaus.css" "README.md" "index.html"
+               mkFile "manual/manual.md" (prefix "" "Iolaus manual"++
+                                          unlines (x:toc))
+       mdToHtml "README.md" "index.html" "Iolaus"
+       mdToHtml "doc/FAQ.md" "FAQ.html" "FAQ"
        markdownToHtml ".iolaus.css" "manual/manual.md" "manual.html"
-       addDependencies "html" ("index.html":"manual.html":hs)
-    where lhs2md (x0:x) = toLower x0 : tolower (take (length x-4) x) ++ ".md"
+       addDependencies "html" ("index.html":"FAQ.html":"manual.html":hs)
+    where mdToHtml md ht title =
+              do rule [ht] [md] $
+                    do mdin <- cat md
+                       markdownStringToHtmlString
+                           ".iolaus.css" (prefix "" title++mdin) >>= mkFile ht
+          lhs2md (x0:x) = toLower x0 : tolower (take (length x-4) x) ++ ".md"
           nam x = take (length (lhs2md x)-3) (lhs2md x)
           undr x = map sp2u (nam x)
               where sp2u ' ' = '_'
@@ -43,8 +50,13 @@ doc =
           tolower (x:xs) | toLower x /= x = ' ':toLower x: tolower xs
           tolower (x:xs) = x : tolower xs
           tolower "" = ""
-          prefix x = "# "++ cmd x++
-                     " <img src='../doc/hydra.svg' align='right'>\n\n"
+          prefix toroot x =
+              "# "++ x++
+              " <img src='"++toroot++"doc/hydra.svg' align='right'>\n\n"++
+              "[about](index.html) | "++
+              "[manual](manual.html) | "++
+              "[download](http://github.com/droundy/iolaus/downloads) | "++
+              "[FAQ](FAQ.html)\n\n"
           commandPage lhs =
            do rule ["manual/"++lhs2md lhs]
                    ["preproc", "Iolaus/Commands/"++lhs] $
@@ -56,7 +68,7 @@ doc =
                             hsin)
                    x <- systemOut "./preproc" ["manual/"++lhs2md lhs++".in"]
                    mkdir "manual"
-                   mkFile ("manual/"++lhs2md lhs) (prefix lhs++x)
+                   mkFile ("manual/"++lhs2md lhs) (prefix "../" (cmd lhs)++x)
               markdownToHtml "../.iolaus.css" ("manual/"++lhs2md lhs)
                                               ("manual/"++nam lhs++".html")
 

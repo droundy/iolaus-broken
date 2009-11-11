@@ -1,23 +1,7 @@
-Iolaus
-======
-
-<img alt="legendary head management" src="doc/hydra.svg" align="right">
-
-[manual](manual.html)
-
 > On Lerna's murderous hound, the many-headed hydra, he set his
 > branding-iron...
-
-*Herakles*, Euripides
-
-> ...and in his turn called for help on Iolaus who, by setting fire to
-> a piece of the neighbouring wood and burning the roots of the heads
-> with the brands, prevented them from sprouting. Having thus got the
-> better of the sprouting heads, he chopped off the immortal head, and
-> buried it, and put a heavy rock on it, beside the road that leads
-> through Lerna to Elaeus.
-
-*Apollodorus*, translated by Sir James G. Frazer, 1921.
+>
+> *Herakles*, Euripides
 
 The origins of Iolaus
 ---------------------
@@ -48,6 +32,15 @@ only commute a far back as we might want to cherry pick.
 Legendary head management
 -------------------------
 
+> ...and in his turn called for help on Iolaus who, by setting fire to
+> a piece of the neighbouring wood and burning the roots of the heads
+> with the brands, prevented them from sprouting. Having thus got the
+> better of the sprouting heads, he chopped off the immortal head, and
+> buried it, and put a heavy rock on it, beside the road that leads
+> through Lerna to Elaeus.
+>
+> *Apollodorus*, translated by Sir James G. Frazer, 1921.
+
 Iolaus takes charge of creating and decapitating heads.  This makes
 its name something of a misnomer, since Heracles was in charge of
 removing heads, which grew spontaneously, and Iolaus was merely tasked
@@ -55,17 +48,3 @@ with preventing their regrowth.  Nevertheless, iolaus the program
 takes charge of both the growth and decapitation of heads, allowing
 you (Heracles?) the programmer to focus your attention on
 code---that's the theory, anyhow.
-
-Why would you want to use Iolaus?
----------------------------------
-
-- You're tired of the snappy response git provides, and want something
-  that gives you a bit more time to check your email.
-
-- You believe that anything written in Haskell must be better than
-  anything written in C.
-
-- You like darcs' user interface and want to use something familiar to
-  deal with smallish git repositories.
-
-- You want to experiment with a new git porcelain.
