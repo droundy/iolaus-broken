@@ -33,9 +33,11 @@ doc =
                mkFile "manual/manual.md" (prefix "" "Iolaus manual"++
                                           unlines (x:toc))
        mdToHtml "README.md" "index.html" "Iolaus"
+       mdToHtml "TODO.md" "TODO.html" "Iolaus to-do list"
        mdToHtml "doc/FAQ.md" "FAQ.html" "FAQ"
        markdownToHtml ".iolaus.css" "manual/manual.md" "manual.html"
-       addDependencies "html" ("index.html":"FAQ.html":"manual.html":hs)
+       addDependencies "html" ("index.html" : "FAQ.html" : "TODO.html":
+                               "manual.html" : hs)
     where mdToHtml md ht title =
               do rule [ht] [md] $
                     do mdin <- cat md
@@ -56,6 +58,7 @@ doc =
               "[about](index.html) | "++
               "[manual](manual.html) | "++
               "[download](http://github.com/droundy/iolaus/downloads) | "++
+              "[TODO](TODO.html) | "++
               "[FAQ](FAQ.html)\n\n"
           commandPage lhs =
            do rule ["manual/"++lhs2md lhs]
