@@ -136,7 +136,7 @@ amend_record_cmd opts args = do
                     debugMessage "Recording the new commit..."
                     decapitate opts [toamend]
                     add_heads opts [Sealed com]
-                    putStrLn ("Finished recording patch '"++ name ++"'")
+                    putStrLn ("Finished amending patch '"++ name ++"'")
 
  -- check that what we treat as the patch name is not accidentally a command
  -- line flag
