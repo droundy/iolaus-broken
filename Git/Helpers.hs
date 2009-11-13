@@ -1,7 +1,8 @@
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
 
-module Git.Helpers ( test, testCommits, testMessage, testPredicate,
+module Git.Helpers ( test, testCommits, testMessage,
+                     testPredicate, TestResult(..),
                      commitTreeNicely,
                      revListHeads, revListHeadsHashes,
                      slurpTree, writeSlurpTree, touchedFiles,
@@ -23,7 +24,6 @@ import System.IO.Unsafe ( unsafeInterleaveIO )
 import Data.List ( sort )
 import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
 import qualified Data.Map as M ( Map, insert, empty, lookup )
-import Data.Maybe ( isJust )
 import Data.ByteString as B ( hPutStr )
 
 import Git.Dag ( mergeBases, makeDag, Dag(..), greatGrandFather, parents,
@@ -100,38 +100,47 @@ testCommits opts msg hs0 =
              do Sealed t <- mergeCommits opts hs
                 x <- testPredicate opts t
                 case x of
-                  Just m -> do let msg' = case m of [] -> [msg]
-                                                    _ -> msg:"":m
-                               c <- commitTree t hs (unlines msg')
-                               updateref ("refs/tested/"++show k) c
-                               return (Sealed c)
-                  Nothing -> fail "test failed"
+                  Pass -> do m <- testMessage opts
+                             let msg' = case m of [] -> [msg]
+                                                  _ -> msg:"":m
+                             c <- commitTree t hs (unlines msg')
+                             updateref ("refs/tested/"++show k) c
+                             return (Sealed c)
+                  Fail -> fail "test failed"
+                  Unresolved -> fail "build failed"
 
 test :: [Flag] -> Hash Tree C(x) -> IO [String]
 test opts t =
     do x <- testPredicate opts t
        case x of
-         Just m -> return m
-         Nothing -> fail "test failed"
+         Pass -> testMessage opts
+         Fail -> fail "test failed"
+         Unresolved -> fail "build failed"
 
 testMessage :: [Flag] -> IO [String]
 testMessage opts | Test `elem` opts || TestParents `elem` opts =
     do havet <- doesFileExist ".git-hooks/test"
        if not havet
-          then return []
-          else testedon `catch` \_ -> testedby
-    where testedon = do x <- uname
-                        return ["","Tested-on: "++x]
-          testedby = do x <- committer
-                        return ["","Tested-by: "++x]
+          then do haveb <- doesFileExist ".git-hooks/build"
+                  if not haveb
+                     then return []
+                     else on "Built" `catch` \_ -> by "Built"
+          else on "Tested" `catch` \_ -> by "Tested"
+    where on t = do x <- uname
+                    return ["",t++"-on: "++x]
+          by t = do x <- committer
+                    return ["",t++"-by: "++x]
 testMessage _ = return []
 
-testPredicate :: [Flag] -> Hash Tree C(x) -> IO (Maybe [String])
+data TestResult = Pass | Fail | Unresolved
+                  deriving ( Show, Eq )
+
+testPredicate :: [Flag] -> Hash Tree C(x) -> IO TestResult
 testPredicate opts t =
  do msg <- testMessage opts
     here <- getCurrentDirectory
     if null msg
-     then return (Just [])
+     then return Pass
      else withTempDir "testing" $ \tdir -> do
        setCurrentDirectory here
        removeFileMayNotExist ".git/index.tmp"
@@ -139,11 +148,19 @@ testPredicate opts t =
        checkoutIndex "index.tmp" (toFilePath tdir++"/")
        removeFileMayNotExist ".git/index.tmp"
        setCurrentDirectory tdir
-       ec <- system "./.git-hooks/test"
-       setCurrentDirectory here
-       case ec of
-         ExitFailure _ -> return Nothing
-         ExitSuccess -> return (Just msg)
+       ecb <- runIfPresent "./.git-hooks/build"
+       if ecb /= ExitSuccess
+          then do setCurrentDirectory here
+                  havet <- doesFileExist "./.git-hooks/test"
+                  if havet then return Unresolved
+                           else return Pass
+          else do ec <- runIfPresent "./.git-hooks/test"
+                  setCurrentDirectory here
+                  case ec of ExitFailure _ -> return Fail
+                             ExitSuccess -> return Pass
+    where runIfPresent x = do e <- doesFileExist x
+                              if e then system x
+                                   else return ExitSuccess
 
 slurpTree :: Hash Tree C(x) -> IO (Slurpy C(x))
 slurpTree = slurpTreeHelper (fp2fn ".")
@@ -255,7 +272,7 @@ simpHelp opts for pars0 pat0 = sp (cpnum opts) [] pars0 pat0
                                    t' <- apply_to_slurpy (unsafeCoerceP patch)
                                                          noptree
                                          >>= writeSlurpTree
-                                   isJust `fmap` testPredicate opts t'
+                                   (==Pass) `fmap` testPredicate opts t'
                            else return True
                         if ok then sp (n-1) kn (ps++unseal parents p) patch
                               else sp (n-1) (p:kn) ps patch
@@ -286,7 +303,7 @@ simpHelp opts for pars0 pat0 = sp (cpnum opts) [] pars0 pat0
                                               putStrLn $
                                                 "\n\nRunning test without:\n"++
                                                 myMessage x
-                                              isJust `fmap`
+                                              (==Pass) `fmap`
                                                      testPredicate opts t'
                                       else return True
                                   else return False
@@ -485,5 +502,6 @@ showCommit opts c =
                      then cl0
                      else reverse $ clearout $ reverse cl0
                 clearout (x:xs) | take 6 x == "Tested" = dropWhile (=="") xs
+                                | take 5 x == "Built" = dropWhile (=="") xs
                                 | otherwise = x:xs
                 clearout [] = []

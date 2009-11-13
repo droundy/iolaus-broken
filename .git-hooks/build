@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -ev
+
+# first build with type witnesses enabled
+./Setup.hs --with-type-witnesses --disable-optimize -j2 build
+./Setup.hs clean
+./Setup.hs configure
+./Setup.hs -j2 build html

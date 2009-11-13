@@ -18,7 +18,7 @@ import Iolaus.PatchChoices ( TaggedPatch, Tag, tag, tp_patch, get_choices,
 import Iolaus.Printer ( putDocLn, ($$), text )
 
 import Git.Plumbing ( Hash, Tree )
-import Git.Helpers ( writeSlurpTree, slurpTree, testPredicate )
+import Git.Helpers ( writeSlurpTree, slurpTree, testPredicate, TestResult(..) )
 
 
 largestPassingSet :: (Effect p, Patchy p) => Hash Tree C(x) -> FL p C(x y)
@@ -28,8 +28,8 @@ largestPassingSet t0 xs0 =
     do t <- slurpTree t0 >>= apply_to_slurpy xs0 >>= writeSlurpTree
        p <- testPredicate [Test] t
        case p of
-         Just _ -> return (xs0 :> NilFL)
-         Nothing -> lps t0 xs0
+         Pass -> return (xs0 :> NilFL)
+         _ -> lps t0 xs0
 
 lps :: (Effect p, Patchy p) => Hash Tree C(x) -> FL p C(x y)
     -> IO ((FL p :> FL p) C(x y))
@@ -82,14 +82,8 @@ ddpatches t ps = return (tps, unsafePerformIO . testtags)
                 xs :> _ | sort (mapFL tag xs) == sort ts ->
                             do t' <- slurpTree t >>= apply_to_slurpy xs
                                      >>= writeSlurpTree
-                               passes <- testPredicate [Test] t'
-                               case passes of
-                                 Just _ -> return Pass
-                                 _ -> return Fail
+                               testPredicate [Test] t'
                 _ -> return Unresolved
-
-data TestResult = Pass | Fail | Unresolved
-                  deriving ( Show, Eq )
 
 dd2 :: (Show a, Eq a) => ([a] -> TestResult) -> [a] -> [a] -> Int -> ([a],[a])
 dd2 _ ok [b] _ = (ok, [b])
