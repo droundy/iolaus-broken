@@ -45,7 +45,8 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       catTree, catBlob, catCommitTree )
 
 import Iolaus.Progress ( debugMessage )
-import Iolaus.Flags ( Flag( Test, TestParents, NativeMerge, FirstParentMerge,
+import Iolaus.Flags ( Flag( Test, Build, TestParents,
+                            NativeMerge, FirstParentMerge,
                             IolausSloppyMerge, RecordFor, Summary, Verbose,
                             CauterizeAllHeads, CommutePast, ShowHash, Nice,
                             ShowParents, GlobalConfig, SystemConfig,
@@ -120,9 +121,9 @@ test opts t =
          Unresolved -> fail "build failed"
 
 testMessage :: [Flag] -> IO [String]
-testMessage opts | Test `elem` opts || TestParents `elem` opts =
+testMessage opts | any (`elem` opts) [Build, Test, TestParents] =
     do havet <- doesFileExist ".git-hooks/test"
-       if not havet
+       if not havet || Build `elem` opts
           then do haveb <- doesFileExist ".git-hooks/build"
                   if not haveb
                      then return []
@@ -152,15 +153,18 @@ testPredicate opts t =
        setCurrentDirectory tdir
        when (Nice `elem` opts) $ nice 19
        ecb <- runIfPresent "./.git-hooks/build"
-       if ecb /= ExitSuccess
-          then do setCurrentDirectory here
-                  havet <- doesFileExist "./.git-hooks/test"
-                  if havet then return Unresolved
-                           else return Pass
-          else do ec <- runIfPresent "./.git-hooks/test"
-                  setCurrentDirectory here
-                  case ec of ExitFailure _ -> return Fail
-                             ExitSuccess -> return Pass
+       case ecb of
+         ExitFailure _ ->
+             do setCurrentDirectory here
+                havet <- doesFileExist "./.git-hooks/test"
+                if havet && Build `notElem` opts
+                    then return Unresolved
+                    else return Fail
+         ExitSuccess | Build `elem` opts -> return Pass
+         ExitSuccess -> do ec <- runIfPresent "./.git-hooks/test"
+                           setCurrentDirectory here
+                           case ec of ExitFailure _ -> return Fail
+                                      ExitSuccess -> return Pass
     where runIfPresent x = do e <- doesFileExist x
                               if e then system x
                                    else return ExitSuccess

@@ -17,8 +17,5 @@
   in REPO, thus adding considerable safety, and at the same time
   limiting the number of choices presented to our user.
 
-- Add build/test distinction, so we can tell if the build passes but a
-  test fails.  Needed for proper delta debugging.
-
 - Add an "all" command to be used with --config-default to set
   defaults for all iolaus commands.

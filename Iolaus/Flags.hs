@@ -21,7 +21,7 @@ import Iolaus.RepoPath ( AbsolutePath, AbsolutePathOrStd )
 
 -- | The 'Flag' type is a list of all flags that can ever be
 -- passed to iolaus, or to one of its commands.
-data Flag = Help | ListOptions | NoTest | Test | TestParents
+data Flag = Help | ListOptions | NoTest | Test | Build | TestParents
           | NoCauterizeAllHeads | CauterizeAllHeads | CommutePast Int
           | DeltaDebugWorkingSubset | RecordFor String
           | NoTagOnTest | TagOnTest | Nice | NotNice

@@ -111,6 +111,7 @@ getContent Verbose = NoContent
 getContent Help = NoContent
 getContent ListOptions = NoContent
 getContent Test = NoContent
+getContent Build = NoContent
 getContent TestParents = NoContent
 getContent NoTest = NoContent
 getContent TagOnTest = NoContent
@@ -639,11 +640,13 @@ test, notest :: [IolausOption]
 notest = [IolausMultipleChoiceOption
           [IolausNoArgOption [] ["no-test"] NoTest "don't run the test script",
            IolausNoArgOption [] ["test"] Test "run the test script",
+           IolausNoArgOption [] ["build"] Build "only run the build script",
            IolausNoArgOption [] ["test-parents"]
                TestParents "run the test script on all possibilities"],
           leave_test_dir, nice_test, tag_on_test]
 test = [IolausMultipleChoiceOption
         [IolausNoArgOption [] ["test"] Test "run the test script",
+         IolausNoArgOption [] ["build"] Build "only run the build script",
          IolausNoArgOption [] ["no-test"] NoTest "don't run the test script"],
         leave_test_dir, nice_test, tag_on_test]
 nice_test :: IolausOption
@@ -664,7 +667,8 @@ tag_on_test = IolausMultipleChoiceOption
                NoTagOnTest "don't tag version when test is passed [DEFAULT]"]
 
 testByDefault :: [Flag] -> [Flag]
-testByDefault o = if NoTest `elem` o then o else Test:o
+testByDefault o = if NoTest `elem` o || Build `elem` o then o
+                                                       else Test:o
 
 ask_long_comment =
     IolausMultipleChoiceOption

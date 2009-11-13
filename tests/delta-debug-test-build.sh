@@ -97,4 +97,4 @@ iolaus whatsnew | grep '\$BAZBAR' && exit 1
 
 iolaus record -am 'buggy stuff' && exit 1
 
-true
+iolaus record -am 'buggy stuff' --build
