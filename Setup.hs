@@ -55,11 +55,11 @@ doc =
           prefix toroot x =
               "# "++ x++
               " <img src='"++toroot++"doc/hydra.svg' align='right'>\n\n"++
-              "[about](index.html) | "++
-              "[manual](manual.html) | "++
+              "[about]("++toroot++"index.html) | "++
+              "[manual]("++toroot++"manual.html) | "++
               "[download](http://github.com/droundy/iolaus/downloads) | "++
-              "[TODO](TODO.html) | "++
-              "[FAQ](FAQ.html)\n\n"
+              "[TODO]("++toroot++"TODO.html) | "++
+              "[FAQ]("++toroot++"FAQ.html)\n\n"
           commandPage lhs =
            do rule ["manual/"++lhs2md lhs]
                    ["preproc", "Iolaus/Commands/"++lhs] $
