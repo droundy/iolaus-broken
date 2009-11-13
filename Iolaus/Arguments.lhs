@@ -103,6 +103,8 @@ getContent ShowHash = NoContent
 getContent NoShowHash = NoContent
 getContent ShowTested = NoContent
 getContent HideTested = NoContent
+getContent Nice = NoContent
+getContent NotNice = NoContent
 getContent (CommutePast n) = StringContent (show n)
 getContent (RecordFor r) = StringContent r
 getContent Verbose = NoContent
@@ -639,11 +641,15 @@ notest = [IolausMultipleChoiceOption
            IolausNoArgOption [] ["test"] Test "run the test script",
            IolausNoArgOption [] ["test-parents"]
                TestParents "run the test script on all possibilities"],
-          leave_test_dir, tag_on_test]
+          leave_test_dir, nice_test, tag_on_test]
 test = [IolausMultipleChoiceOption
         [IolausNoArgOption [] ["test"] Test "run the test script",
          IolausNoArgOption [] ["no-test"] NoTest "don't run the test script"],
-        leave_test_dir, tag_on_test]
+        leave_test_dir, nice_test, tag_on_test]
+nice_test :: IolausOption
+nice_test = IolausMultipleChoiceOption
+            [IolausNoArgOption [] ["nice"] Nice "run test nicely",
+             IolausNoArgOption [] ["not-nice"] NotNice "don't run test nicely"]
 leave_test_dir :: IolausOption
 leave_test_dir = IolausMultipleChoiceOption
                  [IolausNoArgOption [] ["leave-test-directory"]

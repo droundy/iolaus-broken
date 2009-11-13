@@ -12,7 +12,9 @@ module Git.Helpers ( test, testCommits, testMessage,
 
 import Prelude hiding ( catch )
 import Control.Exception ( catch )
+import Control.Monad ( when )
 import System.Directory ( doesFileExist )
+import System.Posix.Process ( nice )
 #ifndef HAVE_REDIRECTS
 import System.Cmd ( system )
 #else
@@ -45,7 +47,7 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
 import Iolaus.Progress ( debugMessage )
 import Iolaus.Flags ( Flag( Test, TestParents, NativeMerge, FirstParentMerge,
                             IolausSloppyMerge, RecordFor, Summary, Verbose,
-                            CauterizeAllHeads, CommutePast, ShowHash,
+                            CauterizeAllHeads, CommutePast, ShowHash, Nice,
                             ShowParents, GlobalConfig, SystemConfig,
                             ShowTested ) )
 import Iolaus.FileName ( FileName, fp2fn )
@@ -148,6 +150,7 @@ testPredicate opts t =
        checkoutIndex "index.tmp" (toFilePath tdir++"/")
        removeFileMayNotExist ".git/index.tmp"
        setCurrentDirectory tdir
+       when (Nice `elem` opts) $ nice 19
        ecb <- runIfPresent "./.git-hooks/build"
        if ecb /= ExitSuccess
           then do setCurrentDirectory here

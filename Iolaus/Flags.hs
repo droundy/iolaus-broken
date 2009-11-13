@@ -24,7 +24,7 @@ import Iolaus.RepoPath ( AbsolutePath, AbsolutePathOrStd )
 data Flag = Help | ListOptions | NoTest | Test | TestParents
           | NoCauterizeAllHeads | CauterizeAllHeads | CommutePast Int
           | DeltaDebugWorkingSubset | RecordFor String
-          | NoTagOnTest | TagOnTest
+          | NoTagOnTest | TagOnTest | Nice | NotNice
                | HelpOnMatch | OnlyChangesToFiles
                | LeaveTestDir | NoLeaveTestDir
                | Timings | Debug | DebugVerbose
