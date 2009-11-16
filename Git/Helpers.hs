@@ -44,7 +44,7 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       mergeIndex, readTreeMerge,
                       catTree, catBlob, catCommitTree )
 
-import Iolaus.Progress ( debugMessage )
+import Iolaus.Global ( debugMessage )
 import Iolaus.Flags ( Flag( Test, Build, TestParents,
                             NativeMerge, FirstParentMerge,
                             IolausSloppyMerge, RecordFor, Summary, Verbose,

@@ -41,7 +41,7 @@ import Iolaus.Printer ( wrap_text )
 import Iolaus.SelectChanges ( with_selected_changes_to_files )
 import Iolaus.SelectCommits ( select_commit )
 import Iolaus.Ordered ( (:>)(..), FL(NilFL) )
-import Iolaus.Progress ( debugMessage )
+import Iolaus.Global ( debugMessage )
 import Iolaus.Repository ( get_recorded_and_unrecorded, Unrecorded(..),
                            add_heads, decapitate )
 import Iolaus.Commands.Record ( get_log )

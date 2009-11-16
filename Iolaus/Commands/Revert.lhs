@@ -37,7 +37,7 @@ import Iolaus.Ordered ( FL(..), (:>)(..), lengthFL )
 import Iolaus.SelectChanges ( with_selected_last_changes_to_files )
 --import Iolaus.Commands.Unrevert ( write_unrevert )
 import Iolaus.SlurpDirectory ( Slurpy )
-import Iolaus.Progress ( debugMessage )
+import Iolaus.Global ( debugMessage )
 import Iolaus.Repository ( Unrecorded(..), get_unrecorded, slurp_recorded )
 
 import Git.LocateRepo ( amInRepository )

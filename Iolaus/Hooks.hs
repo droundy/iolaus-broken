@@ -31,7 +31,7 @@ import System.Process.Redirects ( system )
 import Iolaus.RepoPath ( AbsolutePath )
 import Iolaus.Arguments ( Flag( Quiet ),
                         get_posthook_cmd, get_prehook_cmd )
-import Iolaus.Progress ( debugMessage )
+import Iolaus.Global ( debugMessage )
 import System.IO ( hPutStrLn, stderr )
 
 run_posthook :: [Flag] -> AbsolutePath -> IO ExitCode
