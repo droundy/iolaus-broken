@@ -327,7 +327,7 @@ heads =
 
 remoteHeads :: String -> IO [Sealed (Hash Commit)]
 remoteHeads repo =
-    do debugMessage "calling git ls-remote"
+    do debugMessage ("calling git ls-remote --heads "++repo)
        (Nothing, Just stdout, Nothing, pid) <-
            createProcess (proc "git" ["ls-remote", "--heads",repo])
                              { std_out = CreatePipe }
