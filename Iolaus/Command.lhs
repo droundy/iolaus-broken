@@ -24,6 +24,7 @@ module Iolaus.Command
                command_extra_arg_help, command_extra_args, command_argdefaults,
                command_get_arg_possibilities, SuperCommand,
                command_sub_commands ),
+      adv_options, basic_options,
       command_alias, command_options, command_alloptions,
       disambiguate_commands, CommandArgs(..), get_command_help,
       get_command_mini_help, get_subcommands, usage, subusage, extract_commands,
@@ -38,9 +39,9 @@ import Iolaus.Arguments ( Flag, IolausOption, disable, help,
 import Iolaus.RepoPath ( AbsolutePath, rootDirectory )
 \end{code}
 
-The general format of an arcs command is
+The general format of an iolaus command is
 \begin{verbatim}
-% arcs COMMAND OPTIONS ARGUMENTS ...
+% iolaus COMMAND OPTIONS ARGUMENTS ...
 \end{verbatim}
 Here \verb|COMMAND| is a command such as \verb|add| or \verb|record|, which of
 course may have one or more arguments.  Options have the form
@@ -49,13 +50,13 @@ command.  There are many options which are common to a number of different
 commands, which will be summarized here.
 
 If you wish, you may use any unambiguous beginning of a command name as a
-shortcut: for \verb!arcs record!, you could type \verb!arcs recor! or
-\verb!arcs rec!, but not \verb!arcs re! since that could be confused with
-\verb!arcs replace!, \verb!arcs revert! and \verb!arcs remove!.
+shortcut: for \verb!iolaus record!, you could type \verb!iolaus recor! or
+\verb!iolaus rec!, but not \verb!iolaus re! since that could be confused with
+\verb!iolaus replace!, \verb!iolaus revert! and \verb!iolaus remove!.
 
 In some cases, \verb|COMMAND| actually consists of two words, a
 super-command and a subcommand.  For example, the ``display the
-manifest'' command has the form \verb|arcs query manifest|.
+manifest'' command has the form \verb|iolaus query manifest|.
 
 \paragraph{Command overview}
 
@@ -130,6 +131,18 @@ data Command =
                   command_prereq :: [Flag] -> IO (Either String ()),
                   command_sub_commands :: [CommandControl]}
 
+adv_options :: CommandControl -> [IolausOption]
+adv_options (Command_data (Command { command_advanced_options = o})) = o
+adv_options (Command_data (SuperCommand { command_sub_commands = cs })) =
+    concatMap adv_options cs
+adv_options _ = []
+
+basic_options :: CommandControl -> [IolausOption]
+basic_options (Command_data (Command { command_basic_options = o})) = o
+basic_options (Command_data (SuperCommand { command_sub_commands = cs })) =
+    concatMap basic_options cs
+basic_options _ = []
+
 command_alloptions :: Command -> ([IolausOption], [IolausOption])
 command_alloptions Command { command_basic_options = opts1
                                 , command_advanced_options = opts2 }
@@ -158,25 +171,24 @@ get_subcommands _ = []
 command_alias :: String -> Command -> Command
 command_alias n c =
   c { command_name = n
-    , command_description = "Alias for `arcs " ++ command_name c ++ "'."
-    , command_help = "The `arcs " ++ n ++ "' command is an alias for " ++
-                     "`arcs " ++ command_name c ++ "'.\n" ++
+    , command_description = "Alias for `iolaus " ++ command_name c ++ "'."
+    , command_help = "The `iolaus " ++ n ++ "' command is an alias for " ++
+                     "`iolaus " ++ command_name c ++ "'.\n" ++
                      command_help c
     }
 
 usage :: [CommandControl] -> String
-usage cs = "Usage: arcs COMMAND ...\n\nCommands:\n" ++
+usage cs = "Usage: iolaus COMMAND ...\n\nCommands:\n" ++
            usage_helper cs ++ "\n" ++
-           "Use 'arcs COMMAND --help' for help on a single command.\n" ++
-           "Use 'arcs --version' to see the arcs version number.\n" ++
-           "Use 'arcs --exact-version' to get the exact version of this arcs instance.\n" ++
-           "Use 'arcs help --match' for help on patch matching.\n\n" ++
-           "Check bug reports at http://bugs.arcs.net/\n"
+           "Use 'iolaus COMMAND --help' for help on a single command.\n" ++
+           "Use 'iolaus --version' to see the iolaus version number.\n" ++
+           "Use 'iolaus --exact-version' to get the exact version of this iolaus instance.\n" ++
+           "Use 'iolaus help --match' for help on patch matching.\n"
 
 subusage :: Command -> String
 subusage super =
     (usageInfo
-     ("Usage: arcs "++command_name super++" SUBCOMMAND ... " ++
+     ("Usage: iolaus "++command_name super++" SUBCOMMAND ... " ++
       "\n\n"++ command_description super++
       "\n\nSubcommands:\n" ++ usage_helper (get_subcommands super) ++ "\nOptions:")
      (option_from_iolausoption rootDirectory help))
@@ -203,7 +215,7 @@ super_name (Just x) = command_name x ++ " "
 get_command_mini_help :: Maybe Command -> Command -> String
 get_command_mini_help msuper cmd =
   get_command_help_core msuper cmd ++
-  "\n\nSee arcs help "
+  "\n\nSee iolaus help "
   ++ (maybe "" (\c -> command_name c ++ " ") msuper)
   ++ command_name cmd ++ " for details."
 
@@ -231,7 +243,7 @@ get_command_help msuper cmd =
 
 get_command_help_core :: Maybe Command -> Command -> String
 get_command_help_core msuper cmd =
-    "Usage: arcs "++super_name msuper++command_name cmd++
+    "Usage: iolaus "++super_name msuper++command_name cmd++
     " [OPTION]... " ++ unwords args_help ++
     "\n"++ command_description cmd
     where args_help = case cmd of
@@ -245,7 +257,7 @@ data CommandArgs = CommandOnly      Command
                  | SuperCommandOnly Command
                  | SuperCommandSub  Command Command
 
--- Parses an arcs command line with potentially abbreviated commands
+-- Parses an iolaus command line with potentially abbreviated commands
 disambiguate_commands :: [CommandControl] -> String -> [String]
                       -> Either String (CommandArgs, [String])
 disambiguate_commands allcs cmd args =

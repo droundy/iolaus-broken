@@ -16,6 +16,3 @@
 - Make amend --record-for REPO refuse to amend a patch that is present
   in REPO, thus adding considerable safety, and at the same time
   limiting the number of choices presented to our user.
-
-- Add an "all" command to be used with --config-default to set
-  defaults for all iolaus commands.

@@ -320,6 +320,18 @@ data IolausOption
     | IolausMultipleChoiceOption [IolausOption]
     -- ^ A constructor for grouping mutually-exclusive options together.
 
+instance Eq IolausOption where -- This is a very hokey comparison...
+    IolausMultipleChoiceOption xs == IolausMultipleChoiceOption ys
+        = xs == ys
+    IolausNoArgOption _ x _ _ == IolausNoArgOption _ y _ _ = x == y
+    IolausOptAbsPathOption _ x _ _ _ _ == IolausOptAbsPathOption _ y _ _ _ _ =
+        x == y
+    IolausAbsPathOrStdOption _ x _ _ _ == IolausAbsPathOrStdOption _ y _ _ _ =
+        x == y
+    IolausAbsPathOption _ x _ _ _ == IolausAbsPathOption _ y _ _ _ = x == y
+    IolausArgOption _ x _ _ _ == IolausArgOption _ y _ _ _ = x == y
+    _ == _ = False
+
 pull_apart_option :: Flag -> IolausOption -> [Either String (String, String)]
 pull_apart_option f (IolausAbsPathOption _ [n] o _ _)
     = case getContent f of

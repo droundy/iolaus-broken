@@ -16,3 +16,13 @@ You can set a default flag for a command using
 which will make `iolaus command` default to using the `--test` and
 `--verbose` flags.  These may be overridden on the command line for
 flags that have opposites, such as `--no-test`.
+
+If you want to set a default globally, just add the `--global` flag,
+as in
+
+    iolaus record --global --config-default --test --verbose
+
+Finally, if you want to set a default for all iolaus commands, just
+use "all" for the command:
+
+    iolaus all --config-default --test --verbose
