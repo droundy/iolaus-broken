@@ -27,6 +27,7 @@ module Iolaus.Command
       adv_options, basic_options,
       command_alias, command_options, command_alloptions,
       disambiguate_commands, CommandArgs(..), get_command_help,
+      get_command_options_help,
       get_command_mini_help, get_subcommands, usage, subusage, extract_commands,
       super_name, nodefaults ) where
 
@@ -246,6 +247,37 @@ get_command_help_core msuper cmd =
     "Usage: iolaus "++super_name msuper++command_name cmd++
     " [OPTION]... " ++ unwords args_help ++
     "\n"++ command_description cmd
+    where args_help = case cmd of
+            (Command _ _ _ _ _ _ _ _ _ _ _) ->
+              command_extra_arg_help cmd
+            _ -> []
+
+get_command_options_help :: Maybe Command -> Command -> String
+get_command_options_help msuper cmd =
+    unlines (reverse basicR)
+    ++ (if null advanced then ""
+        else "\nAdvanced options:\n" ++ unlines (reverse advancedR))
+    where -- we could just call usageInfo twice, but then the advanced
+          -- options might not line up with the basic ones (no short flags)
+          (advancedR, basicR) =
+             splitAt (length advanced) $ reverse $ lines combinedUsage
+          combinedUsage = usageInfo
+            (get_command_help_core_other msuper cmd ++
+                                         subcommands ++ "\n\nOptions:")
+            (basic ++ advanced)
+          (basic, advanced) = command_options rootDirectory cmd
+          subcommands =
+            case msuper of
+            Nothing -> case get_subcommands cmd of
+                       [] -> []
+                       s  -> "\n\nSubcommands:\n" ++ (usage_helper s)
+            -- we don't want to list subcommands if we're already specifying them
+            Just _  -> ""
+
+get_command_help_core_other :: Maybe Command -> Command -> String
+get_command_help_core_other msuper cmd =
+    "Usage: iolaus "++super_name msuper++command_name cmd++
+    " [OPTION]... " ++ unwords args_help
     where args_help = case cmd of
             (Command _ _ _ _ _ _ _ _ _ _ _) ->
               command_extra_arg_help cmd
