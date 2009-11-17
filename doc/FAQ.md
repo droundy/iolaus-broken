@@ -17,3 +17,12 @@ How should I capitalize Iolaus?
 
 You can either write "Iolaus" or "iolaus", I don't care.  I'm not
 particularly consistent myself.
+
+What is your favorite Platonic dialogue?
+----------------------------------------
+
+Although I am partial to *Euthydemus*, which has reference to Iolaus,
+I must admit that I prefer *Laches*.  It doesn't have the same
+side-splitting humor, but I prefer the friendlier atmosphere and the
+characters are awesome---especially Laches himself, although Nicias is
+pretty cool, too.
