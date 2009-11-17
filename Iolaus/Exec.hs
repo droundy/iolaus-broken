@@ -44,7 +44,6 @@ import System.Cmd ( system )
 #else
 import System.Process.Redirects ( system )
 #endif
-import Iolaus.Progress ( withoutProgress )
 
 {-
    A redirection is a three-tuple of values (in, out, err).
@@ -95,7 +94,7 @@ that's what people expect. But we don't want to allow the shell to interpret
 the argument in any way, so we set an environment variable and call
 cmd "$DARCS_ARGUMENT"
 -}
-exec_interactive cmd arg = withoutProgress $ do
+exec_interactive cmd arg = do
   let var = "DARCS_ARGUMENT"
   stdin `seq` return ()
   withoutNonBlock $ bracket
@@ -110,7 +109,7 @@ exec_interactive cmd arg = withoutProgress $ do
 
 #else
 
-exec_interactive cmd arg = withoutProgress $ do system $ cmd ++ " " ++ arg
+exec_interactive cmd arg = system $ cmd ++ " " ++ arg
 #endif
 
 withoutNonBlock :: IO a -> IO a

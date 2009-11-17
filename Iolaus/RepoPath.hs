@@ -33,7 +33,7 @@ module Iolaus.RepoPath ( AbsolutePath, makeAbsolute, ioAbsolute, rootDirectory,
 import Data.List ( isPrefixOf )
 import Control.Exception ( bracket )
 
-import Iolaus.Progress ( debugMessage )
+import Iolaus.Global ( debugMessage )
 import qualified Iolaus.Workaround ( getCurrentDirectory )
 import qualified System.Directory ( setCurrentDirectory,
                                     createDirectory, createDirectoryIfMissing,

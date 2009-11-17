@@ -13,6 +13,14 @@
   with this particular remote, so *never* contacting the remote on
   record doesn't sound like such a hot idea.
 
-- Make amend --record-for REPO refuse to amend a patch that is present
-  in REPO, thus adding considerable safety, and at the same time
-  limiting the number of choices presented to our user.
+- Fix `--graph` code to be more optimal on branching when the branches
+  spread to the left.
+
+- Add support (and documentation) for proper git-style hooks.
+
+- Figure out what to call the .git-hooks/{test,build} scripts.
+
+- Add proper support (and documentation) for proper git-style color
+  configuration.  We're already part of the way there, but there's no
+  support for the mechanism for turning color off.  The default will
+  be color, however.
