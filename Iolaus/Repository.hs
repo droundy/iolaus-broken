@@ -23,7 +23,7 @@ module Iolaus.Repository
       get_unrecorded, Unrecorded(..), slurp_recorded, slurp_working ) where
 
 import Control.Monad ( zipWithM_ )
-import System.Directory ( removeFile )
+import System.IO.Unsafe ( unsafeInterleaveIO )
 
 import Iolaus.Diff ( diff )
 import Iolaus.Patch ( Prim )
@@ -32,8 +32,8 @@ import Iolaus.Ordered ( FL, unsafeCoerceS )
 import Iolaus.SlurpDirectory ( Slurpy )
 import Iolaus.Sealed ( Sealed(..), mapSealM, unseal )
 
-import Git.Plumbing ( Hash, Commit, emptyCommit, heads, headNames, remoteHeads,
-                      tagNames,
+import Git.Plumbing ( Hash, Commit, emptyCommit, heads, remoteHeads,
+                      tagNames, maybeParseRev,
                       writetree, updateindex, updateref, sendPack )
 import Git.Helpers ( touchedFiles, slurpTree, mergeCommits )
 import Git.Dag ( parents, cauterizeHeads )
@@ -71,26 +71,32 @@ get_unrecorded_changes opts =
        old <- slurp_recorded opts
        return $ Sealed $ diff [] old new
 
+mapMlazy :: (a -> IO b) -> [a] -> IO [b]
+f `mapMlazy` (x:xs) = do fx <- unsafeInterleaveIO (f x)
+                         fxs <- unsafeInterleaveIO (f `mapMlazy` xs)
+                         return (fx:fxs)
+_ `mapMlazy` [] = return []
+
 add_heads :: [Flag] -> [Sealed (Hash Commit)] -> IO ()
 add_heads _ h =
     do hs <- heads
-       case cauterizeHeads (h++hs) of
-         hs' -> do zipWithM_ (\mm (Sealed hh) -> updateref mm hh) masters hs'
-                   cleanup_all_but hs'
+       oldmasters <- mapMlazy maybeParseRev masters
+       let hs' = cauterizeHeads (h++hs)
+       zipWithM_ (\(mm,oldh) hh -> updateref mm hh oldh)
+                 (zip masters oldmasters)
+                 (hs'++take (length hs-length hs')
+                            (repeat $ Sealed emptyCommit))
 
 decapitate :: [Flag] -> [Sealed (Hash Commit)] -> IO ()
 decapitate _ xs =
     do hs <- heads
+       oldmasters <- mapMlazy maybeParseRev masters
        let pars = concatMap (unseal parents) xs
-       case cauterizeHeads (filter (`notElem` xs) (hs++pars)) of
-         hs' -> do zipWithM_ (\mm (Sealed hh) -> updateref mm hh) masters hs'
-                   cleanup_all_but hs'
-
-cleanup_all_but :: [Sealed (Hash Commit)] -> IO ()
-cleanup_all_but hs =
-    do hns <- headNames
-       let rmhead x = removeFile (".git/"++x)
-       mapM_ rmhead $ map snd $ filter ((`notElem` hs) . fst) hns
+           hs' = cauterizeHeads (filter (`notElem` xs) (hs++pars))
+       zipWithM_ (\(mm, oldh) hh -> updateref mm hh oldh)
+                 (zip masters oldmasters)
+                 (hs'++take (length hs-length hs')
+                            (repeat $ Sealed emptyCommit))
 
 push_heads :: String -> [Sealed (Hash Commit)] -> IO ()
 push_heads repo cs =

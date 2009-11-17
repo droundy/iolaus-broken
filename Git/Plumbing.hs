@@ -5,7 +5,7 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag, emptyCommit,
                       catBlob, hashObject, committer, uname,
                       catTree, TreeEntry(..),
                       catCommit, CommitEntry(..),
-                      catCommitTree, parseRev,
+                      catCommitTree, parseRev, maybeParseRev,
                       heads, remoteHeads, headNames, tagNames,
                       remoteHeadNames, remoteTagNames,
                       clone, gitInit, fetchPack, sendPack, listRemotes,
@@ -403,15 +403,48 @@ parseRev s =
          ExitSuccess -> return $ mkSHash Commit out
          ExitFailure _ -> fail ("git rev-parse failed: "++err)
 
-updateref :: String -> Hash Commit C(x) -> IO ()
-updateref r h =
-    do debugMessage "calling git update-ref"
+maybeParseRev :: String -> IO (Maybe (Sealed (Hash Commit)))
+maybeParseRev s =
+    do (Nothing, Just stdout, Just stderr, pid) <-
+           createProcess (proc "git" ["rev-parse", "--verify",s])
+#ifdef HAVE_REDIRECTS
+                   { std_err = Just CreatePipe, std_out = CreatePipe }
+#else
+                   { std_err = CreatePipe, std_out = CreatePipe }
+#endif
+       out <- hGetContents stdout
+       err <- hGetContents stderr
+       ec <- length (out++err) `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ Just $ mkSHash Commit out
+         ExitFailure _ -> return Nothing
+
+updateref :: String -> Sealed (Hash Commit)
+          -> Maybe (Sealed (Hash Commit)) -> IO ()
+updateref r (Sealed (Hash Commit "0000000000000000000000000000000000000000"))
+            (Just old)=
+    do debugMessage $ unwords ["calling git update-ref -d",r,show old]
        (Nothing, Nothing, Nothing, pid) <-
-           createProcess (proc "git" ["update-ref",r,show h])
+           createProcess (proc "git" ["update-ref","-d",r,show old])
        ec <- waitForProcess pid
        case ec of
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git update-ref failed"
+updateref r new mold =
+    do let old = maybe (take 40 $ repeat '0') show mold
+       debugMessage $ unwords $ "calling git update-ref -d":r:show new:[old]
+       (Nothing, Nothing, Just e, pid) <-
+           createProcess (proc "git" ["update-ref",r,show new,old])
+#ifdef HAVE_REDIRECTS
+                   { std_err = Just CreatePipe }
+#else
+                   { std_err = CreatePipe }
+#endif
+       err <- hGetContents e
+       ec <- length err `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return ()
+         ExitFailure _ -> fail ("git update-ref failed: "++err)
 
 commitTree :: Hash Tree C(x) -> [Sealed (Hash Commit)] -> String
            -> IO (Hash Commit C(x))
