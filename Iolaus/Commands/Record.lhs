@@ -44,7 +44,7 @@ import Iolaus.Patch ( apply_to_slurpy )
 import Iolaus.Printer ( ($$), text, hPutDocLn, wrap_text )
 import Iolaus.SelectChanges ( with_selected_changes_to_files )
 import Iolaus.Ordered ( (:>)(..), FL(NilFL) )
-import Iolaus.Progress ( debugMessage )
+import Iolaus.Global ( debugMessage )
 import Iolaus.Repository ( get_recorded_and_unrecorded, Unrecorded(..),
                            add_heads )
 import Iolaus.Sealed ( Sealed(Sealed) )
@@ -54,8 +54,6 @@ import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( lsfiles, heads )
 import Git.Helpers ( testCommits, testMessage, commitTreeNicely,
                      writeSlurpTree, simplifyParents )
-
-#include "impossible.h"
 
 record :: Command
 record = Command {command_name = "record",
@@ -94,32 +92,29 @@ record_cmd opts args = do
              NilFL -> do putStrLn "No changes selected!"
                          exitWith ExitSuccess
              _ -> return ()
-           case apply_to_slurpy ch old of
-             Nothing -> impossible
-             Just new' ->
-                 do newtree <- writeSlurpTree new'
-                    (name, my_log, _) <- get_log opts Nothing
-                                       (world_readable_temp "iolaus-record")
-                    hs <- heads
-                    (hs', Sealed newtree') <- simplifyParents opts hs newtree
-                    testedby <- testMessage (testByDefault opts)
-                    let -- FIXME join with Signed-off-by:
-                        cleanup ("":"":r) = cleanup ("":r)
-                        cleanup (a:b) = a : cleanup b
-                        cleanup [] = []
-                        message = (unlines $ cleanup $ name:my_log++testedby)
-                    com <- commitTreeNicely newtree' hs' message
-                    -- we'll first run the test on the commit in its
-                    -- "primitive" context...
-                    debugMessage "Testing on \"canonical\" tree..."
-                    testCommits (testByDefault opts) "Testing" [Sealed com]
-                    -- now let's just check that the merged version
-                    -- actually passes the tests...
-                    debugMessage "Testing on \"current\" tree..."
-                    testCommits (testByDefault opts) "Merge" (Sealed com:hs)
-                    debugMessage "Recording the new commit..."
-                    add_heads opts [Sealed com]
-                    putStrLn ("Finished recording patch '"++ name ++"'")
+           newtree <- apply_to_slurpy ch old >>= writeSlurpTree
+           (name, my_log, _) <- get_log opts Nothing
+                              (world_readable_temp "iolaus-record")
+           hs <- heads
+           (hs', Sealed newtree') <- simplifyParents opts hs newtree
+           testedby <- testMessage (testByDefault opts)
+           let -- FIXME join with Signed-off-by:
+               cleanup ("":"":r) = cleanup ("":r)
+               cleanup (a:b) = a : cleanup b
+               cleanup [] = []
+               message = (unlines $ cleanup $ name:my_log++testedby)
+           com <- commitTreeNicely newtree' hs' message
+           -- we'll first run the test on the commit in its
+           -- "primitive" context...
+           debugMessage "Testing on \"canonical\" tree..."
+           testCommits (testByDefault opts) "Testing" [Sealed com]
+           -- now let's just check that the merged version
+           -- actually passes the tests...
+           debugMessage "Testing on \"current\" tree..."
+           testCommits (testByDefault opts) "Merge" (Sealed com:hs)
+           debugMessage "Recording the new commit..."
+           add_heads opts [Sealed com]
+           putStrLn ("Finished recording patch '"++ name ++"'")
 
  -- check that what we treat as the patch name is not accidentally a command
  -- line flag

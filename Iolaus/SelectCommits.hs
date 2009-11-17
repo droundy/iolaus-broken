@@ -61,13 +61,18 @@ matchPat [] _ = return True
 
 select_commit :: String -> [Flag] -> [Sealed (Hash Commit)]
                -> IO (Sealed (Hash Commit))
+select_commit jn _ [] = do putStrLn ("There is no commit to "++jn++"!")
+                           exitWith ExitSuccess
 select_commit jn opts cs0 =
     do cs <- filterM (match opts) cs0
        if DryRun `elem` opts
           then do putStrLn ("Would "++jn++" the following commits:")
                   putGraph opts (`elem` cs) cs
                   exitWith ExitSuccess
-          else head `fmap` text_select One [] jn opts cs []
+          else do xs <- text_select One [] jn opts cs []
+                  case xs of
+                    x:_ -> return x
+                    [] -> fail "No commit selected?!"
 
 select_commits :: String -> [Flag] -> [Sealed (Hash Commit)]
                -> IO [Sealed (Hash Commit)]

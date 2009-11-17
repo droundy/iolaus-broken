@@ -42,7 +42,7 @@ import Iolaus.Command ( CommandArgs( CommandOnly, SuperCommandOnly,
                         extract_commands, super_name, subusage )
 import Iolaus.Help ( command_control_list )
 import Iolaus.Global ( setDebugMode, setTimingsMode, setVerboseMode )
-import Iolaus.Progress ( setProgressMode, debugMessage )
+import Iolaus.Global ( debugMessage )
 import Iolaus.RepoPath ( getCurrentDirectory )
 import Iolaus.Hooks ( run_posthook, run_prehook )
 
@@ -53,8 +53,7 @@ import Git.Helpers ( configDefaults )
 run_the_command :: String -> [String] -> IO ()
 run_the_command cmd args@(h:_)
     | "--list-option":_ <- reverse args =
-     do setProgressMode False
-        cwd <- getCurrentDirectory
+     do cwd <- getCurrentDirectory
         case disambiguate_commands command_control_list cmd args of
           Left _ ->
               case disambiguate_commands command_control_list cmd [h] of
@@ -115,7 +114,6 @@ run_command msuper cmd args = do
           configDefaults (command_name `fmap` msuper) (command_name cmd)
                   (map (\o -> (`pull_apart_option` o)) iopts) opts
       | ListOptions `elem` opts  -> do
-           setProgressMode False
            command_prereq cmd opts
            file_args <- command_get_arg_possibilities cmd
            putStrLn $ get_options_options options ++ unlines file_args
@@ -159,7 +157,6 @@ consider_running msuper cmd opts old_extra = do
                when (Timings `elem` os) setTimingsMode
                when (Debug `elem` os) setDebugMode
                when (Verbose `elem` os) setVerboseMode
-               when (Quiet `elem` os) $ setProgressMode False
                let allopts = case command_alloptions cmd of (x,y) -> x++y
                debugMessage $ unwords ("Running":"arcs":
                                        maybe [] ((:[]) . command_name) msuper++
