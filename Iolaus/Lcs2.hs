@@ -120,8 +120,8 @@ prefixPostfixDiff ny [] ys = [(ny,[],ys)]
 prefixPostfixDiff ny xs [] = [(ny,xs,[])]
 prefixPostfixDiff ny (x:xs) (y:ys)
     | x == y = prefixPostfixDiff (ny+1) xs ys
-    | otherwise = [(ny,x : reverse rxs',y : reverse rys')]
-    where (rxs',rys') = dropPref (reverse xs) (reverse ys)
+    | otherwise = [(ny, reverse rxs', reverse rys')]
+    where (rxs',rys') = dropPref (reverse (x:xs)) (reverse (y:ys))
           dropPref (a:as) (b:bs) | a == b = dropPref as bs
           dropPref as bs = (as,bs)
 

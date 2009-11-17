@@ -21,3 +21,5 @@ try-*
 Iolaus/Help.lhs
 *.html
 manual
+iolaus-record*
+iolaus-amend*

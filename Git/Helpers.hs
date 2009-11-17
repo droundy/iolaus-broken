@@ -44,7 +44,7 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       mergeIndex, readTreeMerge,
                       catTree, catBlob, catCommitTree )
 
-import Iolaus.Progress ( debugMessage )
+import Iolaus.Global ( debugMessage )
 import Iolaus.Flags ( Flag( Test, Build, TestParents,
                             NativeMerge, FirstParentMerge,
                             IolausSloppyMerge, RecordFor, Summary, Verbose,
@@ -107,7 +107,9 @@ testCommits opts msg hs0 =
                              let msg' = case m of [] -> [msg]
                                                   _ -> msg:"":m
                              c <- commitTree t hs (unlines msg')
-                             updateref ("refs/tested/"++show k) c
+                             updateref ("refs/tested/"++show k) (Sealed c)
+                                                                Nothing
+                                 `catch` (\_ -> return ())
                              return (Sealed c)
                   Fail -> fail "test failed"
                   Unresolved -> fail "build failed"
@@ -372,8 +374,9 @@ mergeCommitsX s xs = -- this is MergeN*
 cacheTree :: Strategy -> [Sealed (Hash Commit)] -> Hash Tree C(x) -> IO ()
 cacheTree s x t =
     do k <- hashObject (`hPutStrLn` show (s, sort x))
-       commitTree t (sort x) (show $ sort x)
-                      >>= updateref ("refs/merges/"++show k) 
+       c <- commitTree t (sort x) (show $ sort x)
+       updateref ("refs/merges/"++show k) (Sealed c) Nothing
+                     `catch` (\_ -> return ())
        return ()
 
 readCached :: Strategy -> [Sealed (Hash Commit)]

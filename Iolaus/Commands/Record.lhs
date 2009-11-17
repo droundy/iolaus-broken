@@ -44,7 +44,7 @@ import Iolaus.Patch ( apply_to_slurpy )
 import Iolaus.Printer ( ($$), text, hPutDocLn, wrap_text )
 import Iolaus.SelectChanges ( with_selected_changes_to_files )
 import Iolaus.Ordered ( (:>)(..), FL(NilFL) )
-import Iolaus.Progress ( debugMessage )
+import Iolaus.Global ( debugMessage )
 import Iolaus.Repository ( get_recorded_and_unrecorded, Unrecorded(..),
                            add_heads )
 import Iolaus.Sealed ( Sealed(Sealed) )
