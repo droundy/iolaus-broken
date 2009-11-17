@@ -13,9 +13,6 @@
   with this particular remote, so *never* contacting the remote on
   record doesn't sound like such a hot idea.
 
-- Fix `--graph` code to be more optimal on branching when the branches
-  spread to the left.
-
 - Add support (and documentation) for proper git-style hooks.
 
 - Figure out what to call the .git-hooks/{test,build} scripts.
