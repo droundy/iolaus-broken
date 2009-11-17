@@ -18,6 +18,8 @@
 \begin{code}
 {-# LANGUAGE CPP, PatternGuards #-}
 
+#include "gadts.h"
+
 module Iolaus.Commands.Record ( record, get_log ) where
 import Control.Exception ( handleJust, Exception( ExitException ) )
 import Control.Monad ( when )
@@ -40,11 +42,11 @@ import Iolaus.Arguments ( Flag( PromptLongComment, NoEditLongComment,
                         rmlogfile, logfile )
 import Iolaus.Utils ( askUser, promptYorn, edit_file )
 import Iolaus.RepoPath ( FilePathLike, toFilePath )
-import Iolaus.Patch ( apply_to_slurpy )
+import Iolaus.Patch ( Prim, summarize, apply_to_slurpy )
 import Iolaus.Printer ( ($$), text, hPutDocLn, wrap_text )
 import Iolaus.SelectChanges ( with_selected_changes_to_files )
 import Iolaus.Ordered ( (:>)(..), FL(NilFL) )
-import Iolaus.Progress ( debugMessage )
+import Iolaus.Global ( debugMessage )
 import Iolaus.Repository ( get_recorded_and_unrecorded, Unrecorded(..),
                            add_heads )
 import Iolaus.Sealed ( Sealed(Sealed) )
@@ -98,7 +100,7 @@ record_cmd opts args = do
              Nothing -> impossible
              Just new' ->
                  do newtree <- writeSlurpTree new'
-                    (name, my_log, _) <- get_log opts Nothing
+                    (name, my_log, _) <- get_log opts Nothing ch
                                        (world_readable_temp "iolaus-record")
                     hs <- heads
                     (hs', Sealed newtree') <- simplifyParents opts hs newtree
@@ -154,9 +156,9 @@ record_help = show $ wrap_text 80 $
 
 data PName = FlagPatchName String | PriorPatchName String | NoPatchName
 
-get_log :: [Flag] -> Maybe (String, [String]) -> IO String ->
-           IO (String, [String], Maybe String)
-get_log opts m_old make_log = gl opts
+get_log :: [Flag] -> Maybe (String, [String]) -> FL Prim C(x y) -> IO String
+        -> IO (String, [String], Maybe String)
+get_log opts m_old changes make_log = gl opts
     where patchname_specified = patchname_helper opts
           patchname_helper (PatchName n:_) | take 4 n == "TAG " = FlagPatchName $ '.':n
                                            | otherwise          = FlagPatchName n
@@ -244,7 +246,7 @@ get_log opts m_old make_log = gl opts
                             $$ text ""
                             $$ text "This patch contains the following changes:"
                             $$ text ""
-                            $$ text "???"
+                            $$ summarize changes
 
 eod :: String
 eod = "***END OF DESCRIPTION***"

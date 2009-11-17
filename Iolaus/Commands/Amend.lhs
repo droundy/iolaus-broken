@@ -26,7 +26,7 @@ import System.Exit ( exitWith, exitFailure, ExitCode(..) )
 
 import Iolaus.Lock ( world_readable_temp )
 import Iolaus.Command ( Command(..), nodefaults )
-import Iolaus.Arguments ( Flag( Quiet, PatchName, All,
+import Iolaus.Arguments ( Flag( Quiet, PatchName, All, RecordFor,
                                 DeltaDebugWorkingSubset ),
                         working_repo_dir, mergeStrategy, commitApproach,
                         fixSubPaths, testByDefault,
@@ -41,7 +41,7 @@ import Iolaus.Printer ( wrap_text )
 import Iolaus.SelectChanges ( with_selected_changes_to_files )
 import Iolaus.SelectCommits ( select_commit )
 import Iolaus.Ordered ( (:>)(..), FL(NilFL) )
-import Iolaus.Progress ( debugMessage )
+import Iolaus.Global ( debugMessage )
 import Iolaus.Repository ( get_recorded_and_unrecorded, Unrecorded(..),
                            add_heads, decapitate )
 import Iolaus.Commands.Record ( get_log )
@@ -49,10 +49,10 @@ import Iolaus.Sealed ( Sealed(Sealed), unseal, mapSealM )
 import Iolaus.DeltaDebug ( largestPassingSet )
 
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( lsfiles, heads, catCommit, myMessage )
+import Git.Plumbing ( lsfiles, heads, catCommit, myMessage, remoteHeads )
 import Git.Helpers ( testCommits, testMessage, commitTreeNicely,
                      writeSlurpTree, simplifyParents )
-import Git.Dag ( parents )
+import Git.Dag ( parents, notIn )
 
 #include "impossible.h"
 
@@ -86,7 +86,9 @@ amend_record_cmd :: [Flag] -> [String] -> IO ()
 amend_record_cmd opts args = do
     check_name_is_not_option opts
     files <- sort `fmap` fixSubPaths opts args
-    toamend <- heads >>= select_commit "amend" opts
+    rf <- concat `fmap` mapM remoteHeads [c | RecordFor c <- opts]
+    hs0 <- heads
+    toamend <- select_commit "amend" opts (hs0 `notIn` rf)
     (old, Unrecorded allchs0 _) <- get_recorded_and_unrecorded opts
     Sealed allchs <-
         if DeltaDebugWorkingSubset `elem` opts
@@ -113,7 +115,7 @@ amend_record_cmd opts args = do
                             | otherwise = x:xs
                         clean [] = []
                         oldmsg = (line1,reverse $ clean $ reverse restl)
-                    (name, my_log, _) <- get_log opts (Just oldmsg)
+                    (name, my_log, _) <- get_log opts (Just oldmsg) ch
                                        (world_readable_temp "iolaus-record")
                     hs <- ((unseal parents toamend++).filter (/=toamend))
                           `fmap` heads
@@ -161,7 +163,9 @@ check_name_is_not_option opts = do
             else return ()
 \end{code}
 
-Amend is much like record.
+Amend is much like record, but modifies an already-recorded commit.
+It refuses, however, to modify a commit that has already been pushed
+to the repository specified with `--record-for`.
 
 If you provide one or more files or directories as additional arguments
 to amend, you will only be prompted to changes in those files or
