@@ -41,7 +41,7 @@ import Control.Monad ( when )
 import Iolaus.Exec ( exec_interactive )
 import Iolaus.Printer ( Doc, hPutDocLn )
 
-import Iolaus.Progress ( withoutProgress, debugMessage )
+import Iolaus.Global ( debugMessage )
 
 #ifdef HAVE_HASKELINE
 import System.Console.Haskeline ( runInputT, defaultSettings, getInputLine )
@@ -140,17 +140,17 @@ withThread j = do m <- newEmptyMVar
 
 askUser :: String -> IO String
 #ifdef HAVE_HASKELINE
-askUser prompt = withoutProgress $ runInputT defaultSettings (getInputLine prompt)
-                        >>= maybe (error "askUser: unexpected end of input") return
+askUser prompt = runInputT defaultSettings (getInputLine prompt)
+                 >>= maybe (error "askUser: unexpected end of input") return
                                       
 #else
-askUser prompt = withThread $ withoutProgress $ do putStr prompt
-                                                   hFlush stdout
-                                                   waitForStdin
+askUser prompt = withThread $ do putStr prompt
+                                 hFlush stdout
+                                 waitForStdin
 #ifndef WIN32
-                                                   getLine
+                                 getLine
 #else
-                                                   stripCr `fmap` getLine
+                                 stripCr `fmap` getLine
 #endif
 #endif
 
@@ -250,8 +250,7 @@ promptCharFancy p chs md help_chs =
  setUpper d c = if d == c then toUpper c else c
 
 without_buffering :: IO a -> IO a
-without_buffering job = withoutProgress $ do
-    bracket nobuf rebuf $ \_ -> job
+without_buffering job = bracket nobuf rebuf $ \_ -> job
     where nobuf = do is_term <- hIsTerminalDevice stdin
                      bi <- hGetBuffering stdin
                      raw <- get_raw_mode
