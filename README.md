@@ -3,6 +3,55 @@
 >
 > *Herakles*, Euripides
 
+What is Iolaus?
+---------------
+
+Iolaus is a [git](http://git-scm.org) porcelain which uses some code
+and ideas from an older SCM I created called
+[darcs](http://darcs.net).  Thus Iolaus is kin to Easy Git, Yap,
+darcs-git, vng, StGIT, Guilt and TopGit.  Clearly there is an
+abundance of porcelains, and it's doubtful whether the world needs yet
+another porcelain, particularly as there are already two that
+advertise a darcs-like interface.  On the other hand, the abundance of
+porcelains for git reflect how easy they are to create, and I am
+accustomed to using a SCM that I'm very familiar with.
+
+The command set of Iolaus is currently very similar to that of darcs,
+but I expect to gradually work it into better agreement with git as
+far as terminology and flags are concerned.
+
+Iolaus is still very experimental, and I don't recommend it for anyone
+who isn't interested in hacking on Iolaus itself.
+
+Who is Iolaus?
+--------------
+
+Iolaus is the nephew of Heracles (also known by his latin name
+Hercules), who went on adventures with him and helped with some of his
+labors.  Most famously, when Heracles was fighting the hydra, he had
+trouble because every time he knocked one head off, two grew in his
+place.  He called to Iolaus for help, and Iolaus figured out that if
+he cauterized each neck with his torch after Heracles knocked the head
+off, they would stop sprouting.  There was still the problem of the
+hydra's one immortal head, but they just hid that under a rock.
+
+> You are running away, Socrates, said Dionysodorus, and refusing to
+> answer.
+>
+> No wonder, I said, for I am not a match for one of you, and a
+> fortiori I must run away from two. I am no Heracles; and even
+> Heracles could not fight against the Hydra, who was a she-Sophist,
+> and had the wit to shoot up many new heads when one of them was cut
+> off; especially when he saw a second monster of a sea-crab, who was
+> also a Sophist, and appeared to have newly arrived from a
+> sea-voyage, bearing down upon him from the left, opening his mouth
+> and biting. When the monster was growing troublesome he called
+> Iolaus, his nephew, to his help, who ably succoured him; but if my
+> Iolaus, who is my brother Patrocles [the statuary], were to come, he
+> would only make a bad business worse.
+>
+> *Euthydemus*, Plato
+
 The origins of Iolaus
 ---------------------
 
