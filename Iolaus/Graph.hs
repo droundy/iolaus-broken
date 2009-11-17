@@ -47,20 +47,25 @@ addo h s | Just h == homeIs s = AtHome (Just h) (overlapping s)
          | otherwise = s { overlapping = h : delete h (overlapping s) }
 
 evolveSpots :: [Spot] -> [Spot]
-evolveSpots [] = []
-evolveSpots [x] = [x]
-evolveSpots (a:b)
+evolveSpots = esHelper []
+
+esHelper :: [Sealed (Hash Commit)] -> [Spot] -> [Spot]
+esHelper _ [] = []
+esHelper _ [x] = [x]
+esHelper past (a:b)
     | Just h <- homeIs a,
       h `elem` overlapping a =
-          evolveSpots (AtHome (homeIs a) (delete h $ overlapping a) : b)
-evolveSpots (a:b:c)
-    | o:_ <- filter (`notElem` catMaybes (map homeIs (b:c))) $ overlapping b =
-             addo o a : evolveSpots (delo o b : c)
+          esHelper (past++[h])
+                   (AtHome (homeIs a) (delete h $ overlapping a) : b)
+esHelper past (a:b:c)
+    | o:_ <- filter (`elem` overlapping b) (past++maybe [] (:[]) (homeIs a)) =
+             addo o a : esHelper (past++maybe [] (:[]) (homeIs a))
+                                 (delo o b : c)
     | o:_ <- filter (`elem` catMaybes (map homeIs (b:c))) $ overlapping a =
-             case evolveSpots (b:c) of
+             case esHelper (past++maybe [] (:[]) (homeIs a)) (b:c) of
                b':c' -> delo o a : addo o b' : c'
                [] -> error "sagdsdg"
-evolveSpots (a:c) = a : evolveSpots c
+esHelper past (a:c) = a : esHelper (past++maybe [] (:[]) (homeIs a)) c
 
 data G a = G (GraphState -> IO (GraphState, a))
 instance Monad G where

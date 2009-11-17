@@ -54,8 +54,6 @@ import Git.Helpers ( testCommits, testMessage, commitTreeNicely,
                      writeSlurpTree, simplifyParents )
 import Git.Dag ( parents, notIn )
 
-#include "impossible.h"
-
 amend_record_description :: String
 amend_record_description =
  "Amend a recent commit."
@@ -103,42 +101,39 @@ amend_record_cmd opts args = do
              NilFL -> do putStrLn "No changes selected!"
                          exitWith ExitSuccess
              _ -> return ()
-           case apply_to_slurpy ch old of
-             Nothing -> impossible
-             Just new' ->
-                 do newtree <- writeSlurpTree new'
-                    Sealed oldc <- catCommit `mapSealM` toamend
-                    let line1:restl = lines $ myMessage oldc
-                        clean (x:xs)
-                            | take 4 x == "Test" =
-                                dropWhile null xs
-                            | otherwise = x:xs
-                        clean [] = []
-                        oldmsg = (line1,reverse $ clean $ reverse restl)
-                    (name, my_log, _) <- get_log opts (Just oldmsg)
-                                       (world_readable_temp "iolaus-record")
-                    hs <- ((unseal parents toamend++).filter (/=toamend))
-                          `fmap` heads
-                    (hs', Sealed newtree') <- simplifyParents opts hs newtree
-                    testedby <- testMessage (testByDefault opts)
-                    let -- FIXME join with Signed-off-by:
-                        cleanup ("":"":r) = cleanup ("":r)
-                        cleanup (a:b) = a : cleanup b
-                        cleanup [] = []
-                        message = (unlines $ cleanup $ name:my_log++testedby)
-                    com <- commitTreeNicely newtree' hs' message
-                    -- we'll first run the test on the commit in its
-                    -- "primitive" context...
-                    debugMessage "Testing on \"canonical\" tree..."
-                    testCommits (testByDefault opts) "Testing" [Sealed com]
-                    -- now let's just check that the merged version
-                    -- actually passes the tests...
-                    debugMessage "Testing on \"current\" tree..."
-                    testCommits (testByDefault opts) "Merge" (Sealed com:hs)
-                    debugMessage "Recording the new commit..."
-                    decapitate opts [toamend]
-                    add_heads opts [Sealed com]
-                    putStrLn ("Finished amending patch '"++ name ++"'")
+           newtree <- apply_to_slurpy ch old >>= writeSlurpTree
+           Sealed oldc <- catCommit `mapSealM` toamend
+           let line1:restl = lines $ myMessage oldc
+               clean (x:xs)
+                   | take 4 x == "Test" =
+                       dropWhile null xs
+                   | otherwise = x:xs
+               clean [] = []
+               oldmsg = (line1,reverse $ clean $ reverse restl)
+           (name, my_log, _) <- get_log opts (Just oldmsg) ch
+                              (world_readable_temp "iolaus-amend")
+           hs <- ((unseal parents toamend++).filter (/=toamend))
+                 `fmap` heads
+           (hs', Sealed newtree') <- simplifyParents opts hs newtree
+           testedby <- testMessage (testByDefault opts)
+           let -- FIXME join with Signed-off-by:
+               cleanup ("":"":r) = cleanup ("":r)
+               cleanup (a:b) = a : cleanup b
+               cleanup [] = []
+               message = (unlines $ cleanup $ name:my_log++testedby)
+           com <- commitTreeNicely newtree' hs' message
+           -- we'll first run the test on the commit in its
+           -- "primitive" context...
+           debugMessage "Testing on \"canonical\" tree..."
+           testCommits (testByDefault opts) "Testing" [Sealed com]
+           -- now let's just check that the merged version
+           -- actually passes the tests...
+           debugMessage "Testing on \"current\" tree..."
+           testCommits (testByDefault opts) "Merge" (Sealed com:hs)
+           debugMessage "Recording the new commit..."
+           decapitate opts [toamend]
+           add_heads opts [Sealed com]
+           putStrLn ("Finished amending patch '"++ name ++"'")
 
  -- check that what we treat as the patch name is not accidentally a command
  -- line flag

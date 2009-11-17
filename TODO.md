@@ -12,3 +12,12 @@
   In short, record may be the *only* scenario in which we interact
   with this particular remote, so *never* contacting the remote on
   record doesn't sound like such a hot idea.
+
+- Add support (and documentation) for proper git-style hooks.
+
+- Figure out what to call the .git-hooks/{test,build} scripts.
+
+- Add proper support (and documentation) for proper git-style color
+  configuration.  We're already part of the way there, but there's no
+  support for the mechanism for turning color off.  The default will
+  be color, however.

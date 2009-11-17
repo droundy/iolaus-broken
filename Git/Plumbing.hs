@@ -332,10 +332,8 @@ remoteHeads repo =
            createProcess (proc "git" ["ls-remote", "--heads",repo])
                              { std_out = CreatePipe }
        out <- hGetContents stdout
-       ec <- length out `seq` waitForProcess pid
-       case ec of
-         ExitSuccess -> return $ map (mkSHash Commit) $ lines out
-         ExitFailure _ -> fail "ls-remote failed"
+       length out `seq` waitForProcess pid
+       return $ map (mkSHash Commit) $ lines out
 
 headNames :: IO [(Sealed (Hash Commit), String)]
 headNames =
