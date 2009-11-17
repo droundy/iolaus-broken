@@ -54,7 +54,8 @@ doc =
           tolower "" = ""
           prefix toroot x =
               "# "++ x++
-              " <img src='"++toroot++"doc/hydra.svg' align='right'>\n\n"++
+              "\n<object data='"++toroot++"doc/hydra.svg' align='right' "++
+               "type='image/svg+xml' width=265> Image here! </object>\n\n"++
               "[about]("++toroot++"index.html) | "++
               "[manual]("++toroot++"manual.html) | "++
               "[download](http://github.com/droundy/iolaus/downloads) | "++

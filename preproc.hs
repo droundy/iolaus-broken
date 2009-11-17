@@ -4,9 +4,8 @@ import Text.Regex ( matchRegex, mkRegex )
 
 import Iolaus.Command
     ( Command(SuperCommand), command_sub_commands, command_name,
-      command_extra_arg_help, command_basic_options, command_advanced_options,
-      command_help, command_description, extract_commands )
-import Iolaus.Arguments ( options_latex )
+      command_help, command_description, extract_commands,
+      get_command_options_help )
 import Iolaus.Help ( command_control_list )
 
 the_commands :: [Command]
@@ -81,15 +80,10 @@ get_c (name:ns) commands =
 get_c [] _ = error "no command specified"
 
 get_com_options :: [Command] -> String
-get_com_options c =
-    "    Usage: darcs " ++ cmd ++ " [OPTION]... " ++
-    args ++ "\n\n" ++ "    Options:\n" ++
-    unlines (map ("    "++) (lines $ options_latex opts1)) ++
-    (if null opts2 then "" else "\n\n" ++ "Advanced options:\n\n" ++ options_latex opts2)
-    where cmd = unwords $ map command_name c
-          args = unwords $ command_extra_arg_help $ last c
-          opts1 = command_basic_options $ last c
-          opts2 = command_advanced_options $ last c
+get_com_options [s,c] =
+    unlines $ map ("    "++) $ lines $ get_command_options_help (Just s) c
+get_com_options [c] =
+    unlines $ map ("    "++) $ lines $ get_command_options_help Nothing c
 
 ignore :: [String] -> IO [String]
 ignore ("\\end{code}":ss) = preproc ss
