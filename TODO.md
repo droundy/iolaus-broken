@@ -59,8 +59,3 @@
   silly.  For a few things it makes sense (probably for test scripts),
   but for most others, it's much nicer to be able to work with a
   single file.
-
-- Add a test that checks whether every flag is mentioned somewhere in
-  the test suite with a simple grep.  Could use `iolaus all
-  --list-options` to get the list of all flags.  Could also check that
-  every command is mentioned somewhere.
