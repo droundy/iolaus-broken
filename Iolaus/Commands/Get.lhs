@@ -19,8 +19,7 @@
 module Iolaus.Commands.Get ( get ) where
 
 import Iolaus.Command ( Command(..), nodefaults )
-import Iolaus.Arguments ( Flag, working_repo_dir,
-                        reponame, lazy, nolinks )
+import Iolaus.Arguments ( Flag, working_repo_dir, reponame )
 
 import Git.LocateRepo ( amNotInRepository )
 import Git.Plumbing ( clone )
@@ -35,18 +34,16 @@ get_help =
 
 get :: Command
 get = Command {command_name = "get",
-                    command_help = get_help,
-                    command_description = get_description,
-                    command_extra_args = -1,
-                    command_extra_arg_help = ["<REPOSITORY>", "[<DIRECTORY>]"],
-                    command_command = get_cmd,
-                    command_prereq = amNotInRepository,
-                    command_get_arg_possibilities = return [],
-                    command_argdefaults = nodefaults,
-                    command_advanced_options = [],
-                    command_basic_options = [reponame, lazy,
-                                             nolinks,
-                                             working_repo_dir]}
+               command_help = get_help,
+               command_description = get_description,
+               command_extra_args = -1,
+               command_extra_arg_help = ["<REPOSITORY>", "[<DIRECTORY>]"],
+               command_command = get_cmd,
+               command_prereq = amNotInRepository,
+               command_get_arg_possibilities = return [],
+               command_argdefaults = nodefaults,
+               command_advanced_options = [],
+               command_basic_options = [reponame, working_repo_dir]}
 
 get_cmd :: [Flag] -> [String] -> IO ()
 get_cmd _ [inrepodir, outname] = clone [inrepodir, outname]

@@ -21,53 +21,28 @@
 
 #include "gadts.h"
 
-module Iolaus.Arguments ( Flag( .. ), flagToString,
-                          isin, arein, mergeStrategy, commitApproach,
-                          recordDeltaDebug, fixSubPaths, areFileArgs,
-                          dryrun,
-                         IolausOption( .. ), option_from_iolausoption,
-                         help, list_options, pull_apart_option,
-                         max_count, help_on_match,
-                         any_verbosity, disable,
-                         notest, test, working_repo_dir,
-                         testByDefault,
-                         remote_repo, lazy,
-                         possibly_remote_repo_dir, author, get_sendmail_cmd,
-                         patchname_option, distname_option,
-                         logfile, rmlogfile, from_opt, subject, get_subject,
-                         in_reply_to, get_in_reply_to,
-                         target, cc, get_cc, output, output_auto_name,
-                         recursive,
-                         ask_long_comment, sendmail_cmd,
-                         sign, verify, edit_description,
-                         reponame,
-                         apply_conflict_options, reply,
-                         pull_conflict_options, use_external_merge,
-                         nocompress,
-                         uncompress_nocompress, repo_combinator,
-                         reorder_patches,
-                         noskip_boring, allow_problematic_filenames,
-                         only_to_files,
-                         changes_format, commit_format,
-                         match_one_nontag, all_interactive,
-                         summary, unified, tokens,
-                         diff_cmd_flag, diffflags, unidiff, xmloutput,
-                         match_one, match_several, match_range,
-                         match_several_or_range,
-                         match_several_or_last, match_several_or_first,
-                         config_defaults,
-                         sibling, flagsToSiblings, relink, nolinks,
-                         files, directories, nullFlag,
-                         patch_select_flag,
-                         allow_unrelated_repos
-                      ) where
+module Iolaus.Arguments
+    ( Flag( .. ), flagToString, isin, arein, mergeStrategy, commitApproach,
+      recordDeltaDebug, fixSubPaths, areFileArgs, author,
+      dryrun, IolausOption( .. ), option_from_iolausoption, help,
+      list_options, pull_apart_option, max_count, help_on_match,
+      any_verbosity, disable, notest, test, working_repo_dir,
+      testByDefault, remote_repo, possibly_remote_repo_dir, patchname_option,
+      logfile, rmlogfile, output, output_auto_name, recursive, ask_long_comment,
+      sign, verify, edit_description, reponame, apply_conflict_options,
+      pull_conflict_options, repo_combinator, only_to_files, changes_format,
+      commit_format, match_one_nontag, all_interactive, summary,
+      match_one, match_several, match_range, match_several_or_range,
+      match_several_or_last, match_several_or_first, config_defaults,
+      sibling, flagsToSiblings, relink, files, directories, nullFlag,
+      patch_select_flag, allow_unrelated_repos ) where
 import System.Console.GetOpt
 import Data.List ( nub )
 import Data.Maybe ( fromMaybe, catMaybes )
 import Control.Monad ( unless )
 import Data.Char ( isDigit )
 
-import Iolaus.Utils ( maybeGetEnv, firstJustIO, withCurrentDirectory )
+import Iolaus.Utils ( withCurrentDirectory )
 import Iolaus.RepoPath ( AbsolutePath, AbsolutePathOrStd, SubPath,
                          toFilePath, makeSubPathOf, simpleSubPath,
                          ioAbsolute, makeAbsolute, makeAbsoluteOrStd )
@@ -122,11 +97,6 @@ getContent Debug = NoContent
 getContent DebugVerbose = NoContent
 getContent NormalVerbosity = NoContent
 getContent Quiet = NoContent
-getContent (Target s) = StringContent s
-getContent (Cc s) = StringContent s
-getContent (Subject s) = StringContent s
-getContent (InReplyTo s) = StringContent s
-getContent (SendmailCmd s) = StringContent s
 getContent (Author s) = StringContent s
 getContent (OnePatch s) = StringContent s
 getContent (SeveralPatch s) = StringContent s
@@ -140,17 +110,12 @@ getContent (AfterTag s) = StringContent s
 getContent (UpToTag s) = StringContent s
 getContent (LogFile s) = AbsoluteContent s
 getContent (OutputAutoName s) = AbsoluteContent s
-getContent NumberPatches = NoContent
 getContent (PatchIndexRange _ _) = NoContent -- FIXME this doesn't fit into a neat category
 getContent Count = NoContent
 getContent All = NoContent
 getContent Recursive = NoContent
 getContent NoRecursive = NoContent
-getContent Reorder = NoContent
-getContent RestrictPaths = NoContent
-getContent DontRestrictPaths = NoContent
 getContent RmLogFile = NoContent
-getContent (DistName s) = StringContent s
 getContent (SignAs s) = StringContent s
 getContent (SignSSL s) = StringContent s
 getContent (Verify s) = AbsoluteContent s
@@ -163,11 +128,9 @@ getContent Union = NoContent
 getContent Complement = NoContent
 getContent Sign = NoContent
 getContent NoSign = NoContent
-getContent (Toks s) = StringContent s
 getContent (WorkDir s) = StringContent s
 getContent (RepoDir s) = StringContent s
 getContent (RemoteRepo s) = StringContent s
-getContent (Reply s) = StringContent s
 getContent EditDescription = NoContent
 getContent NoEditDescription = NoContent
 getContent EditLongComment = NoContent
@@ -176,31 +139,16 @@ getContent PromptLongComment = NoContent
 getContent AllowConflicts = NoContent
 getContent MarkConflicts = NoContent
 getContent NoAllowConflicts = NoContent
-getContent Boring = NoContent
-getContent AllowCaseOnly = NoContent
-getContent AllowWindowsReserved = NoContent
-getContent Compress = NoContent
 getContent NativeMerge = NoContent
 getContent IolausMerge = NoContent
 getContent IolausSloppyMerge = NoContent
 getContent FirstParentMerge = NoContent
-getContent NoCompress = NoContent
-getContent UnCompress = NoContent
 getContent Interactive = NoContent
 getContent Summary = NoContent
 getContent NoSummary = NoContent
-getContent (ApplyAs s) = StringContent s
-getContent (DiffCmd s) = StringContent s
-getContent (ExternalMerge s) = StringContent s
-getContent (DiffFlags s) = StringContent s
 getContent Reverse = NoContent
 getContent Graph = NoContent
-getContent Complete = NoContent
-getContent Lazy = NoContent
-getContent Ephemeral = NoContent
 getContent (FixFilePath _ _) = NoContent -- FIXME!!!
-getContent XMLOutput = NoContent
-getContent NonApply = NoContent
 getContent NonVerify = NoContent
 getContent DryRun = NoContent
 getContent GlobalConfig = NoContent
@@ -214,7 +162,6 @@ getContent NoFiles = NoContent
 getContent Directories = NoContent
 getContent NoDirectories = NoContent
 getContent (Sibling s) = AbsoluteContent s
-getContent StoreInMemory = NoContent
 getContent NullFlag = NoContent
 getContent (UMask s) = StringContent s
 getContent AllowUnrelatedRepos = NoContent
@@ -400,27 +347,16 @@ flagToString x f = maybeHead $ catMaybes $ map f2o x
           maybeHead (a:_) = Just a
           maybeHead [] = Nothing
 
-reponame :: IolausOption
-tokens :: IolausOption
 working_repo_dir :: IolausOption
 possibly_remote_repo_dir :: IolausOption
 disable :: IolausOption
 
-all_interactive, all_patches, interactive,
-  diffflags, allow_problematic_filenames, noskip_boring,
-  ask_long_comment, match_one_nontag,
-  diff_cmd_flag, use_external_merge,
-  pull_conflict_options, target, cc, apply_conflict_options, reply, xmloutput,
-  distname_option, patchname_option, edit_description,
-  output, output_auto_name, unidiff, repo_combinator,
-  unified, summary, uncompress_nocompress, subject, in_reply_to,
-  nocompress, match_several_or_range, match_several_or_last,
-  match_several_or_first, author, help,
-  help_on_match, allow_unrelated_repos,
-  match_one, match_range, match_several, sendmail_cmd,
-  logfile, rmlogfile, from_opt
-
-      :: IolausOption
+all_interactive, all_patches, interactive, ask_long_comment, match_one_nontag,
+  pull_conflict_options, apply_conflict_options,
+  patchname_option, edit_description, output, output_auto_name, repo_combinator,
+  summary, match_several_or_range, match_several_or_last,
+  match_several_or_first, help, help_on_match, allow_unrelated_repos,
+  match_one, match_range, match_several, logfile, rmlogfile :: IolausOption
 
 recursive :: String -> IolausOption
 
@@ -536,6 +472,8 @@ remote_repo = IolausArgOption [] ["remote-repo"] RemoteRepo "URL"
 \input{Iolaus/PatchMatch.lhs}
 
 \begin{code}
+author = IolausArgOption ['A'] ["author"] Author "EMAIL" "specify author id"
+
 patchname_option = IolausArgOption ['m'] ["patch-name"] PatchName "PATCHNAME"
                    "name of patch"
 
@@ -671,105 +609,16 @@ ask_long_comment =
      "don't give a long comment",
      IolausNoArgOption [] ["prompt-long-comment"] PromptLongComment
      "prompt for whether to edit the long comment"]
-\end{code}
 
-\begin{options}
---author
-\end{options}
-\label{env:DARCS_EMAIL}
-Several commands need to be able to identify you.  Conventionally, you
-provide an email address for this purpose, which can include comments,
-e.g.\ \verb!David Roundy <droundy@abridgegame.org>!.  The easiest way to do
-this is
-to define an environment variable \verb!EMAIL! or \verb!DARCS_EMAIL! (with
-the latter overriding the former).  You can also override this using the
-\verb!--author! flag to any command.  Alternatively, you could set your
-email address on a per-repository basis using the ``defaults'' mechanism
-for ``ALL'' commands, as described in Appendix~\ref{repository_format}.
-Or, you could specify the author on a per-repository basis using the
-\verb!.arcs-prefs/author! file as described in section~\ref{author_prefs}.
-
-Also, a global author file can be created in your home directory with the name
-\verb!.iolaus/author!.  This file overrides the
-contents of the environment variables, but a repository-specific author
-file overrides the global author file.
-
-\begin{code}
 logfile = IolausAbsPathOption [] ["logfile"] LogFile "FILE"
           "give patch name and comment in file"
 
 rmlogfile = IolausNoArgOption [] ["delete-logfile"] RmLogFile
             "delete the logfile when done"
 
-author = IolausArgOption ['A'] ["author"] Author "EMAIL" "specify author id"
-from_opt = IolausArgOption [] ["from"] Author "EMAIL" "specify email address"
-
-\end{code}
-
-\begin{options}
---dont-compress, --compress
-\end{options}
-By default, iolaus commands that write patches to disk will compress the
-patch files.  If you don't want this, you can choose the
-\verb!--dont-compress! option, which causes iolaus not to compress the patch
-file.
-
-\begin{code}
-nocompress = concat_options [__compress, __dont_compress]
-uncompress_nocompress = concat_options [__compress, __dont_compress, __uncompress]
-
-__compress, __dont_compress, __uncompress :: IolausOption
-__compress = IolausNoArgOption [] ["compress"] Compress
-            "create compressed patches"
-__dont_compress = IolausNoArgOption [] ["dont-compress"] NoCompress
-                  "don't create compressed patches"
-__uncompress = IolausNoArgOption [] ["uncompress"] UnCompress
-               "uncompress patches"
-
 summary = IolausMultipleChoiceOption
           [IolausNoArgOption ['s'] ["summary"] Summary "summarize changes",
            IolausNoArgOption [] ["no-summary"] NoSummary "don't summarize changes"]
-unified = IolausNoArgOption ['u'] ["unified"] Unified
-          "output patch in a iolaus-specific format similar to diff -u"
-unidiff = IolausNoArgOption ['u'] ["unified"] Unified
-          "pass -u option to diff"
-diff_cmd_flag = IolausArgOption [] ["diff-command"]
-       DiffCmd "COMMAND" "specify diff command (ignores --diff-opts)"
-
-target = IolausArgOption [] ["to"] Target "EMAIL" "specify destination email"
-cc = IolausArgOption [] ["cc"] Cc "EMAIL" "mail results to additional EMAIL(s). Requires --reply"
-
--- |'get_cc' takes a list of flags and returns the addresses to send a copy of
--- the patch bundle to when using @iolaus send@.
--- looks for a cc address specified by @Cc \"address\"@ in that list of flags.
--- Returns the addresses as a comma separated string.
-get_cc :: [Flag] -> String
-get_cc fs = lt $ catMaybes $ map whatcc fs
-            where whatcc (Cc t) = Just t
-                  whatcc _ = Nothing
-                  lt [t] = t
-                  lt [t,""] = t
-                  lt (t:ts) = t++" , "++lt ts
-                  lt [] = ""
-
-subject = IolausArgOption [] ["subject"] Subject "SUBJECT"
-          "specify mail subject"
-
--- |'get_subject' takes a list of flags and returns the subject of the mail
--- to be sent by @iolaus send@. Looks for a subject specified by
--- @Subject \"subject\"@ in that list of flags, if any.
--- This flag is present if iolaus was invoked with @--subject=SUBJECT@
-get_subject :: [Flag] -> Maybe String
-get_subject (Subject s:_) = Just s
-get_subject (_:fs) = get_subject fs
-get_subject [] = Nothing
-
-in_reply_to = IolausArgOption [] ["in-reply-to"] InReplyTo "EMAIL"
-              "specify in-reply-to header"
-get_in_reply_to :: [Flag] -> Maybe String
-get_in_reply_to (InReplyTo s:_) = Just s
-get_in_reply_to (_:fs) = get_in_reply_to fs
-get_in_reply_to [] = Nothing
 
 output = IolausAbsPathOrStdOption ['o'] ["output"] Output "FILE"
          "specify output filename"
@@ -785,24 +634,16 @@ edit_description =
      IolausNoArgOption [] ["dont-edit-description"] NoEditDescription
                       "don't edit the patch bundle description"]
 
-distname_option = IolausArgOption ['d'] ["dist-name"] DistName "DISTNAME"
-                  "name of version"
-
 recursive h
     = IolausMultipleChoiceOption
       [IolausNoArgOption ['r'] ["recursive"] Recursive h,
        IolausNoArgOption [] ["not-recursive"] NoRecursive ("don't "++h)]
-
-xmloutput = IolausNoArgOption [] ["xml-output"] XMLOutput
-        "generate XML formatted output"
 
 sign = IolausMultipleChoiceOption
        [IolausNoArgOption [] ["sign"] Sign
         "sign the patch with your gpg key",
         IolausArgOption [] ["sign-as"] SignAs "KEYID"
         "sign the patch with a given keyid",
-        IolausArgOption [] ["sign-ssl"] SignSSL "IDFILE"
-        "sign the patch using openssl with a given private key",
         IolausNoArgOption [] ["dont-sign"] NoSign
         "don't sign the patch"]
 
@@ -820,21 +661,9 @@ verify = IolausMultipleChoiceOption
           IolausNoArgOption [] ["no-verify"] NonVerify
           "don't verify patch signature"]
 
+reponame :: IolausOption
 reponame = IolausArgOption [] ["repo-name"] WorkDir "DIRECTORY"
            "path of output directory"
-tokens = IolausArgOption [] ["token-chars"] Toks "\"[CHARS]\""
-         "define token to contain these characters"
-
-lazy :: IolausOption
-lazy = concat_options [__lazy, __ephemeral, __complete]
-
-__lazy, __ephemeral, __complete :: IolausOption
-__lazy = IolausNoArgOption [] ["lazy"] Lazy
-              "get patch files only as needed"
-__ephemeral = IolausNoArgOption [] ["ephemeral"] Ephemeral
-              "don't save patch files in the repository"
-__complete = IolausNoArgOption [] ["complete"] Complete
-             "get a complete copy of the repository"
 
 commitApproach :: IolausOption
 commitApproach = IolausMultipleChoiceOption 
@@ -866,7 +695,6 @@ mergeStrategy = IolausMultipleChoiceOption
                  IolausNoArgOption [] ["first-parent-merge"] FirstParentMerge
                  "use silly first-parent merge"]
 
-reply = IolausArgOption [] ["reply"] Reply "FROM" "reply to email-based patch using FROM address"
 apply_conflict_options
     = IolausMultipleChoiceOption
       [IolausNoArgOption [] ["mark-conflicts"]
@@ -885,8 +713,6 @@ pull_conflict_options
        AllowConflicts "allow conflicts, but don't mark them",
        IolausNoArgOption [] ["dont-allow-conflicts"]
        NoAllowConflicts "fail on patches that create conflicts"]
-use_external_merge = IolausArgOption [] ["external-merge"]
-                     ExternalMerge "COMMAND" "use external tool to merge conflicts"
 \end{code}
 
 \begin{options}
@@ -916,17 +742,6 @@ The \verb!--summary! option shows a summary of the patches that would have been
 pulled/pushed/whatever.
 
 \begin{code}
-noskip_boring = IolausNoArgOption [] ["boring"]
-                Boring "don't skip boring files"
-allow_problematic_filenames = IolausMultipleChoiceOption
-                [IolausNoArgOption [] ["case-ok"] AllowCaseOnly
-                 "don't refuse to add files differing only in case"
-                ,IolausNoArgOption [] ["reserved-ok"] AllowWindowsReserved
-                 "don't refuse to add files with Windows-reserved names"
-                ]
-diffflags = IolausArgOption [] ["diff-opts"]
-            DiffFlags "OPTIONS" "options to pass to diff"
-
 commit_format :: [IolausOption]
 commit_format =
     [IolausMultipleChoiceOption
@@ -943,9 +758,7 @@ commit_format =
 
 changes_format :: [IolausOption]
 changes_format =
-    [IolausMultipleChoiceOption
-     [IolausNoArgOption [] ["number"] NumberPatches "number the changes",
-      IolausNoArgOption [] ["count"] Count "output count of changes"],
+    [IolausNoArgOption [] ["count"] Count "output count of changes",
      IolausNoArgOption [] ["reverse"] Reverse "show changes in reverse order",
      IolausNoArgOption [] ["graph"] Graph "show changes with nice graph",
      IolausMultipleChoiceOption
@@ -986,42 +799,6 @@ flagsToSiblings :: [Flag] -> [AbsolutePath]
 flagsToSiblings ((Sibling s) : l) = s : (flagsToSiblings l)
 flagsToSiblings (_ : l) = flagsToSiblings l
 flagsToSiblings [] = []
-
-nolinks :: IolausOption
-nolinks = IolausNoArgOption [] ["nolinks"] NoLinks
-          "do not link repository or pristine to sibling"
-
-reorder_patches :: IolausOption
-reorder_patches = IolausNoArgOption [] ["reorder-patches"] Reorder
-                  "reorder the patches in the repository"
-\end{code}
-\begin{options}
---sendmail-command
-\end{options}
-
-\label{env:SENDMAIL}
-
-Several commands send email. The user can determine which mta to
-use with the \verb!--sendmail-command! switch. For repetitive usage
-of a specific sendmail command it is also possible to set the
-environment variable \verb!SENDMAIL!. If there is no command line
-switch given \verb!SENDMAIL! will be used if present.
-
-\begin{code}
-sendmail_cmd = IolausArgOption [] ["sendmail-command"] SendmailCmd "COMMAND" "specify sendmail command"
-
--- |'get_sendmail_cmd' takes a list of flags and returns the sendmail command
--- to be used by @iolaus send@. Looks for a command specified by
--- @SendmailCmd \"command\"@ in that list of flags, if any.
--- This flag is present if iolaus was invoked with @--sendmail-command=COMMAND@
--- Alternatively the user can set @$SENDMAIL@ which will be used as a fallback if present.
-get_sendmail_cmd :: [Flag] -> IO String 
-get_sendmail_cmd (SendmailCmd a:_) = return a
-get_sendmail_cmd (_:flags) = get_sendmail_cmd flags
-get_sendmail_cmd [] = do easy_sendmail <- firstJustIO [ maybeGetEnv "SENDMAIL" ]
-                         case easy_sendmail of
-                            Just a -> return a
-                            Nothing -> return ""
 
 files :: IolausOption
 files = IolausMultipleChoiceOption

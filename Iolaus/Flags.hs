@@ -15,8 +15,7 @@
 -- the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 -- Boston, MA 02110-1301, USA.
 
-module Iolaus.Flags ( Flag( .. ), Compression( .. ), compression,
-                    want_external_merge, isInteractive ) where
+module Iolaus.Flags ( Flag( .. ), isInteractive ) where
 import Iolaus.RepoPath ( AbsolutePath, AbsolutePathOrStd )
 
 -- | The 'Flag' type is a list of all flags that can ever be
@@ -25,67 +24,44 @@ data Flag = Help | ListOptions | NoTest | Test | Build | TestParents
           | NoCauterizeAllHeads | CauterizeAllHeads | CommutePast Int
           | DeltaDebugWorkingSubset | RecordFor String
           | NoTagOnTest | TagOnTest | Nice | NotNice
-               | HelpOnMatch | OnlyChangesToFiles
-               | LeaveTestDir | NoLeaveTestDir
-               | Timings | Debug | DebugVerbose
-               | Verbose | NormalVerbosity | Quiet
-               | Target String | Cc String
-               | Output AbsolutePathOrStd | OutputAutoName AbsolutePath
-               | Subject String | InReplyTo String
-               | SendmailCmd String | Author String | PatchName String
-               | OnePatch String | SeveralPatch String
-               | AfterPatch String | UpToPatch String
-               | TagName String | LastN Int | PatchIndexRange Int Int
-               | NumberPatches | MaxC Int
-               | OneTag String | AfterTag String | UpToTag String
-               | Count
-               | LogFile AbsolutePath | RmLogFile
-               | DistName String | All
-               | Recursive | NoRecursive | Reorder
-               | RestrictPaths | DontRestrictPaths
-               | LookForAdds | NoLookForAdds | AnyOrder
-               | Intersection | Union | Complement
-               | Sign | SignAs String | NoSign | SignSSL String
-               | Verify AbsolutePath
-               | EditDescription | NoEditDescription
-               | Toks String
-               | EditLongComment | NoEditLongComment | PromptLongComment
-               | AllowConflicts | MarkConflicts | NoAllowConflicts
-               | Boring | AllowCaseOnly | AllowWindowsReserved
-               | Compress | NoCompress | UnCompress
-               | NativeMerge | IolausMerge | IolausSloppyMerge
-               | FirstParentMerge
-               | WorkDir String | RepoDir String | RemoteRepo String
-               | Reply String | ApplyAs String
-               | Interactive
-               | DiffCmd String
-               | ExternalMerge String | Summary | NoSummary
-               | ShowMerges | HideMerges
-               | ShowParents | ShowHash | NoShowHash | ShowTested | HideTested
-               | Unified | Reverse | Graph
-               | Complete | Lazy | Ephemeral
-               | FixFilePath AbsolutePath AbsolutePath | DiffFlags String
-               | XMLOutput
-               | NonApply | NonVerify
-               | DryRun | ConfigDefault | GlobalConfig | SystemConfig
-               | Disable
-               | Sibling AbsolutePath | Relink | NoLinks
-               | Files | NoFiles | Directories | NoDirectories
-               | UMask String
-               | StoreInMemory
-               | AllowUnrelatedRepos
-               | NullFlag
-                 deriving ( Eq, Show )
-
-data Compression = NoCompression | GzipCompression
-compression :: [Flag] -> Compression
-compression f | NoCompress `elem` f = NoCompression
-              | otherwise = GzipCompression
-
-want_external_merge :: [Flag] -> Maybe String
-want_external_merge [] = Nothing
-want_external_merge (ExternalMerge c:_) = Just c
-want_external_merge (_:fs) = want_external_merge fs
+          | HelpOnMatch | OnlyChangesToFiles
+          | LeaveTestDir | NoLeaveTestDir
+          | Timings | Debug | DebugVerbose
+          | Verbose | NormalVerbosity | Quiet
+          | Output AbsolutePathOrStd | OutputAutoName AbsolutePath
+          | Author String | PatchName String
+          | OnePatch String | SeveralPatch String
+          | AfterPatch String | UpToPatch String
+          | TagName String | LastN Int | PatchIndexRange Int Int
+          | MaxC Int | Count
+          | OneTag String | AfterTag String | UpToTag String
+          | LogFile AbsolutePath | RmLogFile | All
+          | Recursive | NoRecursive
+          | LookForAdds | NoLookForAdds | AnyOrder
+          | Intersection | Union | Complement
+          | Sign | SignAs String | NoSign | SignSSL String
+          | Verify AbsolutePath
+          | EditDescription | NoEditDescription
+          | EditLongComment | NoEditLongComment | PromptLongComment
+          | AllowConflicts | MarkConflicts | NoAllowConflicts
+          | NativeMerge | IolausMerge | IolausSloppyMerge
+          | FirstParentMerge
+          | WorkDir String | RepoDir String | RemoteRepo String
+          | Interactive
+          | Summary | NoSummary
+          | ShowMerges | HideMerges
+          | ShowParents | ShowHash | NoShowHash | ShowTested | HideTested
+          | Unified | Reverse | Graph
+          | FixFilePath AbsolutePath AbsolutePath
+          | NonVerify
+          | DryRun | ConfigDefault | GlobalConfig | SystemConfig
+          | Disable
+          | Sibling AbsolutePath | Relink | NoLinks
+          | Files | NoFiles | Directories | NoDirectories
+          | UMask String
+          | AllowUnrelatedRepos
+          | NullFlag
+            deriving ( Eq, Show )
 
 isInteractive :: [Flag] -> Bool
 isInteractive = isInteractive_ True
