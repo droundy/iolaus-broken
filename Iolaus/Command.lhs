@@ -35,8 +35,7 @@ import System.Console.GetOpt( OptDescr, usageInfo )
 import Data.List ( sort, isPrefixOf )
 
 import Iolaus.Arguments ( Flag, IolausOption, disable, help,
-                         any_verbosity, posthook_cmd,
-                         prehook_cmd, option_from_iolausoption )
+                          any_verbosity, option_from_iolausoption )
 import Iolaus.RepoPath ( AbsolutePath, rootDirectory )
 \end{code}
 
@@ -147,9 +146,7 @@ basic_options _ = []
 command_alloptions :: Command -> ([IolausOption], [IolausOption])
 command_alloptions Command { command_basic_options = opts1
                                 , command_advanced_options = opts2 }
-    = (opts1 ++ [disable, help],
-       any_verbosity ++ opts2 ++
-                [posthook_cmd,prehook_cmd])
+    = (opts1 ++ [disable, help], any_verbosity ++ opts2)
 
 --  Supercommands cannot be disabled.
 command_alloptions SuperCommand { } = ([help],[])

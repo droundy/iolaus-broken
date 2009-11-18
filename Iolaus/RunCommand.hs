@@ -23,7 +23,6 @@ import Data.Maybe ( catMaybes )
 import System.Console.GetOpt( ArgOrder( Permute, RequireOrder ),
                               OptDescr( Option ),
                               getOpt )
-import System.Exit ( ExitCode ( ExitSuccess ), exitWith )
 
 import Iolaus.Arguments ( Flag(..), help, flagToString,
                           option_from_iolausoption, pull_apart_option,
@@ -44,7 +43,6 @@ import Iolaus.Help ( command_control_list )
 import Iolaus.Global ( setDebugMode, setTimingsMode, setVerboseMode )
 import Iolaus.Global ( debugMessage )
 import Iolaus.RepoPath ( getCurrentDirectory )
-import Iolaus.Hooks ( run_posthook, run_prehook )
 
 import Git.Helpers ( configDefaults )
 
@@ -162,14 +160,8 @@ consider_running msuper cmd opts old_extra = do
                                        maybe [] ((:[]) . command_name) msuper++
                                        command_name cmd:
                                        catMaybes (map (flagToString allopts) os)++ex)
-               -- actually run the command and its hooks
-               preHookExitCode <- run_prehook os here
-               if preHookExitCode /= ExitSuccess
-                  then exitWith preHookExitCode
-                  else do let fixFlag = FixFilePath here cwd
-                          (command_command cmd) (fixFlag : os) ex
-                          postHookExitCode <- run_posthook os here
-                          exitWith postHookExitCode
+               let fixFlag = FixFilePath here cwd
+               (command_command cmd) (fixFlag : os) ex
 
 add_command_defaults :: Command -> [Flag] -> IO [Flag]
 add_command_defaults cmd already = do
