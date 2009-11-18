@@ -36,3 +36,31 @@
   ensuring that every patch is looked at by at least one developer.
   This could work in tandem with the --intersection scheme to allow a
   truly distributed approach to code review.
+
+- Remove multiple merge approach feature---it looks pretty pointless
+  at this stage.
+
+- Create framework in which TODO items could be associated with bugs
+  and test scripts, to encourage creation of test scripts when adding
+  TODO items.
+
+- Consider adding a yaml patch type and diff.  This could be useful
+  for avoiding conflicts in the above TODO list idea.  Possibly we
+  could work at the intersection of markdown and yaml.  e.g. the
+  existing TODO.md file is a markdown file that is also (almost?) a
+  valid yaml file.  It might be useful to support precisely this
+  intersection.  I'm not sure how many different sorts of characters
+  would require quoting in order to make a list markdown file also
+  parse as a list yaml file, but it might be pretty cool.  It also
+  might be something that we could easily recognize in the diff
+  process and automatically treat differently.  Currently the only way
+  to truly be safe from spurious dependencies in things like TODO
+  items and bugs is to make each item a separate file, which is pretty
+  silly.  For a few things it makes sense (probably for test scripts),
+  but for most others, it's much nicer to be able to work with a
+  single file.
+
+- Add a test that checks whether every flag is mentioned somewhere in
+  the test suite with a simple grep.  Could use `iolaus all
+  --list-options` to get the list of all flags.  Could also check that
+  every command is mentioned somewhere.
