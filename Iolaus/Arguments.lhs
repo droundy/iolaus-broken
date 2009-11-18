@@ -472,6 +472,7 @@ remote_repo = IolausArgOption [] ["remote-repo"] RemoteRepo "URL"
 \input{Iolaus/PatchMatch.lhs}
 
 \begin{code}
+author :: IolausOption
 author = IolausArgOption ['A'] ["author"] Author "EMAIL" "specify author id"
 
 patchname_option = IolausArgOption ['m'] ["patch-name"] PatchName "PATCHNAME"
