@@ -24,7 +24,7 @@ import System.Console.GetOpt( ArgOrder( Permute, RequireOrder ),
                               OptDescr( Option ),
                               getOpt )
 
-import Iolaus.Arguments ( Flag(..), help, flagToString,
+import Iolaus.Arguments ( Flag(..), help, flagToString, disable,
                           option_from_iolausoption, pull_apart_option,
                           list_options, config_defaults )
 import Iolaus.ArgumentDefaults ( add_default_flags )
@@ -119,7 +119,8 @@ run_command msuper cmd args = do
     (_,_,ermsgs) -> fail $ unlines ermsgs
     where addVerboseIfDebug opts | DebugVerbose `elem` opts = Debug:Verbose:opts
                                  | otherwise = opts
-          iopts = command_basic_options cmd ++ command_advanced_options cmd
+          iopts = disable : command_basic_options cmd ++
+                  command_advanced_options cmd
 
 consider_running :: Maybe Command -> Command
                  -> [Flag] -> [String] -> IO ()
