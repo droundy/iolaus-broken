@@ -21,7 +21,7 @@
 module Iolaus.Commands.Changes ( changes ) where
 
 import Iolaus.Command ( Command(..), nodefaults )
-import Iolaus.Arguments ( Flag(MaxC, Reverse, Graph), changes_format,
+import Iolaus.Arguments ( Flag(MaxC, Reverse, Graph, Count), changes_format,
                           commit_format, max_count,
                           possibly_remote_repo_dir, working_repo_dir,
                           only_to_files,
@@ -66,7 +66,9 @@ changes_cmd :: [Flag] -> [String] -> IO ()
 changes_cmd opts _ | Graph `elem` opts = heads >>= putGraph opts (const True)
 changes_cmd opts _ =
     do cs <- revListHeadsHashes flags
-       mapM_ (showC `unseal`) $ filt cs
+       if Count `elem` opts
+          then putStrLn $ show $ length $ filt cs
+          else mapM_ (showC `unseal`) $ filt cs
     where flags = [MaxCount n | MaxC n <- opts]++[TopoOrder]
           showC c = do showCommit opts c >>= putDocLn
                        putStrLn ""

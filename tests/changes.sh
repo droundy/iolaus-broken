@@ -13,6 +13,12 @@ iolaus record -am datefoo
 echo bye there > foo
 iolaus record -am bye
 
+# check that changes --count works properly
+iolaus changes --count > num
+cat num
+echo 4 | diff -u num -
+rm num
+
 iolaus changes > ch
 cat ch
 grep bye ch
