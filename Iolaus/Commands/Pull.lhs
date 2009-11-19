@@ -25,7 +25,7 @@ import Iolaus.Command ( Command(..) )
 import Iolaus.Arguments
     ( Flag(All), pull_conflict_options, all_interactive, repo_combinator,
       match_several_or_first, dryrun,
-      notest, testByDefault, mergeStrategy, working_repo_dir, remote_repo )
+      notest, testByDefault, working_repo_dir, remote_repo )
 import Iolaus.Patch ( apply, merge, mergeNamed, infopatch, patchcontents,
                       invert )
 import Iolaus.Ordered ( (:/\:)(..), (:\/:)(..), (+>+), mapFL_FL )
@@ -65,8 +65,7 @@ pull = Command {command_name = "pull",
                 command_prereq = amInRepository,
                 command_get_arg_possibilities = listRemotes,
                 command_argdefaults = deforigin,
-                command_advanced_options = [repo_combinator,
-                                            mergeStrategy,remote_repo],
+                command_advanced_options = [repo_combinator, remote_repo],
                 command_basic_options = [all_interactive,
                                          pull_conflict_options,
                                          match_several_or_first]++

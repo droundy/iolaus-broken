@@ -13,12 +13,11 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag, emptyCommit,
                       lsfiles, lssomefiles, lsothers,
                       revList, revListHashes, RevListOption(..), nameRevs,
                       updateindex, updateIndexForceRemove, updateIndexCacheInfo,
-                      writetree, mkTree, readTree, readTreeMerge, checkoutIndex,
+                      writetree, mkTree, readTree, checkoutIndex,
                       updateref,
                       diffFiles, diffTrees, diffTreeCommit, DiffOption(..),
                       gitApply,
-                      mergeBase, mergeIndex,
-                      mergeFile, unpackFile,
+                      unpackFile,
                       getColor, getColorWithDefault,
                       getAllConfig, getConfig, setConfig, unsetConfig,
                       ConfigOption(..),
@@ -77,54 +76,6 @@ readTree t i =
        case ec of
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git read-tree failed"
-
-mergeBase :: Hash Commit C(x) -> Hash Commit C(y) -> IO (Sealed (Hash Commit))
-mergeBase a b =
-    do debugMessage "calling git merge-base"
-       (Nothing, Just stdout, Nothing, pid) <-
-           createProcess (proc "git" ["merge-base", show a, show b])
-                             { std_out = CreatePipe }
-       out <- hGetContents stdout
-       ec <- length out `seq` waitForProcess pid
-       case ec of
-         ExitSuccess -> return $ mkSHash Commit out
-         ExitFailure _ -> fail "git merge-base failed"
-
-mergeIndex :: String -> IO (Sealed (Hash Tree))
-mergeIndex i =
-    do debugMessage ("calling git merge-index")
-       (Nothing, Nothing, Nothing, pid) <-
-           createProcess (proc "git" ["merge-index", "git-imof", "-a"])
-                         { env = Just [("GIT_INDEX_FILE",".git/"++i)] }
-       ec <- waitForProcess pid
-       case ec of
-         ExitSuccess -> return ()
-         ExitFailure _ -> fail "git merge-index failed"
-       debugMessage "calling git write-tree"
-       (Nothing, Just stdout, Nothing, pid2) <-
-           createProcess (proc "git" ["write-tree"])
-                             { std_out = CreatePipe,
-                               env = Just [("GIT_INDEX_FILE",".git/"++i)] }
-       out <- hGetContents stdout
-       ec2 <- length out `seq` waitForProcess pid2
-       case ec2 of
-         ExitSuccess -> return $ mkSHash Tree out
-         ExitFailure _ -> fail "git write-tree failed in mergeIndex"
-
-readTreeMerge :: Hash Tree C(x) -> Hash Tree C(y) -> Hash Tree C(z)
-              -> String -> IO ()
-readTreeMerge o a b i =
-    do removeFileMayNotExist (".git/"++i)
-       let args = ["--index-output=.git/"++i, "-m","-i",
-                   show o, show a, show b]
-       debugMessage ("calling git read-tree "++unwords args)
-       (Nothing, Nothing, Nothing, pid) <-
-           createProcess (proc "git" ("read-tree":args))
-                         { env = Just [("GIT_INDEX_FILE",".git/"++i)] }
-       ec2 <- waitForProcess pid
-       case ec2 of
-         ExitSuccess -> return ()
-         ExitFailure _ -> fail "git read-tree -m failed"
 
 checkoutIndex :: FilePath -> FilePath -> IO ()
 checkoutIndex i pfx =
@@ -264,20 +215,6 @@ updateIndexCacheInfo mode sha fp =
        case ec of
          ExitSuccess -> return ()
          ExitFailure _ -> fail "git update-index failed"
-
-mergeFile :: FilePath -> FilePath -> FilePath -> IO (Hash Blob C(x))
-mergeFile s1 a s2 =
-    do debugMessage "calling git merge-file"
-       (Nothing, Just stdout, Nothing, pid) <-
-           createProcess (proc "git" ["merge-file","-L","mine","-L","ancestor",
-                                                 "-L","yours","--stdout",
-                                                 s1,a,s2])
-                             { std_out = CreatePipe }
-       out <- hGetContents stdout
-       ec <- length out `seq` waitForProcess pid
-       case ec of
-         ExitFailure e | e < 0 -> fail "git merge-file failed"
-         _ -> hashObject (`hPutStr` out)
 
 unpackFile :: Hash Blob C(x) -> IO FilePath
 unpackFile sha =

@@ -44,8 +44,6 @@ data Flag = Help | ListOptions | NoTest | Test | Build | TestParents
           | EditDescription | NoEditDescription
           | EditLongComment | NoEditLongComment | PromptLongComment
           | AllowConflicts | MarkConflicts | NoAllowConflicts
-          | NativeMerge | IolausMerge | IolausSloppyMerge
-          | FirstParentMerge
           | WorkDir String | RepoDir String | RemoteRepo String
           | Interactive
           | Summary | NoSummary

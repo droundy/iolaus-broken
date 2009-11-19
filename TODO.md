@@ -37,9 +37,6 @@
   This could work in tandem with the --intersection scheme to allow a
   truly distributed approach to code review.
 
-- Remove multiple merge approach feature---it looks pretty pointless
-  at this stage.
-
 - Create framework in which TODO items could be associated with bugs
   and test scripts, to encourage creation of test scripts when adding
   TODO items.

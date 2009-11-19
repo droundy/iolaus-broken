@@ -22,7 +22,7 @@
 #include "gadts.h"
 
 module Iolaus.Arguments
-    ( Flag( .. ), flagToString, isin, arein, mergeStrategy, commitApproach,
+    ( Flag( .. ), flagToString, isin, arein, commitApproach,
       recordDeltaDebug, fixSubPaths, areFileArgs, author,
       dryrun, IolausOption( .. ), option_from_iolausoption, help,
       list_options, pull_apart_option, max_count, help_on_match,
@@ -139,10 +139,6 @@ getContent PromptLongComment = NoContent
 getContent AllowConflicts = NoContent
 getContent MarkConflicts = NoContent
 getContent NoAllowConflicts = NoContent
-getContent NativeMerge = NoContent
-getContent IolausMerge = NoContent
-getContent IolausSloppyMerge = NoContent
-getContent FirstParentMerge = NoContent
 getContent Interactive = NoContent
 getContent Summary = NoContent
 getContent NoSummary = NoContent
@@ -684,17 +680,6 @@ recordDeltaDebug :: [IolausOption]
 recordDeltaDebug =
     [IolausNoArgOption [] ["delta-debug"] DeltaDebugWorkingSubset
      "use delta debugging to avoid recording bugs"]
-
-mergeStrategy :: IolausOption
-mergeStrategy = IolausMultipleChoiceOption 
-                [IolausNoArgOption [] ["git-merge"] NativeMerge
-                 "use git's builtin merge",
-                 IolausNoArgOption [] ["iolaus-merge"] IolausMerge
-                 "use iolaus builtin merge [default]",
-                 IolausNoArgOption [] ["sloppy-merge"] IolausSloppyMerge
-                 "use iolaus sloppy merge",
-                 IolausNoArgOption [] ["first-parent-merge"] FirstParentMerge
-                 "use silly first-parent merge"]
 
 apply_conflict_options
     = IolausMultipleChoiceOption

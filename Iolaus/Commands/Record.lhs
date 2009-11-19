@@ -34,7 +34,7 @@ import Iolaus.Arguments ( Flag( PromptLongComment, NoEditLongComment,
                                 Quiet, EditLongComment, RmLogFile,
                                 LogFile, PatchName, All,
                                 DeltaDebugWorkingSubset ),
-                        working_repo_dir, mergeStrategy, commitApproach,
+                        working_repo_dir, commitApproach,
                         fixSubPaths, testByDefault,
                         ask_long_comment, recordDeltaDebug,
                         all_interactive, notest,
@@ -70,8 +70,7 @@ record = Command {command_name = "record",
                        command_advanced_options = [logfile, rmlogfile],
                        command_basic_options = [patchname_option, author]++
                                                notest++recordDeltaDebug++
-                                               [mergeStrategy, commitApproach,
-                                                all_interactive,
+                                               [commitApproach, all_interactive,
                                                 ask_long_comment,
                                                 working_repo_dir]}
 
