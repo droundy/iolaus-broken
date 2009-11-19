@@ -28,7 +28,7 @@ import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
 import qualified Data.Map as M ( Map, insert, empty, lookup )
 import Data.ByteString as B ( hPutStr )
 
-import Git.Dag ( mergeBases, makeDag, Dag(..), greatGrandFather, parents,
+import Git.Dag ( chokePoints, makeDag, Dag(..), greatGrandFather, parents,
                  cauterizeHeads, isAncestorOf )
 import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       uname, committer, remoteHeads,
@@ -320,8 +320,8 @@ mergeCommitsX :: [Sealed (Hash Commit)] -> IO (Sealed (Hash Tree))
 mergeCommitsX [] = Sealed `fmap` writeSlurpTree empty_slurpy
 mergeCommitsX [Sealed h] = Sealed `fmap` catCommitTree h
 mergeCommitsX xs =
-    case mergeBases xs of
-      [] -> do debugMessage $ "mergeCommitsX didn't find any mergeBases for "
+    case chokePoints xs of
+      [] -> do debugMessage $ "mergeCommitsX didn't find any chokePoints for "
                             ++ unwords (map show xs)
                ts <- mapM (mapSealM catCommitTree) xs
                sls <- mapM (mapSealM slurpTree) ts

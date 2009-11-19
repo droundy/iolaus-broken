@@ -1,13 +1,13 @@
 {-# LANGUAGE CPP, GADTs #-}
 #include "gadts.h"
 
-module Git.Dag ( parents, ancestors, allAncestors, isAncestorOf, notIn,
-                 mergeBases, cauterizeHeads, dag2commit,
+module Git.Dag ( parents, isAncestorOf, notIn,
+                 chokePoints, cauterizeHeads, dag2commit,
                  makeDag, Dag(..), greatGrandFather,
                  Bisection(..), bisect, bisectionPlan ) where
 
 import Data.Maybe ( catMaybes )
-import Data.List ( sort, partition, nub )
+import Data.List ( sort, partition )
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
@@ -19,51 +19,80 @@ import Iolaus.Show ( eq1 )
 import Iolaus.Global ( debugMessage )
 import Git.Plumbing ( Hash, Commit, catCommit, CommitEntry(..) )
 
-data CommitLinks = CommitLinks { cancestors :: S.Set (Sealed (Hash Commit)),
-                                 cparents :: [Sealed (Hash Commit)] }
-                 deriving ( Eq )
-instance Ord CommitLinks where
-    compare x y = compare (S.size $ cancestors x) (S.size $ cancestors y)
+data CommitLinks =
+    CommitLinks { cancestors :: Maybe (S.Set (Sealed (Hash Commit))),
+                  cparents :: [Sealed (Hash Commit)] }
+    deriving ( Eq )
 
 {-# NOINLINE genealogy #-}
 genealogy :: IORef (M.Map (Sealed (Hash Commit)) CommitLinks)
 genealogy = unsafePerformIO $ newIORef M.empty
 
 isAncestorOf :: Hash Commit C(x) -> Hash Commit C(y) -> Bool
-a `isAncestorOf` b = Sealed a `S.member` ancestors b
+a `isAncestorOf` b
+    | Sealed a == Sealed b = False
+    | otherwise =
+        case chokePoints [Sealed a,Sealed b] of
+          c:_ -> Sealed a == c || Sealed a `elem` lazyAncestorsTo [Sealed b] c
+          [] -> Sealed a `S.member` ancestors b
+
+iao :: Sealed (Hash Commit) -> Sealed (Hash Commit) -> Bool
+Sealed a `iao` Sealed b = a `isAncestorOf` b
 
 notIn ::  [Sealed (Hash Commit)] ->  [Sealed (Hash Commit)]
       -> [Sealed (Hash Commit)]
 notIn them us = newestFirst $ S.toList justhem
-    where allus = S.unions $ S.fromList us : map (unseal ancestors) us
-          allthem = S.unions $ S.fromList them : map (unseal ancestors) them
+    where (allus,allthem) =
+              case chokePoints (them++us) of
+                c:_ -> (S.fromList $ us++lazyAncestorsTo us c,
+                        S.fromList $ them++lazyAncestorsTo them c)
+                [] ->(S.unions $ S.fromList us : map (unseal ancestors) us,
+                      S.unions $ S.fromList them : map (unseal ancestors) them)
           justhem = S.difference allthem allus
 
-mergeBases :: [Sealed (Hash Commit)] -> [Sealed (Hash Commit)]
-mergeBases [] = []
-mergeBases hs = fmb 0 [] $ filter isok ourancestors
-    where ourancestors = S.toList (S.unions $
-                                   S.fromList hs:map (unseal ancestors) hs)
-          isok x = -- we're a potential merge base if everyone is either
-                   -- our ancestor our our descendent.
-                   x `notElem` hs && all isok' ourancestors
-              where isok' y = y `iao` x || x `iao` y || x == y
-          Sealed a `iao` Sealed b = a `isAncestorOf` b
-          fmb _ sofar [] = sofar
-          fmb na sofar (x:xs) = if nx > na
-                                then fmb nx [x] xs
-                                else if nx == na
-                                     then fmb na (x:sofar) xs
-                                     else fmb na sofar xs
-              where nx = S.size $ unseal ancestors x
+{-# NOINLINE chokes #-}
+chokes :: IORef (M.Map (Sealed (Hash Commit)) (Maybe (Sealed (Hash Commit))))
+chokes = unsafePerformIO $ newIORef M.empty
+
+chokePoints :: [Sealed (Hash Commit)] -> [Sealed (Hash Commit)]
+chokePoints [] = []
+chokePoints [h0] = unsafePerformIO $
+                   do x <- M.lookup h0 `fmap` readIORef chokes
+                      case x of
+                        Just (Just c) -> return $ h0 : chokePoints [c]
+                        Just Nothing -> return [h0]
+                        Nothing -> do let cs = chokePoints (unseal parents h0)
+                                          c = case cs of [] -> Nothing
+                                                         y:_ -> Just y
+                                      modifyIORef chokes $ M.insert h0 c
+                                      return (h0:cs)
+chokePoints hs0 = join_same $ zip (repeat S.empty)
+                                  (map (chokePoints . (:[])) hs0)
+    where join_same :: [(S.Set (Sealed (Hash Commit)), [Sealed (Hash Commit)])]
+                    -> [Sealed (Hash Commit)]
+          join_same [] = []
+          join_same [(_,x)] = x
+          join_same cs | [] `elem` map snd cs = []
+          join_same cs =
+              case filter (\h -> all (h `S.member`) passedby) hs of
+                h:_ -> case filter ((h==) . head) $ map snd cs of
+                         rest':_ -> rest'
+                         [] -> error "bug in chokePoints"
+                [] -> join_same $ zip passedby $ map (tail . snd) cs
+              where hs = map (head . snd) cs
+                    passedby = zipWith S.insert hs (map fst cs)
 
 ancestors :: Hash Commit C(x) -> S.Set (Sealed (Hash Commit))
 ancestors h = unsafePerformIO $ findAncestors $ Sealed h
 
-allAncestors :: [Sealed (Hash Commit)] -> [Sealed (Hash Commit)]
-allAncestors hs = nub (hs ++ concatMap (unseal parents) hs ++
-                       newestFirst (S.toList s))
-    where s = S.unions $ map (unseal ancestors) hs
+lazyAncestorsTo :: [Sealed (Hash Commit)] -> Sealed (Hash Commit)
+                -> [Sealed (Hash Commit)]
+lazyAncestorsTo hs0 downto = la (S.singleton downto) hs0
+    where la _ [] = []
+          la sofar (h:hs) =
+              case filter (not . (`S.member` sofar)) $ unseal parents h of
+                [] -> la (S.insert h sofar) hs
+                ps -> ps ++ la (S.union (S.fromList ps) sofar) (hs++ps)
 
 parents :: Hash Commit C(x) -> [Sealed (Hash Commit)]
 parents h = unsafePerformIO $
@@ -73,20 +102,28 @@ parents h = unsafePerformIO $
          Nothing -> do ms' <- M.lookup (Sealed h) `fmap` readIORef genealogy
                        case ms' of
                          Just s -> return $ cparents s
-                         Nothing -> do debugMessage ("parents "++show h)
-                                       myParents `fmap` catCommit h
+                         Nothing ->
+                             do debugMessage ("parents "++show h)
+                                ps <- myParents `fmap` catCommit h
+                                modifyIORef genealogy $ M.insert (Sealed h) $
+                                  CommitLinks { cancestors = Nothing,
+                                                cparents = ps}
+                                return ps
 
 findAncestors :: Sealed (Hash Commit) -> IO (S.Set (Sealed (Hash Commit)))
-findAncestors h@(Sealed hh) =
+findAncestors h =
     do ms <- M.lookup h `fmap` readIORef genealogy
-       case ms of
-         Just s -> return $ cancestors s
-         Nothing -> do debugMessage ("findAncestors "++show h)
-                       ps <- myParents `fmap` catCommit hh
-                       as <- mapM findAncestors ps
-                       let cl = CommitLinks (S.unions $ S.fromList ps:as) ps
-                       modifyIORef genealogy $ M.insert h cl
-                       return $ cancestors cl
+       case ms >>= cancestors of
+         Just xx -> return xx
+         Nothing ->
+             do debugMessage ("more findAncestors "++show h)
+                let ps = unseal parents h
+                as <- mapM findAncestors ps
+                let a = S.unions $ S.fromList ps:as
+                modifyIORef genealogy $ M.insert h $
+                            CommitLinks { cancestors = Just a,
+                                          cparents = ps }
+                return a
 
 data Dag C(x y) where
     Node :: Hash Commit C(y) -> [Sealed (Dag C(x))] -> Dag C(x y)
@@ -106,7 +143,7 @@ makeDag a me =
       NotEq -> do let mkdag (Sealed h) = do d <- makeDag a h
                                             Just (Sealed d)
                   pdags@(_:_) <- Just $ catMaybes $ map mkdag $ parents me
-                  Just $ Node me pdags 
+                  Just $ Node me pdags
 
 
 greatGrandFather :: Dag C(x y) -> Hash Commit C(x)
@@ -120,11 +157,10 @@ cauterizeHeads = newestFirst . cauterizeHeads0
 cauterizeHeads0 :: [Sealed (Hash Commit)] -> [Sealed (Hash Commit)]
 cauterizeHeads0 [] = []
 cauterizeHeads0 [a] = [a]
-cauterizeHeads0 (Sealed x:xs)
-  | any (unseal (isAncestorOf x)) xs = cauterizeHeads0 xs
-  | Sealed x `elem` xs = cauterizeHeads0 xs
-  | otherwise = Sealed x :
-                cauterizeHeads0 (filter (unseal (not . (`isAncestorOf` x))) xs)
+cauterizeHeads0 (x:xs)
+  | x `elem` xs = cauterizeHeads0 xs
+  | any (x `iao`) xs = cauterizeHeads0 xs
+  | otherwise = x : cauterizeHeads0 (filter (not . (`iao` x)) xs)
 
 data Bisection a = Test a (Bisection a) (Bisection a) | Done a
 

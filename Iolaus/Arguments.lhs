@@ -22,7 +22,7 @@
 #include "gadts.h"
 
 module Iolaus.Arguments
-    ( Flag( .. ), flagToString, isin, arein, commitApproach,
+    ( Flag( .. ), flagToString, isin, arein, commitApproach, modifySafely,
       recordDeltaDebug, fixSubPaths, areFileArgs, author,
       dryrun, IolausOption( .. ), option_from_iolausoption, help,
       list_options, pull_apart_option, max_count, help_on_match,
@@ -642,12 +642,16 @@ commitApproach = IolausMultipleChoiceOption
      IolausArgOption [] ["commute-past"] cp "NUMBER"
      "try commuting past the last NUMBER commits",
      IolausArgOption [] ["record-for"] RecordFor "REPOSITORY"
-     "try not to depend on patches not present in REPOSITORY",
+     "try not to depend on commits not present in REPOSITORY",
      IolausNoArgOption [] ["no-cauterize-all"] NoCauterizeAllHeads
      "commit in minimal context [default]"]
   where cp s = if all isDigit s
                then CommutePast (read s)
                else CommutePast (-1)
+
+modifySafely :: IolausOption
+modifySafely = IolausArgOption [] ["record-for"] RecordFor "REPOSITORY"
+               "refuse to modify commits present in REPOSITORY"
 
 recordDeltaDebug :: [IolausOption]
 recordDeltaDebug =

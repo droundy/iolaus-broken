@@ -19,14 +19,14 @@
 module Iolaus.Commands.Unrecord ( unrecord ) where
 
 import Iolaus.Command ( Command(..), nodefaults )
-import Iolaus.Arguments ( Flag, working_repo_dir,
+import Iolaus.Arguments ( Flag(RecordFor), working_repo_dir, modifySafely,
                           all_interactive, match_several_or_last )
 import Iolaus.Repository ( decapitate )
 import Iolaus.SelectCommits ( select_last_commits )
 
-import Git.Dag ( allAncestors )
+import Git.Dag ( notIn )
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( heads )
+import Git.Plumbing ( heads, remoteHeads )
 
 unrecord_description :: String
 unrecord_description =
@@ -52,14 +52,16 @@ unrecord = Command {command_name = "unrecord",
                          command_get_arg_possibilities = return [],
                          command_argdefaults = nodefaults,
                          command_advanced_options = [],
-                         command_basic_options = [match_several_or_last,
+                         command_basic_options = [modifySafely,
+                                                  match_several_or_last,
                                                   all_interactive,
                                                   working_repo_dir]}
 
 unrecord_cmd :: [Flag] -> [String] -> IO ()
 unrecord_cmd opts _ =
-    do hs <- heads
-       toremove <- select_last_commits "unrecord" opts (allAncestors hs)
+    do rf <- concat `fmap` mapM remoteHeads [c | RecordFor c <- opts]
+       hs0 <- heads
+       toremove <- select_last_commits "unrecord" opts (hs0 `notIn` rf)
        decapitate opts toremove
 \end{code}
 
