@@ -23,8 +23,9 @@ import Data.Maybe ( catMaybes )
 import System.Console.GetOpt( ArgOrder( Permute, RequireOrder ),
                               OptDescr( Option ),
                               getOpt )
+import System.Posix.Env ( setEnv )
 
-import Iolaus.Arguments ( Flag(..), help, flagToString,
+import Iolaus.Arguments ( Flag(..), help, flagToString, disable,
                           option_from_iolausoption, pull_apart_option,
                           list_options, config_defaults )
 import Iolaus.ArgumentDefaults ( add_default_flags )
@@ -119,7 +120,8 @@ run_command msuper cmd args = do
     (_,_,ermsgs) -> fail $ unlines ermsgs
     where addVerboseIfDebug opts | DebugVerbose `elem` opts = Debug:Verbose:opts
                                  | otherwise = opts
-          iopts = command_basic_options cmd ++ command_advanced_options cmd
+          iopts = disable : command_basic_options cmd ++
+                  command_advanced_options cmd
 
 consider_running :: Maybe Command -> Command
                  -> [Flag] -> [String] -> IO ()
@@ -155,6 +157,12 @@ consider_running msuper cmd opts old_extra = do
                when (Timings `elem` os) setTimingsMode
                when (Debug `elem` os) setDebugMode
                when (Verbose `elem` os) setVerboseMode
+               case [a | Author a <- os] of
+                 a:_ -> do setEnv "GIT_AUTHOR_NAME" (takeWhile (/='<') a) True
+                           setEnv "GIT_AUTHOR_EMAIL"
+                              (takeWhile (/='>') $ drop 1 $ dropWhile (/='<') a)
+                              True
+                 [] -> return ()
                let allopts = case command_alloptions cmd of (x,y) -> x++y
                debugMessage $ unwords ("Running":"arcs":
                                        maybe [] ((:[]) . command_name) msuper++

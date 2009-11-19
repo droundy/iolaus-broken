@@ -94,7 +94,7 @@ amend_record_cmd opts args = do
                 xs :> _ <- largestPassingSet t allchs0
                 return $ Sealed xs
         else return $ Sealed allchs0
-    with_selected_changes_to_files "record" opts old (map toFilePath files)
+    with_selected_changes_to_files "add" opts old (map toFilePath files)
                                    allchs $ \ (ch:>_) ->
         do debugMessage "have finished selecting changes..."
            case ch of
