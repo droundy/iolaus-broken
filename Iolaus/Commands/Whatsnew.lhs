@@ -19,8 +19,7 @@
 module Iolaus.Commands.Whatsnew ( whatsnew ) where
 
 import Iolaus.Command ( Command(..), nodefaults )
-import Iolaus.Arguments ( Flag(Summary), mergeStrategy,
-                          working_repo_dir, summary )
+import Iolaus.Arguments ( Flag(Summary), working_repo_dir, summary )
 import Iolaus.Patch ( showContextPatch, summarize )
 import Iolaus.Printer ( putDocLn )
 import Iolaus.Repository ( get_recorded_and_unrecorded, Unrecorded(..) )
@@ -39,8 +38,7 @@ whatsnew = Command {command_name = "whatsnew",
                          command_get_arg_possibilities = lsfiles,
                          command_argdefaults = nodefaults,
                          command_advanced_options = [],
-                         command_basic_options = [summary, mergeStrategy,
-                                                  working_repo_dir]}
+                         command_basic_options = [summary, working_repo_dir]}
 
 whatsnew_cmd :: [Flag] -> [String] -> IO ()
 whatsnew_cmd opts _ =

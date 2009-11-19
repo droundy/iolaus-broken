@@ -18,8 +18,8 @@
 \begin{code}
 module Iolaus.Commands.ShowCommit ( show_commit ) where
 
-import Iolaus.Arguments ( Flag(Summary, Verbose), mergeStrategy,
-                          commit_format, working_repo_dir )
+import Iolaus.Arguments ( Flag(Summary, Verbose), commit_format,
+                          working_repo_dir )
 import Iolaus.Command ( Command(..), nodefaults )
 import Iolaus.Sealed ( Sealed(Sealed) )
 import Iolaus.Printer ( putDocLn )
@@ -46,7 +46,7 @@ show_commit = Command {
   command_get_arg_possibilities = nameRevs,
   command_argdefaults = nodefaults,
   command_advanced_options = [],
-  command_basic_options = [mergeStrategy]++commit_format++[working_repo_dir] }
+  command_basic_options = commit_format++[working_repo_dir] }
 
 commit_cmd :: [Flag] -> [String] -> IO ()
 commit_cmd opts0 cs = mapM_ showc cs

@@ -26,10 +26,8 @@ import Data.List ( sort )
 
 import Iolaus.English (englishNum, This(..), Noun(..))
 import Iolaus.Command ( Command(..), nodefaults )
-import Iolaus.Arguments ( Flag( All ),
-                          working_repo_dir, mergeStrategy,
-                        all_interactive,
-                        fixSubPaths, areFileArgs )
+import Iolaus.Arguments ( Flag( All ), working_repo_dir, all_interactive,
+                          fixSubPaths, areFileArgs )
 import Iolaus.Utils ( askUser )
 import Iolaus.RepoPath ( toFilePath )
 import Iolaus.Patch ( Prim, invert, apply, apply_to_slurpy )
@@ -67,7 +65,7 @@ revert = Command {command_name = "revert",
                        command_get_arg_possibilities = lsfiles,
                        command_argdefaults = nodefaults,
                        command_advanced_options = [],
-                       command_basic_options = [mergeStrategy,all_interactive,
+                       command_basic_options = [all_interactive,
                                                 working_repo_dir]}
 
 revert_cmd :: [Flag] -> [String] -> IO ()

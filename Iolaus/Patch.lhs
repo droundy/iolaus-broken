@@ -19,27 +19,25 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Iolaus.Patch ( Prim, Named, Patchy, Apply, apply,
                       rmfile, addfile, chmod, rmdir, adddir, move,
-                      chunkify, binary, chunk, description,
-                      showContextPatch, showPatch, showNicely,
-                      infopatch, thing, things, is_addfile,
+                      chunkify, binary, chunk,
+                      showContextPatch, infopatch, thing, things, is_addfile,
                       Effect, effect, writePatch, is_adddir,
                       Invert, invert, invertFL, invertRL, identity,
                       Commute, commute, merge, list_touched_files, commuteFL,
                       commuteRL, canonize, sort_coalesceFL, try_to_shrink,
                       try_shrinking_inverse, apply_to_slurpy, patchcontents,
-                      patch2patchinfo, summary, summarize, mergeFL, mergeNamed,
+                      patch2patchinfo, summarize, mergeFL, mergeNamed,
                       -- from Permutations
                       module Iolaus.Patch.Permutations,
                     ) where
 import Iolaus.Patch.Core ( Named, infopatch,
                          patch2patchinfo, patchcontents )
 import Iolaus.Patch.Patchy ( Patchy, writePatch, mergeFL, Apply,
-                             showPatch, showNicely, showContextPatch,
+                             showContextPatch,
                              Invert(invert, identity), invertRL, invertFL,
                              thing, things,
                              Commute(merge, commute, list_touched_files),
-                             commuteFL, commuteRL, apply,
-                             description, summary )
+                             commuteFL, commuteRL, apply )
 import Iolaus.Patch.Permutations ( commuteWhatWeCanRL, commuteWhatWeCanFL,
                                    commuteWhatWeCanToRightRLFL,
                                    removeFL )

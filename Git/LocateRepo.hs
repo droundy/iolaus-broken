@@ -25,7 +25,7 @@ amInRepositoryDirectory opts =
        setCurrentDirectory here
        return x
 
--- | hunt upwards for the darcs repository
+-- | hunt upwards for the git repository
 -- This keeps changing up one parent directory, testing at each
 -- step if the current directory is a repository or not.  $
 -- WARNING this changes the current directory for good if matchFn succeeds

@@ -9,13 +9,12 @@ import System.IO.Unsafe ( unsafePerformIO )
 
 import Iolaus.Flags ( Flag(Test) )
 import Iolaus.Ordered ( (:>)(..), FL(..), (+>+), mapFL, mapFL_FL, reverseFL )
-import Iolaus.Patch ( Patchy, Effect, showPatch, apply_to_slurpy,
+import Iolaus.Patch ( Patchy, Effect, apply_to_slurpy,
                       commuteWhatWeCanToRightRLFL )
 import Iolaus.PatchChoices ( TaggedPatch, Tag, tag, tp_patch, get_choices,
                              patch_choices, patch_choices_tps,
                              force_matching_first, force_matching_last,
                              separate_first_from_middle_last)
-import Iolaus.Printer ( putDocLn, ($$), text )
 
 import Git.Plumbing ( Hash, Tree )
 import Git.Helpers ( writeSlurpTree, slurpTree, testPredicate, TestResult(..) )
@@ -61,15 +60,9 @@ smallestFailingChange t xs =
             force_matching_last ((`notElem` (sheept++goatst)) . tag) $
             force_matching_first ((`elem` sheept) . tag) $ patch_choices xs of
          sheep :> goats :> strays ->
-             do putDocLn $ text "found sheep:" $$
-                         showPatch (mapFL_FL tp_patch sheep)
-                putDocLn $ text "found goats:" $$
-                         showPatch (mapFL_FL tp_patch goats)
-                putDocLn $ text "strays:" $$
-                         showPatch (mapFL_FL tp_patch strays)
-                return (mapFL_FL tp_patch sheep :>
-                        mapFL_FL tp_patch goats :>
-                        mapFL_FL tp_patch strays)
+             return (mapFL_FL tp_patch sheep :>
+                     mapFL_FL tp_patch goats :>
+                     mapFL_FL tp_patch strays)
 
 ddpatches :: Patchy p => Hash Tree C(x) -> FL p C(x y)
           -> IO (FL (TaggedPatch p) C(x y), [Tag] -> TestResult)

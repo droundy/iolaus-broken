@@ -28,7 +28,7 @@ import Iolaus.Lock ( world_readable_temp )
 import Iolaus.Command ( Command(..), nodefaults )
 import Iolaus.Arguments ( Flag( Quiet, PatchName, All, RecordFor,
                                 DeltaDebugWorkingSubset ),
-                        working_repo_dir, mergeStrategy, commitApproach,
+                        working_repo_dir, commitApproach,
                         fixSubPaths, testByDefault,
                         ask_long_comment, recordDeltaDebug,
                         all_interactive, notest,
@@ -75,7 +75,7 @@ amend_record = Command {command_name = "amend-record",
                         command_advanced_options = [logfile, rmlogfile],
                         command_basic_options = [patchname_option, author]++
                                                 notest++recordDeltaDebug++
-                                                [mergeStrategy, commitApproach,
+                                                [commitApproach,
                                                  all_interactive,
                                                  ask_long_comment,
                                                  working_repo_dir]}

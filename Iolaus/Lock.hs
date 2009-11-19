@@ -90,7 +90,7 @@ takeFile fp =
 -- that they both should always try to clean up, so exitWith causes trouble.
 withTemp :: (String -> IO a) -> IO a
 withTemp = bracket get_empty_file removeFileMayNotExist
-    where get_empty_file = do (f,h) <- openBinaryTempFile "." "darcs"
+    where get_empty_file = do (f,h) <- openBinaryTempFile "." "iolaus"
                               hClose h
                               return f
 
@@ -103,7 +103,7 @@ withOpenTemp :: ((Handle, String) -> IO a) -> IO a
 withOpenTemp = bracket get_empty_file cleanup
     where cleanup (h,f) = do try $ hClose h
                              removeFileMayNotExist f
-          get_empty_file = invert `fmap` openBinaryTempFile "." "darcs"
+          get_empty_file = invert `fmap` openBinaryTempFile "." "iolaus"
           invert (a,b) = (b,a)
 
 withStdoutTemp :: (String -> IO a) -> IO a
@@ -111,8 +111,7 @@ withStdoutTemp = bracket (mk_stdout_temp "stdout_") removeFileMayNotExist
 
 tempdir_loc :: IO AbsolutePath
 tempdir_loc =
-    firstJustIO [ readBinFile (".arcs-prefs/tmpdir")
-                         >>= return . Just . head.words >>= chkdir,
+    firstJustIO [ maybeGetEnv "IOLAUS_TMPDIR" >>= chkdir,
                   maybeGetEnv "DARCS_TMPDIR" >>= chkdir,
                   getTemporaryDirectory >>= chkdir . Just,
                   Just `fmap` getCurrentDirectory ]
@@ -159,18 +158,10 @@ withPermDir = withDir Perm
 -- |'withTempDir' creates an empty directory and then removes it when it
 -- is no longer needed.  withTempDir creates a temporary directory.  The
 -- location of that directory is determined by the contents of
--- .arcs-prefs/tmpdir, if it exists, otherwise by @$DARCS_TMPDIR@, and if
+-- @$IOLAUS_TMPDIR, if it exists, otherwise by @$DARCS_TMPDIR@, and if
 -- that doesn't exist then whatever your operating system considers to be a
 -- a temporary directory (e.g. @$TMPDIR@ under Unix, @$TEMP@ under
 -- Windows).
---
--- If none of those exist it creates the temporary directory
--- in the current directory, unless the current directory is under a _darcs
--- directory, in which case the temporary directory in the parent of the highest
--- _darcs directory to avoid accidentally corrupting darcs's internals.
--- This should not fail, but if it does indeed fail, we go ahead and use the
--- current directory anyway. If @$DARCS_KEEP_TMPDIR@ variable is set
--- temporary directory is not removed, this can be useful for debugging.
 withTempDir :: String -> (AbsolutePath -> IO a) -> IO a
 withTempDir = withDir Temp
 

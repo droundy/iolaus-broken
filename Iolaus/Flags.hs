@@ -23,7 +23,7 @@ import Iolaus.RepoPath ( AbsolutePath, AbsolutePathOrStd )
 data Flag = Help | ListOptions | NoTest | Test | Build | TestParents
           | NoCauterizeAllHeads | CauterizeAllHeads | CommutePast Int
           | DeltaDebugWorkingSubset | RecordFor String
-          | NoTagOnTest | TagOnTest | Nice | NotNice
+          | Nice | NotNice
           | HelpOnMatch | OnlyChangesToFiles
           | LeaveTestDir | NoLeaveTestDir
           | Timings | Debug | DebugVerbose
@@ -36,16 +36,12 @@ data Flag = Help | ListOptions | NoTest | Test | Build | TestParents
           | MaxC Int | Count
           | OneTag String | AfterTag String | UpToTag String
           | LogFile AbsolutePath | RmLogFile | All
-          | Recursive | NoRecursive
-          | LookForAdds | NoLookForAdds | AnyOrder
-          | Intersection | Union | Complement
+          | Intersection | Union
           | Sign | SignAs String | NoSign | SignSSL String
           | Verify AbsolutePath
           | EditDescription | NoEditDescription
           | EditLongComment | NoEditLongComment | PromptLongComment
-          | AllowConflicts | MarkConflicts | NoAllowConflicts
-          | NativeMerge | IolausMerge | IolausSloppyMerge
-          | FirstParentMerge
+          | AllowConflicts | NoAllowConflicts
           | WorkDir String | RepoDir String | RemoteRepo String
           | Interactive
           | Summary | NoSummary
@@ -56,10 +52,9 @@ data Flag = Help | ListOptions | NoTest | Test | Build | TestParents
           | NonVerify
           | DryRun | ConfigDefault | GlobalConfig | SystemConfig
           | Disable
-          | Sibling AbsolutePath | Relink | NoLinks
+          | Sibling AbsolutePath
           | Files | NoFiles | Directories | NoDirectories
           | UMask String
-          | AllowUnrelatedRepos
           | NullFlag
             deriving ( Eq, Show )
 

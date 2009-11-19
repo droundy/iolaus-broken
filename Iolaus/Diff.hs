@@ -115,7 +115,7 @@ recur_diff summary fps (s:ss) (s':ss')
     -- this is the case if a file has been removed in the working directory
     | s < s' = diff_removed fps s . recur_diff summary fps ss (s':ss')
     -- this next case is when there is a file in the directory that is not
-    -- in the repository (ie, not managed by darcs)
+    -- in the repository (ie, not yet managed by iolaus)
     | s > s' = diff_added summary fps s' . recur_diff summary fps (s:ss) ss'
     -- actually compare the files because the names match
     | s == s' = gendiff summary fps s s' . recur_diff summary fps ss ss'

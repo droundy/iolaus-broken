@@ -30,7 +30,7 @@ import qualified Data.ByteString.Char8 as BC ( lines )
 import Iolaus.FileName ( FileName, fp2fn, fn2fp )
 import Iolaus.Colors ( colorOld, colorNew )
 import Iolaus.Printer ( Doc, empty, vcat, text, blueText, colorPS, minus, plus,
-                        ($$), (<+>), (<>), prefix, unsafePackedString )
+                        ($$), (<+>), (<>), unsafePackedString )
 import Iolaus.Patch.Core ( Named(..) )
 import Iolaus.Patch.Prim ( Prim(..), formatFileName, showPrim,
                            Effect, effect,
@@ -46,7 +46,6 @@ instance ShowPatch Prim where
     showContextPatch s p@(FP _ (Chunk _ _ _ _)) = 
         showContextStuff s (p :>: NilFL)
     showContextPatch _ p = showPatch p
-    summary = gen_summary . (:>: NilFL)
     thing _ = "change"
 
 summarize :: Effect e => e C(x y) -> Doc
@@ -144,15 +143,6 @@ gen_summary p
 instance (Effect p, ShowPatch p, Show n) => ShowPatch (Named n p) where
     showPatch (NamedP n p) = text (show n) $$ showPatch p
     showContextPatch s (NamedP n p) = text (show n) $$ showContextPatch s p
-    description (NamedP n _) = text (show n)
-    summary p = description p $$ text "" $$
-                prefix "    " (summarize p)
-    -- this isn't summary because summary does the
-    -- wrong thing with (Named (FL p)) so that it can
-    -- get the summary of a sequence of named patches
-    -- right.
-    showNicely p@(NamedP _ pt) = description p $$
-                                 prefix "    " (showNicely pt)
 
 instance (Effect p, Show n, ShowPatch p) => Show (Named n p C(x y)) where
     show = show . showPatch
@@ -160,8 +150,6 @@ instance (Effect p, Show n, ShowPatch p) => Show (Named n p C(x y)) where
 instance (Apply p, Effect p, ShowPatch p) => ShowPatch (FL p) where
     showPatch xs = vcat (mapFL showPatch xs)
     showContextPatch s = showContextStuff s . effect -- showContextSeries
-    description = vcat . mapFL description
-    summary = vcat . mapFL summary
     thing x = thing (helperx x) ++ "s"
         where helperx :: FL a C(x y) -> a C(x y)
               helperx _ = undefined
@@ -170,8 +158,6 @@ instance (Apply p, Effect p, ShowPatch p) => ShowPatch (FL p) where
 instance (Effect p, Apply p, ShowPatch p) => ShowPatch (RL p) where
     showPatch = showPatch . reverseRL
     showContextPatch s = showContextPatch s . reverseRL
-    description = description . reverseRL
-    summary = summary . reverseRL
     thing = thing . reverseRL
     things = things . reverseRL
 

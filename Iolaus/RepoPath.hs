@@ -57,7 +57,7 @@ class FilePathOrURL a => FilePathLike a where
 class SubPathSecret a where
 class (SubPathSecret a, FilePathLike a) => SubPathLike a where
 
--- | Relative to the local darcs repository and normalized
+-- | Relative to the local repository and normalized
 --   Note: these are understood not to have the dot in front
 newtype SubPath      = SubPath FilePath deriving (Eq, Ord)
 newtype AbsolutePath = AbsolutePath FilePath deriving (Eq, Ord)

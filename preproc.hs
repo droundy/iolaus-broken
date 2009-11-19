@@ -33,8 +33,7 @@ preproc ("\\begin{options}":ss) =
 preproc (s:ss) = do
   rest <- preproc ss
   case matchRegex (mkRegex "^\\\\input\\{(.+)\\}$") s of
-    Just (fn:_) -> do cs <- readFile fn -- ratify readFile: not part of
-                                        -- darcs executable
+    Just (fn:_) -> do cs <- readFile fn
                       this <- preproc $ lines cs
                       return $ this ++ rest
     _ -> case matchRegex (mkRegex "^(.*)\\\\haskell\\{(.+)\\}(.*)$") s of
@@ -42,15 +41,14 @@ preproc (s:ss) = do
              case breakLast '_' var of
              (cn,"help") -> return $ (before++gh cn++after):rest
              (cn,"description") -> return $ (before++gd cn++after):rest
-             ("darcs","version") -> return $ (before++"OOOPS"++after):rest
+             ("iolaus","version") -> return $ (before++"OOOPS"++after):rest
              aack -> error $ show aack
          _ -> case matchRegex (mkRegex "^(.*)\\\\options\\{(.+)\\}(.*)$") s of
               Just (before:comm:after:_) ->
                   return $ (before++get_options comm++after):rest
               _ ->  case matchRegex (mkRegex "^(.*)\\\\example\\{(.+)\\}(.*)$") s of
                     Just (before:fn:after:_) -> do
-                        filecont <- readFile fn -- ratify readFile: not part of
-                                                -- darcs executable
+                        filecont <- readFile fn
                         return $ (before++"\\begin{verbatim}"++
                                   filecont++"\\end{verbatim}"
                                   ++after):rest
