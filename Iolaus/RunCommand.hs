@@ -164,7 +164,7 @@ consider_running msuper cmd opts old_extra = do
                               True
                  [] -> return ()
                let allopts = case command_alloptions cmd of (x,y) -> x++y
-               debugMessage $ unwords ("Running":"arcs":
+               debugMessage $ unwords ("Running":"iolaus":
                                        maybe [] ((:[]) . command_name) msuper++
                                        command_name cmd:
                                        catMaybes (map (flagToString allopts) os)++ex)

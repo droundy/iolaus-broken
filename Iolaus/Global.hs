@@ -34,8 +34,8 @@ import Prelude hiding (catch)
 atexit_actions :: MVar (Maybe [IO ()])
 atexit_actions = unsafePerformIO (newMVar (Just []))
 
--- | Registers an IO action to run just before darcs exits.  Useful
--- for removing temporary files and directories, for example.
+-- | Registers an IO action to run just before the program exits.
+-- Useful for removing temporary files and directories, for example.
 atexit :: IO () -> IO ()
 atexit action = do
     modifyMVar_ atexit_actions $ \ml -> do

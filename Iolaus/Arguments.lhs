@@ -28,14 +28,14 @@ module Iolaus.Arguments
       list_options, pull_apart_option, max_count, help_on_match,
       any_verbosity, disable, notest, test, working_repo_dir,
       testByDefault, remote_repo, possibly_remote_repo_dir, patchname_option,
-      logfile, rmlogfile, output, output_auto_name, recursive, ask_long_comment,
+      logfile, rmlogfile, output, output_auto_name, ask_long_comment,
       sign, verify, edit_description, reponame, apply_conflict_options,
       pull_conflict_options, repo_combinator, only_to_files, changes_format,
       commit_format, match_one_nontag, all_interactive, summary,
       match_one, match_several, match_range, match_several_or_range,
       match_several_or_last, match_several_or_first, config_defaults,
-      sibling, flagsToSiblings, relink, files, directories, nullFlag,
-      patch_select_flag, allow_unrelated_repos ) where
+      sibling, flagsToSiblings, files, directories, nullFlag,
+      patch_select_flag ) where
 import System.Console.GetOpt
 import Data.List ( nub )
 import Data.Maybe ( fromMaybe, catMaybes )
@@ -86,8 +86,6 @@ getContent Test = NoContent
 getContent Build = NoContent
 getContent TestParents = NoContent
 getContent NoTest = NoContent
-getContent TagOnTest = NoContent
-getContent NoTagOnTest = NoContent
 getContent HelpOnMatch = NoContent
 getContent OnlyChangesToFiles = NoContent
 getContent LeaveTestDir = NoContent
@@ -113,19 +111,13 @@ getContent (OutputAutoName s) = AbsoluteContent s
 getContent (PatchIndexRange _ _) = NoContent -- FIXME this doesn't fit into a neat category
 getContent Count = NoContent
 getContent All = NoContent
-getContent Recursive = NoContent
-getContent NoRecursive = NoContent
 getContent RmLogFile = NoContent
 getContent (SignAs s) = StringContent s
 getContent (SignSSL s) = StringContent s
 getContent (Verify s) = AbsoluteContent s
-getContent LookForAdds = NoContent
-getContent NoLookForAdds = NoContent
-getContent AnyOrder = NoContent
 getContent Intersection = NoContent
 getContent Unified = NoContent
 getContent Union = NoContent
-getContent Complement = NoContent
 getContent Sign = NoContent
 getContent NoSign = NoContent
 getContent (WorkDir s) = StringContent s
@@ -137,7 +129,6 @@ getContent EditLongComment = NoContent
 getContent NoEditLongComment = NoContent
 getContent PromptLongComment = NoContent
 getContent AllowConflicts = NoContent
-getContent MarkConflicts = NoContent
 getContent NoAllowConflicts = NoContent
 getContent NativeMerge = NoContent
 getContent IolausMerge = NoContent
@@ -155,8 +146,6 @@ getContent GlobalConfig = NoContent
 getContent SystemConfig = NoContent
 getContent ConfigDefault = NoContent
 getContent Disable = NoContent
-getContent Relink = NoContent
-getContent NoLinks = NoContent
 getContent Files = NoContent
 getContent NoFiles = NoContent
 getContent Directories = NoContent
@@ -164,7 +153,6 @@ getContent NoDirectories = NoContent
 getContent (Sibling s) = AbsoluteContent s
 getContent NullFlag = NoContent
 getContent (UMask s) = StringContent s
-getContent AllowUnrelatedRepos = NoContent
 
 get_content :: Flag -> Maybe String
 get_content f = do StringContent s <- Just $ getContent f
@@ -355,10 +343,8 @@ all_interactive, all_patches, interactive, ask_long_comment, match_one_nontag,
   pull_conflict_options, apply_conflict_options,
   patchname_option, edit_description, output, output_auto_name, repo_combinator,
   summary, match_several_or_range, match_several_or_last,
-  match_several_or_first, help, help_on_match, allow_unrelated_repos,
+  match_several_or_first, help, help_on_match,
   match_one, match_range, match_several, logfile, rmlogfile :: IolausOption
-
-recursive :: String -> IolausOption
 
 sign, verify :: IolausOption
 \end{code}
@@ -388,10 +374,13 @@ help_on_match = IolausNoArgOption [] ["match"] HelpOnMatch
 \begin{options}
 --disable
 \end{options}
-Every {\tt COMMAND} accepts the \verb!--disable! option, which can be used in
-\verb!.arcs-prefs/defaults! to disable some commands in the repository. This
-can be helpful if you want to protect the repository from accidental use of
-advanced commands like obliterate, unrecord or amend-record.
+
+Every `COMMAND` accepts the `--disable` option, which can be used
+with `iolaus COMMAND --config-default --disable` to disable some commands in
+the repository. This can be helpful if you want to protect the
+repository from accidental use of
+advanced commands like unrecord or amend-record.
+
 \begin{code}
 disable = IolausNoArgOption [] ["disable"] Disable
         "disable this command"
@@ -544,14 +533,9 @@ __indexes = IolausArgOption ['n'] ["index"] indexrange "N-M" "select a range of 
 --test, --no-test
 \end{options}
 
-If you like, you can configure your repository to be able to run a test
-suite of some sort.  You can do this by using ``setpref'' to set the
-``test'' value to be a command to run, e.g.
-\begin{verbatim}
-% iolaus setpref test "sh configure && make && make test"
-\end{verbatim}
-Or, if you want to define a test specific to one copy of the repository,
-you could do this by editing the file \verb!.arcs-prefs/prefs!.
+If you like, you can configure your repository to be able to run a
+test suite of some sort.  You can do this by creating an executable
+file named `.git-hooks/test`.
 
 \begin{options}
 --leave-test-directory, --remove-test-directory
@@ -575,12 +559,12 @@ notest = [IolausMultipleChoiceOption
            IolausNoArgOption [] ["build"] Build "only run the build script",
            IolausNoArgOption [] ["test-parents"]
                TestParents "run the test script on all possibilities"],
-          leave_test_dir, nice_test, tag_on_test]
+          leave_test_dir, nice_test]
 test = [IolausMultipleChoiceOption
         [IolausNoArgOption [] ["test"] Test "run the test script",
          IolausNoArgOption [] ["build"] Build "only run the build script",
          IolausNoArgOption [] ["no-test"] NoTest "don't run the test script"],
-        leave_test_dir, nice_test, tag_on_test]
+        leave_test_dir, nice_test]
 nice_test :: IolausOption
 nice_test = IolausMultipleChoiceOption
             [IolausNoArgOption [] ["nice"] Nice "run test nicely",
@@ -591,12 +575,6 @@ leave_test_dir = IolausMultipleChoiceOption
                   LeaveTestDir "don't remove the test directory",
                   IolausNoArgOption [] ["remove-test-directory"]
                   NoLeaveTestDir "remove the test directory"]
-tag_on_test :: IolausOption
-tag_on_test = IolausMultipleChoiceOption
-              [IolausNoArgOption [] ["tag-on-test"]
-               TagOnTest "tag version when test is passed",
-               IolausNoArgOption [] ["no-tag-on-test"]
-               NoTagOnTest "don't tag version when test is passed [DEFAULT]"]
 
 testByDefault :: [Flag] -> [Flag]
 testByDefault o = if NoTest `elem` o || Build `elem` o then o
@@ -634,11 +612,6 @@ edit_description =
                           "edit the patch bundle description",
      IolausNoArgOption [] ["dont-edit-description"] NoEditDescription
                       "don't edit the patch bundle description"]
-
-recursive h
-    = IolausMultipleChoiceOption
-      [IolausNoArgOption ['r'] ["recursive"] Recursive h,
-       IolausNoArgOption [] ["not-recursive"] NoRecursive ("don't "++h)]
 
 sign = IolausMultipleChoiceOption
        [IolausNoArgOption [] ["sign"] Sign
@@ -698,9 +671,7 @@ mergeStrategy = IolausMultipleChoiceOption
 
 apply_conflict_options
     = IolausMultipleChoiceOption
-      [IolausNoArgOption [] ["mark-conflicts"]
-       MarkConflicts "mark conflicts",
-       IolausNoArgOption [] ["allow-conflicts"]
+      [IolausNoArgOption [] ["allow-conflicts"]
        AllowConflicts "allow conflicts, but don't mark them",
        IolausNoArgOption [] ["no-resolve-conflicts"] NoAllowConflicts
        "equivalent to --dont-allow-conflicts, for backwards compatibility",
@@ -708,9 +679,7 @@ apply_conflict_options
        NoAllowConflicts "fail on patches that create conflicts [DEFAULT]"]
 pull_conflict_options
     = IolausMultipleChoiceOption
-      [IolausNoArgOption [] ["mark-conflicts"]
-       MarkConflicts "mark conflicts [DEFAULT]",
-       IolausNoArgOption [] ["allow-conflicts"]
+      [IolausNoArgOption [] ["allow-conflicts"]
        AllowConflicts "allow conflicts, but don't mark them",
        IolausNoArgOption [] ["dont-allow-conflicts"]
        NoAllowConflicts "fail on patches that create conflicts"]
@@ -782,13 +751,7 @@ repo_combinator =
     [IolausNoArgOption [] ["intersection"] Intersection
      "take intersection of all repositories",
      IolausNoArgOption [] ["union"] Union
-     "take union of all repositories [DEFAULT]",
-     IolausNoArgOption [] ["complement"] Complement
-     "take complement of repositories (in order listed)"]
-
-relink :: IolausOption
-relink = IolausNoArgOption [] ["relink"] Relink
-         "relink internal data to a sibling"
+     "take union of all repositories [DEFAULT]"]
 
 sibling :: IolausOption
 sibling = IolausAbsPathOption [] ["sibling"] Sibling "URL"
@@ -818,18 +781,6 @@ directories = IolausMultipleChoiceOption
 nullFlag :: IolausOption        -- "null" is already taken
 nullFlag = IolausNoArgOption ['0'] ["null"] NullFlag
        "separate file names by NUL characters"
-\end{code}
-
-\begin{options}
---allow-unrelated-repos
-\end{options}
-By default iolaus checks and warns user if repositories are unrelated when
-doing pull, push and send. This option makes iolaus skip this check.
-
-\begin{code}
-allow_unrelated_repos =
-    IolausNoArgOption [] ["ignore-unrelated-repos"] AllowUnrelatedRepos
-                         "do not check if repositories are unrelated"
 
 -- | @'patch_select_flag' f@ holds whenever @f@ is a way of selecting
 -- patches such as @PatchName n@.

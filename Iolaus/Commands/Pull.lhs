@@ -23,8 +23,8 @@ import Control.Monad ( when )
 
 import Iolaus.Command ( Command(..) )
 import Iolaus.Arguments
-    ( Flag(All), pull_conflict_options, all_interactive, repo_combinator,
-      match_several_or_first, dryrun,
+    ( Flag(All, NoAllowConflicts), pull_conflict_options,
+      all_interactive, repo_combinator, match_several_or_first, dryrun,
       notest, testByDefault, mergeStrategy, working_repo_dir, remote_repo )
 import Iolaus.Patch ( apply, merge, mergeNamed, infopatch, patchcontents,
                       invert )
@@ -95,6 +95,9 @@ pull_cmd opts repodirs@(_:_) =
            case merge (workp :\/: newp) of
            Nothing | All `elem` opts ->
             do putStrLn "Unwilling to pull -a when it conflicts with working..."
+               exitWith $ ExitFailure 1
+           Nothing | NoAllowConflicts `elem` opts ->
+            do putStrLn "Pull conflicts with working!"
                exitWith $ ExitFailure 1
            Nothing ->
              do putStrLn "This conflicts with working..."

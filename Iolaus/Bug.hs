@@ -1,8 +1,7 @@
 
--- Reporting bugs in darcs.  See also impossible.h.
+-- Reporting bugs in iolaus.  See also impossible.h.
 module Iolaus.Bug ( _bug, _bugDoc, _impossible, _assertJust ) where
 
---import Autoconf( darcs_version )
 import Iolaus.Printer ( Doc, errorDoc, text, ($$) )
 
 type BugStuff = (String, Int, String, String)

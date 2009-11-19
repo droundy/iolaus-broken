@@ -33,8 +33,8 @@ import Control.Monad ( when )
 import System.Exit ( exitWith, ExitCode(ExitSuccess) )
 
 import Iolaus.English ( Noun(..), englishNum  )
-import Iolaus.Patch ( Patchy, Prim, Effect, summary, invert,
-                      list_touched_files, apply_to_slurpy )
+import Iolaus.Patch ( Patchy, Prim, Effect, summarize, invert,
+                      showContextPatch, list_touched_files, apply_to_slurpy )
 import qualified Iolaus.Patch ( thing, things )
 import Iolaus.Ordered ( FL(..), RL(..), (:>)(..),
                        (+>+), lengthFL, mapFL_FL,
@@ -46,8 +46,6 @@ import Iolaus.PatchChoices ( PatchChoices, patch_choices, patch_choices_tps,
                            patch_slot, select_all_middles,
                            TaggedPatch, tp_patch, Slot(..) )
 import Iolaus.TouchesFiles ( deselect_not_touching, select_not_touching )
-import Iolaus.PrintPatch ( contextualPrintPatch,
-                           printFriendly, printPatchPager )
 import Iolaus.SlurpDirectory ( Slurpy )
 import Iolaus.Flags ( Flag( Summary, Verbose ), isInteractive )
 import Iolaus.Utils ( askUser, promptCharFancy, without_buffering )
@@ -222,7 +220,7 @@ patches_to_consider_first' fs ps =
   else tp_patches $ separate_first_middle_from_last $ deselect_not_touching fs
            $ patch_choices ps
 
-patches_to_consider_last' :: Patchy p
+patches_to_consider_last' :: (Patchy p, Effect p)
                      => [FilePath]  -- ^ files
                      -> FL p C(x y) -- ^ patches
                      -> (FL p :> FL p) C(x y)
@@ -232,7 +230,7 @@ patches_to_consider_last' fs ps =
   else case get_choices $ select_not_touching fs $ patch_choices ps of
          fc :> mc :> lc -> tp_patches $ fc :> mc +>+ lc
 
-patches_to_consider_first_reversed' :: Patchy p
+patches_to_consider_first_reversed' :: (Patchy p, Effect p)
                      => [FilePath]  -- ^ files
                      -> FL p C(x y) -- ^ patches
                      -> (FL p :> FL p) C(y x)
@@ -260,33 +258,40 @@ selected_patches_last other_ps pc =
   case get_choices pc of
    fc :> mc :> lc -> other_ps +>+ mapFL_FL tp_patch (fc +>+ mc) :> mapFL_FL tp_patch lc
 
-selected_patches_first :: Patchy p => FL p C(y z) -> PatchChoices p C(x y)
+selected_patches_first :: (Patchy p, Effect p) =>
+                          FL p C(y z) -> PatchChoices p C(x y)
                        -> (FL p :> FL p) C(x z)
 selected_patches_first other_ps pc =
   case separate_first_from_middle_last pc of
   xs :> ys -> mapFL_FL tp_patch xs :> mapFL_FL tp_patch ys +>+ other_ps
 
-selected_patches_last_reversed :: Patchy p => FL p C(y x) -> PatchChoices p C(z y)
+selected_patches_last_reversed :: (Patchy p, Effect p) =>
+                                  FL p C(y x) -> PatchChoices p C(z y)
                                -> (FL p :> FL p) C(x z)
 selected_patches_last_reversed other_ps pc =
   case separate_first_from_middle_last pc of
   xs :> ys -> invert (mapFL_FL tp_patch ys +>+ other_ps) :> invert (mapFL_FL tp_patch xs)
 
-selected_patches_first_reversed :: Patchy p => FL p C(z y) -> PatchChoices p C(y x)
+selected_patches_first_reversed :: (Patchy p, Effect p) =>
+                                   FL p C(z y) -> PatchChoices p C(y x)
                                 -> (FL p :> FL p) C(x z)
 selected_patches_first_reversed other_ps pc =
   case get_choices pc of
   fc :> mc :> lc -> invert (mapFL_FL tp_patch lc) :> invert (other_ps +>+ mapFL_FL tp_patch (fc +>+ mc))
 
+-- | 'printPatch' prints a patch, together with its context,
+-- on standard output.
+printPatch :: Patchy p => Slurpy C(x) -> p C(x y) -> IO ()
+printPatch s p = putDocLn $ showContextPatch s p
+
 text_select :: forall p C(x y z). (Patchy p, Effect p) => String -> WhichChanges
             ->  MatchCriterion p -> [Flag] -> Int -> Int -> Slurpy C(x)
             -> RL (TaggedPatch p) C(x y) -> FL (TaggedPatch p) C(y z) -> PatchChoices p C(x z)
             -> IO ((PatchChoices p) C(x z))
-
 text_select _ _ _ _ _ _ _ _ NilFL pc = return pc
 text_select jn whichch crit opts n_max n
             s tps_done tps_todo@(tp:>:tps_todo') pc = do
-      viewp contextualPrintPatch
+      viewp printPatch
       repeat_this -- prompt the user
     where
         do_next_action ja je = tentatively_text_select ja jn je whichch crit opts
@@ -306,7 +311,6 @@ text_select jn whichch crit opts n_max n
            , KeyPress 'f' (jn++" the rest of the changes to this file") ]
         options_view =
            [ KeyPress 'v' ("view this "++thing++" in full")
-           , KeyPress 'p' ("view this "++thing++" in full with pager")
            , KeyPress 'l' ("list all selected "++things) ]
         options_summary =
            [ KeyPress 'x' ("view a summary of this "++thing) ]
@@ -334,22 +338,20 @@ text_select jn whichch crit opts n_max n
             'w' -> do_next $ make_uncertain (tag tp) pc
             's' -> do_next_action "Skipped"  (Noun "change") $ skip_file
             'f' -> do_next_action "Included" (Noun "change") $ do_file
-            'v' -> viewp contextualPrintPatch >> repeat_this
-            'p' -> viewp (const printPatchPager) >> repeat_this
+            'v' -> viewp printPatch >> repeat_this
             'l' ->
-                do let selected = case get_choices pc of
-                                  (first_chs:>_:>last_chs) ->
-                                      if whichch == Last ||
-                                         whichch == FirstReversed
-                                      then sequence_ $ map_patches last_chs
-                                      else sequence_ $ map_patches first_chs
-                       map_patches = mapFL (printFriendly opts . tp_patch)
-                   putStrLn $ "---- Already selected "++things++" ----"
-                   selected
+                do putStrLn $ "---- Already selected "++things++" ----"
+                   case get_choices pc of
+                     (first_chs:>mid:>last_chs) ->
+                         if whichch == Last ||
+                            whichch == FirstReversed
+                         then do s' <- apply_to_slurpy (first_chs+>+mid) s
+                                 printPatch s' $ mapFL_FL tp_patch last_chs
+                         else printPatch s $ mapFL_FL tp_patch first_chs
                    putStrLn $ "---- end of already selected "++things++" ----"
-                   viewp contextualPrintPatch
+                   viewp printPatch
                    repeat_this
-            'x' -> do viewp (const $ putDocLn . prefix "    " . summary)
+            'x' -> do viewp (const $ putDocLn . prefix "    " . summarize)
                       repeat_this
             'd' -> return pc
             'a' -> do ask_confirmation
@@ -423,8 +425,9 @@ tentatively_text_select jobaction jobname jobelement whichch crit
       _with_   = " of " ++ show numSkipped ++ " " ++ _elem_ ""
       _action_ = if (length jobaction) == 0 then "Skipped" else jobaction
       _elem_ = englishNum numSkipped jobelement
-      showskippedpatch :: Patchy p => FL (TaggedPatch p) C(y t) -> IO ()
-      showskippedpatch (tp:>:tps) = (putDocLn $ prefix "    " $ summary (tp_patch tp)) >> showskippedpatch tps
+      showskippedpatch :: (Patchy p, Effect p) =>
+                          FL (TaggedPatch p) C(y t) -> IO ()
+      showskippedpatch (tp:>:tps) = (putDocLn $ prefix "    " $ summarize (tp_patch tp)) >> showskippedpatch tps
       showskippedpatch NilFL = return ()
 
 decided :: Slot -> Bool

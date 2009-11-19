@@ -35,7 +35,7 @@ import Iolaus.Command ( CommandControl( Command_data, Hidden_command,
                                         Group_name),
                         Command(..), nodefaults, adv_options, basic_options )
 
--- | The commands that arcs knows about (e.g. whatsnew, record),
+-- | The commands that iolaus knows about (e.g. whatsnew, record),
 --   organized into thematic groups.  Note that hidden commands
 --   are also listed here.
 command_control_list :: [CommandControl]
