@@ -16,6 +16,7 @@ import System.IO.Unsafe ( unsafePerformIO )
 import Iolaus.Ordered ( EqCheck(..), unsafeCoerceP )
 import Iolaus.Sealed ( Sealed(Sealed), unseal )
 import Iolaus.Show ( eq1 )
+import Iolaus.Global ( debugMessage )
 import Git.Plumbing ( Hash, Commit, catCommit, CommitEntry(..) )
 
 data CommitLinks = CommitLinks { cancestors :: S.Set (Sealed (Hash Commit)),
@@ -69,18 +70,19 @@ parents h = unsafePerformIO $
     do ms <- M.lookup (Sealed h) `fmap` readIORef genealogy
        case ms of
          Just s -> return $ cparents s
-         Nothing -> do findAncestors (Sealed h) -- to compute and cache...
-                       ms' <- M.lookup (Sealed h) `fmap` readIORef genealogy
+         Nothing -> do ms' <- M.lookup (Sealed h) `fmap` readIORef genealogy
                        case ms' of
                          Just s -> return $ cparents s
-                         Nothing -> fail "aack in findParents"
+                         Nothing -> do debugMessage ("parents "++show h)
+                                       myParents `fmap` catCommit h
 
 findAncestors :: Sealed (Hash Commit) -> IO (S.Set (Sealed (Hash Commit)))
 findAncestors h@(Sealed hh) =
     do ms <- M.lookup h `fmap` readIORef genealogy
        case ms of
          Just s -> return $ cancestors s
-         Nothing -> do ps <- myParents `fmap` catCommit hh
+         Nothing -> do debugMessage ("findAncestors "++show h)
+                       ps <- myParents `fmap` catCommit hh
                        as <- mapM findAncestors ps
                        let cl = CommitLinks (S.unions $ S.fromList ps:as) ps
                        modifyIORef genealogy $ M.insert h cl
