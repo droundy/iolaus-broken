@@ -26,3 +26,5 @@ Finally, if you want to set a default for all iolaus commands, just
 use "all" for the command:
 
     iolaus all --config-default --test --verbose
+
+Table of Contents

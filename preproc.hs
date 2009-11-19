@@ -3,10 +3,9 @@ import System.Exit ( exitWith, ExitCode(..) )
 import Text.Regex ( matchRegex, mkRegex )
 
 import Iolaus.Command
-    ( Command(SuperCommand), command_sub_commands, command_name,
-      command_help, command_description, extract_commands,
+    ( CommandControl(..), Command(..), extract_commands,
       get_command_options_help )
-import Iolaus.Help ( command_control_list )
+import Iolaus.Commands ( command_control_list )
 
 the_commands :: [Command]
 the_commands = extract_commands command_control_list
@@ -30,6 +29,8 @@ preproc ("\\begin{options}":ss) =
     do rest <- preproc $ drop 1 $ dropWhile (/= "\\end{options}") ss
        return $ map ("    "++) os ++ rest
     where os = takeWhile (/= "\\end{options}") ss
+preproc ("Table of Contents":ss) =
+    preproc $ map show command_control_list ++ ss
 preproc (s:ss) = do
   rest <- preproc ss
   case matchRegex (mkRegex "^\\\\input\\{(.+)\\}$") s of
@@ -61,6 +62,18 @@ preproc [] = return []
 get_options :: String -> String
 get_options comm = get_com_options $ get_c names the_commands
     where names = words comm
+
+instance Show CommandControl where
+    show (Command_data (Command { command_name = n})) =
+              "- [iolaus "++n++"](manual/"++n++".html)"
+    show (Command_data (SuperCommand { command_name = n,
+                                       command_sub_commands = cs })) =
+          "- iolaus "++n++"  \n" ++ init (unlines
+           (map (\c ->"  - [iolaus "++n++" "++c++
+                      "](manual/"++n++" "++c++".html)")
+            (map command_name $ extract_commands cs)))
+    show (Group_name g) = "\n"++g++"\n"
+    show (Hidden_command _) = ""
 
 get_c :: [String] -> [Command] -> [Command]
 get_c (name:ns) commands =

@@ -27,10 +27,7 @@ doc =
        mkdir "manual"
        rule ["manual/manual.md"] ("preproc":"doc/iolaus.md":hs) $
             do x <- systemOut "./preproc" ["doc/iolaus.md"]
-               let toc = sort $ zipWith mklink xs hs
-                   mklink lhs h = "["++cmd lhs++"]("++h++")  "
-               mkFile "manual/manual.md" (prefix "" "Iolaus manual"++
-                                          unlines (x:toc))
+               mkFile "manual/manual.md" (prefix "" "Iolaus manual"++x)
        mdToHtml "README.md" "index.html" "Iolaus"
        mdToHtml "TODO.md" "TODO.html" "Iolaus to-do list"
        mdToHtml "doc/FAQ.md" "FAQ.html" "FAQ"
@@ -42,6 +39,7 @@ doc =
                     do mdin <- cat md
                        markdownStringToHtmlString
                            ".iolaus.css" (prefix "" title++mdin) >>= mkFile ht
+          lhs2md "Amend.lhs" = "amend-record.md"
           lhs2md (x0:x) = toLower x0 : tolower (take (length x-4) x) ++ ".md"
           nam x = take (length (lhs2md x)-3) (lhs2md x)
           undr x = map sp2u (nam x)
