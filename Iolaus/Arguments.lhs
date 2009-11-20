@@ -22,7 +22,8 @@
 #include "gadts.h"
 
 module Iolaus.Arguments
-    ( Flag( .. ), flagToString, isin, arein, commitApproach, modifySafely,
+    ( Flag( .. ), flagToString, optionDescription,
+      isin, arein, commitApproach, modifySafely,
       recordDeltaDebug, fixSubPaths, areFileArgs, author,
       dryrun, IolausOption( .. ), option_from_iolausoption, help,
       list_options, pull_apart_option, max_count, help_on_match,
@@ -232,6 +233,36 @@ data IolausOption
 
     | IolausMultipleChoiceOption [IolausOption]
     -- ^ A constructor for grouping mutually-exclusive options together.
+
+optionDescription :: IolausOption -> [(String,String)]
+optionDescription (IolausAbsPathOrStdOption s l _ n h) =
+    [(listflags (shortarg n s++longarg n l), h)]
+optionDescription (IolausAbsPathOption s l _ n h) =
+    [(listflags (shortarg n s++longarg n l), h)]
+optionDescription (IolausArgOption s l _ n h) =
+    [(listflags (shortarg n s++longarg n l), h)]
+optionDescription (IolausNoArgOption s l _ h) =
+    [(listflags (short s++long l), h)]
+optionDescription (IolausMultipleChoiceOption os) =
+    concatMap optionDescription os
+optionDescription _ = [("bunnies!","more")]
+
+listflags :: [String] -> String
+listflags (a:b:r) = a++", "++listflags (b:r)
+listflags [a] = a
+listflags [] = ""
+
+longarg :: String -> [String] -> [String]
+longarg n = map (\l -> "--"++l++"="++n)
+
+shortarg :: String -> [Char] -> [String]
+shortarg n = map (\c -> '-':c:' ':n)
+
+short :: [Char] -> [String]
+short = map (\c -> ['-',c])
+
+long :: [String] -> [String]
+long = map ("--"++)
 
 instance Eq IolausOption where -- This is a very hokey comparison...
     IolausMultipleChoiceOption xs == IolausMultipleChoiceOption ys

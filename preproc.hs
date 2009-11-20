@@ -2,9 +2,9 @@ import System.Environment ( getArgs )
 import System.Exit ( exitWith, ExitCode(..) )
 import Text.Regex ( matchRegex, mkRegex )
 
-import Iolaus.Command
-    ( CommandControl(..), Command(..), extract_commands,
-      get_command_options_help )
+import Iolaus.Arguments ( optionDescription )
+import Iolaus.Command ( CommandControl(..), Command(..), extract_commands,
+                        basic_options, adv_options )
 import Iolaus.Commands ( command_control_list )
 
 the_commands :: [Command]
@@ -13,54 +13,57 @@ the_commands = extract_commands command_control_list
 main :: IO ()
 main = do
   args <- getArgs
-  if length args < 1
-     then exitWith $ ExitFailure 1
-     else return ()
-  c <- preproc ["\\input{"++head args++"}"]
-  mapM_ putStrLn c
+  case args of
+    [x] -> preproc ["\\input{"++x++"}"]
+    [c,fn] -> do putStrLn $ "\n# NAME\n"
+                 putStr $ "iolaus "++c++" - "
+                 putStrLn $ command_property command_description the_commands c
+                 putStrLn "\n# SYNOPSIS"
+                 putStrLn $ "*iolaus "++c++"* `"++get_synopsis c++"`"
+                 putStrLn "\n# DESCRIPTION"
+                 putStrLn $ command_property command_help the_commands c
+                 cs <- readFile fn
+                 preproc (lines cs)
+                 putStrLn "\n# OPTIONS"
+                 putStrLn $ get_options c
+    _ -> exitWith $ ExitFailure 1
 
-preproc :: [String] -> IO [String]
+preproc :: [String] -> IO ()
 preproc (('%':_):ss) = preproc ss
-preproc ("\\usepackage{html}":ss) = -- only use html package with latex2html
-    do rest <- preproc ss
-       return $ "\\usepackage{hyperref}" : rest
 preproc ("\\begin{code}":ss) = ignore ss
 preproc ("\\begin{options}":ss) =
-    do rest <- preproc $ drop 1 $ dropWhile (/= "\\end{options}") ss
-       return $ map ("    "++) os ++ rest
+    do putStr $ unlines $ map ("    "++) os
+       preproc $ drop 1 $ dropWhile (/= "\\end{options}") ss
     where os = takeWhile (/= "\\end{options}") ss
 preproc ("Table of Contents":ss) =
-    preproc $ map show command_control_list ++ ss
+    do mapM_ putStrLn (map show command_control_list)
+       preproc ss
 preproc (s:ss) = do
-  rest <- preproc ss
   case matchRegex (mkRegex "^\\\\input\\{(.+)\\}$") s of
     Just (fn:_) -> do cs <- readFile fn
-                      this <- preproc $ lines cs
-                      return $ this ++ rest
+                      preproc $ lines cs
     _ -> case matchRegex (mkRegex "^(.*)\\\\haskell\\{(.+)\\}(.*)$") s of
          Just (before:var:after:_) ->
              case breakLast '_' var of
-             (cn,"help") -> return $ (before++gh cn++after):rest
-             (cn,"description") -> return $ (before++gd cn++after):rest
-             ("iolaus","version") -> return $ (before++"OOOPS"++after):rest
+             (cn,"help") -> putStrLn (before++gh cn++after)
+             (cn,"description") -> putStrLn (before++gd cn++after)
+             ("iolaus","version") -> putStrLn (before++"OOOPS"++after)
              aack -> error $ show aack
          _ -> case matchRegex (mkRegex "^(.*)\\\\options\\{(.+)\\}(.*)$") s of
               Just (before:comm:after:_) ->
-                  return $ (before++get_options comm++after):rest
-              _ ->  case matchRegex (mkRegex "^(.*)\\\\example\\{(.+)\\}(.*)$") s of
-                    Just (before:fn:after:_) -> do
-                        filecont <- readFile fn
-                        return $ (before++"\\begin{verbatim}"++
-                                  filecont++"\\end{verbatim}"
-                                  ++after):rest
-                    _ -> return $ s : rest
+                  putStrLn (before++get_options comm++after)
+              _ -> putStrLn s
+  preproc ss
   where breakLast chr str = (reverse $ tail l, reverse f)
             where (f, l) = break (==chr) $ reverse str
-
-preproc [] = return []
+preproc [] = return ()
 
 get_options :: String -> String
 get_options comm = get_com_options $ get_c names the_commands
+    where names = words comm
+
+get_synopsis :: String -> String
+get_synopsis comm = get_com_synopsis $ get_c names the_commands
     where names = words comm
 
 instance Show CommandControl where
@@ -69,8 +72,8 @@ instance Show CommandControl where
     show (Command_data (SuperCommand { command_name = n,
                                        command_sub_commands = cs })) =
           "- iolaus "++n++"  \n" ++ init (unlines
-           (map (\c ->"  - [iolaus "++n++" "++c++
-                      "](manual/"++n++" "++c++".html)")
+           (map (\c ->"    - [iolaus "++n++" "++c++
+                      "](manual/"++n++"-"++c++".html)")
             (map command_name $ extract_commands cs)))
     show (Group_name g) = "\n"++g++"\n"
     show (Hidden_command _) = ""
@@ -90,28 +93,34 @@ get_c (name:ns) commands =
           get n [] = error $ "No such command:  "++n
 get_c [] _ = error "no command specified"
 
-get_com_options :: [Command] -> String
-get_com_options [s,c] =
-    unlines $ map ("    "++) $ lines $ get_command_options_help (Just s) c
-get_com_options [c] =
-    unlines $ map ("    "++) $ lines $ get_command_options_help Nothing c
+get_com_synopsis :: [Command] -> String
+get_com_synopsis cs = unwords $ map bar $ concatMap optionDescription $
+                      basic_options (Command_data c)
+    where c = last cs
+          bar (x,_) = "["++pipeit x++"]"
+          pipeit (',':' ':r) = " | "++pipeit r
+          pipeit (x:xs) = x : pipeit xs
+          pipeit "" = ""
 
-ignore :: [String] -> IO [String]
+get_com_options :: [Command] -> String
+get_com_options cs = unlines $ map bar $ concatMap optionDescription $
+                     (basic_options (Command_data $ last cs) ++
+                      adv_options (Command_data $ last cs))
+    where bar (x,d) = x++"\n:\t"++chompnewline d
+          chompnewline "" = ""
+          chompnewline x | last x == '\n' = chompnewline (init x)
+                         | otherwise = x
+
+ignore :: [String] -> IO ()
 ignore ("\\end{code}":ss) = preproc ss
 ignore (_:ss) = ignore ss
-ignore [] = return []
+ignore [] = return ()
 
 command_property :: (Command -> String) -> [Command] -> String
                  -> String
 command_property property commands name =
     property $ last c
-    where words_ :: String -> [String] -- "word" with '_' instead of spaces
-          words_ s =
-              case dropWhile (=='_') s of
-                       "" -> []
-                       s' -> w : words_ s''
-                           where (w, s'') = break (=='_') s'
-          names = words_ name
+    where names = words name
           c = get_c names commands
 
 gh :: String -> String
