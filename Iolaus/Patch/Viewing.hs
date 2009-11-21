@@ -28,8 +28,8 @@ import Iolaus.ByteStringUtils ( linesPS, unlinesPS )
 import qualified Data.ByteString as B ( ByteString, null, concat )
 import qualified Data.ByteString.Char8 as BC ( lines )
 import Iolaus.FileName ( FileName, fp2fn, fn2fp )
-import Iolaus.Colors ( colorOld, colorNew )
-import Iolaus.Printer ( Doc, empty, vcat, text, blueText, colorPS, minus, plus,
+import Iolaus.Colors ( colorMeta, colorOld, colorNew )
+import Iolaus.Printer ( Doc, empty, vcat, text, colorText, colorPS, minus, plus,
                         ($$), (<+>), (<>), unsafePackedString )
 import Iolaus.Patch.Core ( Named(..) )
 import Iolaus.Patch.Prim ( Prim(..), formatFileName, showPrim,
@@ -56,7 +56,7 @@ showContextStuff _ NilFL = empty
 showContextStuff s0 ps@(FP f (Chunk c _ _ _) :>: _) =
     case (chunkify c . get_filecontents) `fmap` get_slurp f s0 of
       Nothing -> error "bad slurp showContextStuff"
-      Just zs -> blueText "chunk" <+> formatFileName f $$
+      Just zs -> colorText colorMeta "chunk" <+> formatFileName f $$
                  scc 0 zs s0 ps
     where scc :: Int -> [B.ByteString] -> Slurpy C(x) -> FL Prim C(x y)
               -> Doc
@@ -70,12 +70,14 @@ showContextStuff s0 ps@(FP f (Chunk c _ _ _) :>: _) =
               where precontext =
                         if length prels > 6
                         then if w0 == 0
-                             then formatFileName f <+> blueText (show w++":") $$
+                             then formatFileName f <+>
+                                  colorText colorMeta (show w++":") $$
                                   unsafePackedString
                                   (unlinesPS $ drop (length prels-3) prels)
                              else (unsafePackedString $ unlinesPS $ take 3 $
                                    linesPS $ B.concat ws) $$
-                                   formatFileName f<+>blueText (show w++":") $$
+                                   formatFileName f<+>
+                                   colorText colorMeta (show w++":") $$
                                    unsafePackedString
                                    (unlinesPS $ drop (length prels-3) prels)
                         else unsafePackedString (unlinesPS prels)

@@ -23,7 +23,6 @@ module Iolaus.Commands.Push ( push ) where
 import Control.Monad ( when )
 import System.Exit ( exitWith, ExitCode(ExitSuccess) )
 
-import Iolaus.Workaround ( getCurrentDirectory )
 import Iolaus.Command ( Command(..) )
 import Iolaus.Arguments ( Flag, working_repo_dir, dryrun,
                           match_several_or_first, all_interactive, remote_repo )
@@ -65,11 +64,7 @@ push = Command {command_name = "push",
 push_cmd :: [Flag] -> [String] -> IO ()
 push_cmd opts [""] = push_cmd opts []
 push_cmd opts [repodir] =
-    do -- Test to make sure we aren't trying to push to the current repo
-       here <- getCurrentDirectory
-       when (repodir == here) $
-            fail "Cannot push from repository to itself."
-       -- absolute '.' also taken into account by fix_filepath
+    do -- absolute '.' also taken into account by fix_filepath
        hs <- remoteHeads repodir
        if null hs then return () -- nothing to fetch
                   else fetchPack repodir -- so we can see what they've got!

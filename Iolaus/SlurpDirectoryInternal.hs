@@ -42,9 +42,8 @@ module Iolaus.SlurpDirectoryInternal
 
 import System.IO
 import System.Directory hiding ( getCurrentDirectory, renameFile )
-import Iolaus.Workaround ( getCurrentDirectory )
 import Iolaus.Utils ( withCurrentDirectory, formatPath )
-import Iolaus.RepoPath ( FilePathLike, toFilePath )
+import Iolaus.RepoPath ( FilePathLike, toFilePath, getCurrentDirectory )
 import System.IO.Unsafe ( unsafeInterleaveIO )
 import Data.List ( isPrefixOf )
 import Data.Bits ( (.&.) )
@@ -57,10 +56,8 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 
 import Iolaus.SignalHandler ( tryNonSignal )
-import Iolaus.IO ( ReadableDirectory(..), WriteableDirectory(..),
-                   MonadCatchy(..), ExecutableBit(..) )
+import Iolaus.IO ( WriteableDirectory(..), ExecutableBit(..) )
 import Iolaus.Show ( Ord1(..), Eq1(..), Show1(..) )
-import Iolaus.ByteStringUtils
 import qualified Data.ByteString as B
 
 import Git.Plumbing ( Hash, Tree, Blob )
@@ -158,22 +155,10 @@ instance Monad (SlurpMonad C(x x)) where
                         Left x -> Left x
                         _ -> Left e )
 
-instance MonadCatchy (SlurpMonad C(x x)) where
-    SM p `catchMe` SM q = SM sm
-        where sm e = case p e of
-                     Left _ -> q e
-                     okay -> okay
-
-instance ReadableDirectory (SlurpMonad C(x x)) where
+instance WriteableDirectory (SlurpMonad C(x x)) where
     mDoesDirectoryExist d = smDoesDirectoryExist d
     mDoesFileExist f = smDoesFileExist f
-    mInCurrentDirectory = smInSlurpy
-    mGetDirectoryContents = smGetDirContents
     mReadFilePS = smReadFilePS
-    mReadFilePSs = smReadFilePSs
-
-instance WriteableDirectory (SlurpMonad C(x x)) where
-    mWithCurrentDirectory = modifySubSlurpy
     mSetFileExecutable = smSetFileExecutable
     mWriteFilePS = smWriteFilePS
     mCreateDirectory = smCreateDirectory
@@ -223,32 +208,12 @@ smDoesDirectoryExist d = mksm $ \s -> (Right (s, slurp_hasdir d s))
 smDoesFileExist :: FileName -> SlurpMonad C(x x) Bool
 smDoesFileExist f = mksm $ \s -> (Right (s, slurp_hasfile f s))
 
--- smInSlurpy doesn't make any changes to the subdirectory.
-smInSlurpy :: FileName -> SlurpMonad C(x x) a -> SlurpMonad C(x x) a
-smInSlurpy d job = mksm sm
-    where sm s = case get_slurp d s of
-                 Just s' | is_dir s' -> case withSlurpy s' job of
-                                        Left e -> Left e
-                                        Right (_,a) -> Right (s, a)
-                 _ -> Left $ "smInSlurpy:  Couldn't find directory " ++
-                             formatPath (fn2fp d)
-
 fromSlurpFile :: FileName -> (Slurpy C(x) -> a) -> SlurpMonad C(x x) a
 fromSlurpFile f job = mksm sm
     where sm s = case get_slurp f s of
                  Just s' | is_file s' -> Right (s, job s')
                  _ -> Left $ "fromSlurpFile:  Couldn't find file " ++
                              formatPath (fn2fp f)
-
-modifySubSlurpy :: FileName -> SlurpMonad C(x x) a -> SlurpMonad C(x x) a
-modifySubSlurpy d job = mksm sm
-    where sm s = case get_slurp_context d s of
-                 Just (ctx, sub@(Slurpy _ (SlurpDir _ _))) ->
-                     case withSlurpy sub job of
-                     Left e -> Left e
-                     Right (sub',a) -> Right (ctx sub', a)
-                 _ -> Left $ "modifySubSlurpy:  Couldn't find directory " ++
-                             formatPath (fn2fp d)
 
 modifyFileSlurpy :: FileName -> (Slurpy C(x) -> Slurpy C(x))
                  -> SlurpMonad C(x x) ()
@@ -267,12 +232,6 @@ insertSlurpy f news = mksm $ \s ->
 smReadFilePS :: FileName -> SlurpMonad C(x x) B.ByteString
 smReadFilePS f = fromSlurpFile f get_filecontents
 
-smReadFilePSs :: FileName -> SlurpMonad C(x x) [B.ByteString]
-smReadFilePSs f = fromSlurpFile f (linesPS . get_filecontents)
-
-smGetDirContents :: SlurpMonad C(x x) [FileName]
-smGetDirContents = mksm $ \s -> Right (s, map slurp_fn $ get_dircontents s)
-
 smWriteFilePS :: FileName -> B.ByteString -> SlurpMonad C(x x) ()
 smWriteFilePS f ps = -- this implementation could be made rather more direct
                      -- and limited to a single pass down the Slurpy
@@ -282,6 +241,11 @@ smWriteFilePS f ps = -- this implementation could be made rather more direct
           modf (Slurpy _ (SlurpFile e _ _)) =
               Slurpy (own_name f) (SlurpFile e Nothing ps)
           modf _ = impossible
+          SM p `catchMe` SM q = SM sm
+              where sm e = case p e of Left _ -> q e
+                                       okay -> okay
+
+
 
 smSetFileExecutable :: FileName -> ExecutableBit -> SlurpMonad C(x x) ()
 smSetFileExecutable f e = modifyFileSlurpy f modf
@@ -362,9 +326,9 @@ genslurp nb dirname = do
     isdir <- doesDirectoryExist dirname
     ms <- if isdir
           then withCurrentDirectory dirname $
-               do actualname <- getCurrentDirectory
+               do actualname <- toFilePath `fmap` getCurrentDirectory
                   genslurp_helper nb (reverse actualname) "" "."
-          else do former_dir <- getCurrentDirectory
+          else do former_dir <- toFilePath `fmap` getCurrentDirectory
                   genslurp_helper nb (reverse former_dir) "" dirname
     case ms of
       Just s -> return s
@@ -421,7 +385,7 @@ co_slurp guide dirname = do
     isdir <- doesDirectoryExist dirname
     if isdir
        then withCurrentDirectory dirname $ do
-              actualname <- getCurrentDirectory
+              actualname <- toFilePath `fmap` getCurrentDirectory
               Just slurpy <- co_slurp_helper (reverse actualname) guide
               return slurpy
        else error "Error coslurping!!! Please report this."

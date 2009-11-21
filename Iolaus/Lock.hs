@@ -18,30 +18,26 @@
 {-# OPTIONS_GHC -cpp #-}
 {-# LANGUAGE CPP, ForeignFunctionInterface #-}
 
-module Iolaus.Lock ( withTemp, withOpenTemp, withStdoutTemp,
-                   withTempDir, withPermDir, withDelayedDir, withNamedTemp,
-                   writeToFile, appendToFile,
-                   writeBinFile, writeDocBinFile, appendBinFile, appendDocBinFile,
-                   readFilePS, readBinFile, readDocBinFile,
-                   writeAtomicFilePS,
-                   rm_recursive, removeFileMayNotExist,
-                   canonFilename,
-                   world_readable_temp ) where
+module Iolaus.Lock ( withTempDir, withPermDir, appendToFile,
+                     writeBinFile, readBinFile, writeAtomicFilePS,
+                     removeFileMayNotExist,
+                     world_readable_temp ) where
+
+#ifdef WIN32
+import qualified System.Directory ( renameFile )
+#endif
 
 import Prelude hiding ( catch )
 import Data.Maybe ( isJust )
-import System.IO ( openBinaryFile, openBinaryTempFile,
-                   hClose, hPutStr, Handle,
+import System.IO ( openBinaryFile, hClose, hPutStr, Handle,
                    IOMode(WriteMode, AppendMode) )
 import System.IO.Error ( isDoesNotExistError, isAlreadyExistsError )
 import Control.Exception ( bracket, catchJust, ioErrors, throwIO,
-                           Exception(IOException), catch, try )
+                           Exception(IOException), catch )
 import System.Directory ( removeFile, removeDirectory,
                    doesFileExist, doesDirectoryExist,
                    getDirectoryContents, createDirectory,
-                   getTemporaryDirectory,
-                 )
-import Iolaus.Workaround ( renameFile )
+                   getTemporaryDirectory, renameFile )
 import Iolaus.Utils ( withCurrentDirectory, maybeGetEnv, firstJustIO )
 import Control.Monad ( unless, when )
 
@@ -50,16 +46,15 @@ import Iolaus.RepoPath ( AbsolutePath, FilePathLike, toFilePath,
                          makeAbsolute, ioAbsolute, (<++>),
                          getCurrentDirectory, setCurrentDirectory )
 
-import qualified Data.ByteString as B (null, readFile, hPut, ByteString)
+import qualified Data.ByteString as B (readFile, hPut, ByteString)
 import qualified Data.ByteString.Char8 as BC (unpack)
 
 import Iolaus.SignalHandler ( withSignalsBlocked )
-import Iolaus.Printer ( Doc, hPutDoc, packedString, empty )
 import Iolaus.Global ( atexit )
-import Iolaus.Compat ( mk_stdout_temp, canonFilename,
-                     sloppy_atomic_create )
-import System.Posix.Files ( getSymbolicLinkStatus, isDirectory,
+import System.Posix.Files ( getSymbolicLinkStatus, isDirectory, stdFileMode,
                             fileMode, getFileStatus, setFileMode )
+import System.Posix.IO ( openFd, closeFd, defaultFileFlags, exclusive,
+                         OpenMode(WriteOnly) )
 #include "impossible.h"
 
 removeFileMayNotExist :: FilePathLike p => p -> IO ()
@@ -83,32 +78,6 @@ takeFile fp =
                             throwIO $ add_to_error_loc e
                                             ("takeFile "++fp++" in "++toFilePath pwd)
 
--- |'withTemp' safely creates an empty file (not open for writing) and
--- returns its name.
---
--- The temp file operations are rather similar to the locking operations, in
--- that they both should always try to clean up, so exitWith causes trouble.
-withTemp :: (String -> IO a) -> IO a
-withTemp = bracket get_empty_file removeFileMayNotExist
-    where get_empty_file = do (f,h) <- openBinaryTempFile "." "iolaus"
-                              hClose h
-                              return f
-
--- |'withOpenTemp' creates an already open temporary
--- file.  Both of them run their argument and then delete the file.  Also,
--- both of them (to my knowledge) are not susceptible to race conditions on
--- the temporary file (as long as you never delete the temporary file; that
--- would reintroduce a race condition).
-withOpenTemp :: ((Handle, String) -> IO a) -> IO a
-withOpenTemp = bracket get_empty_file cleanup
-    where cleanup (h,f) = do try $ hClose h
-                             removeFileMayNotExist f
-          get_empty_file = invert `fmap` openBinaryTempFile "." "iolaus"
-          invert (a,b) = (b,a)
-
-withStdoutTemp :: (String -> IO a) -> IO a
-withStdoutTemp = bracket (mk_stdout_temp "stdout_") removeFileMayNotExist
-
 tempdir_loc :: IO AbsolutePath
 tempdir_loc =
     firstJustIO [ maybeGetEnv "IOLAUS_TMPDIR" >>= chkdir,
@@ -122,7 +91,7 @@ tempdir_loc =
                  if exists then Just `fmap` ioAbsolute d
                            else return Nothing
 
-data WithDirKind = Perm | Temp | Delayed
+data WithDirKind = Perm | Temp
 
 withDir :: WithDirKind -> String -> (AbsolutePath -> IO a) -> IO a
 withDir kind abs_or_relative_name job = do
@@ -133,8 +102,7 @@ withDir kind abs_or_relative_name job = do
                       k <- keep_tmpdir
                       unless k $ do case kind of
                                       Perm -> return ()
-                                      Temp -> rm_recursive (toFilePath dir)
-                                      Delayed -> atexit $ rm_recursive (toFilePath dir))
+                                      Temp -> rm_recursive (toFilePath dir))
           job
     where newname name 0 = name
           newname name n = name <++> ('-':show n)
@@ -164,9 +132,6 @@ withPermDir = withDir Perm
 -- Windows).
 withTempDir :: String -> (AbsolutePath -> IO a) -> IO a
 withTempDir = withDir Temp
-
-withDelayedDir :: String -> (AbsolutePath -> IO a) -> IO a
-withDelayedDir = withDir Delayed
 
 doesDirectoryReallyExist :: FilePath -> IO Bool
 doesDirectoryReallyExist f =
@@ -205,21 +170,8 @@ readFilePS = B.readFile . toFilePath
 readBinFile :: FilePathLike p => p -> IO String
 readBinFile = fmap BC.unpack . readFilePS
 
-readDocBinFile :: FilePathLike p => p -> IO Doc
-readDocBinFile fp = do ps <- B.readFile $ toFilePath fp
-                       return $ if B.null ps then empty else packedString ps
-
-appendBinFile :: FilePathLike p => p -> String -> IO ()
-appendBinFile f s = appendToFile f $ \h -> hPutStr h s
-
-appendDocBinFile :: FilePathLike p => p -> Doc -> IO ()
-appendDocBinFile f d = appendToFile f $ \h -> hPutDoc h d
-
 writeBinFile :: FilePathLike p => p -> String -> IO ()
 writeBinFile f s = writeToFile f $ \h -> hPutStr h s
-
-writeDocBinFile :: FilePathLike p => p -> Doc -> IO ()
-writeDocBinFile f d = writeToFile f $ \h -> hPutDoc h d
 
 writeAtomicFilePS :: FilePathLike p => p -> B.ByteString -> IO ()
 writeAtomicFilePS f ps = writeToFile f $ \h -> B.hPut h ps
@@ -237,3 +189,26 @@ writeToFile f job =
 appendToFile :: FilePathLike p => p -> (Handle -> IO ()) -> IO ()
 appendToFile f job = withSignalsBlocked $ 
     bracket (openBinaryFile (toFilePath f) AppendMode) hClose job
+
+sloppy_atomic_create :: FilePath -> IO ()
+sloppy_atomic_create fp
+    = do fd <- openFd fp WriteOnly (Just stdFileMode) flags
+         closeFd fd
+  where flags = defaultFileFlags { exclusive = True }
+
+#ifdef WIN32
+{- System.Directory.renameFile incorrectly fails when the new file already
+   exists.  This code works around that bug at the cost of losing atomic
+   writes. -}
+
+renameFile :: FilePath -> FilePath -> IO ()
+renameFile old new = Control.Exception.block $
+   System.Directory.renameFile old new
+   `System.IO.Error.catch` \_ ->
+   do System.Directory.removeFile new
+        `System.IO.Error.catch`
+         (\e -> if System.IO.Error.isDoesNotExistError e
+                   then return ()
+                   else System.IO.Error.ioError e)
+      System.Directory.renameFile old new
+#endif

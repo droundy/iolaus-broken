@@ -34,7 +34,7 @@ import Data.List ( isPrefixOf )
 import Control.Exception ( bracket )
 
 import Iolaus.Global ( debugMessage )
-import qualified Iolaus.Workaround ( getCurrentDirectory )
+import qualified System.Directory ( getCurrentDirectory )
 import qualified System.Directory ( setCurrentDirectory,
                                     createDirectory, createDirectoryIfMissing,
                                     doesDirectoryExist, doesFileExist )
@@ -209,9 +209,6 @@ norm_slashes ('/':p) = '/' : dropWhile (== '/') p
 #endif
 norm_slashes p = p
 
-getCurrentDirectory :: IO AbsolutePath
-getCurrentDirectory = AbsolutePath `fmap` Iolaus.Workaround.getCurrentDirectory
-
 setCurrentDirectory :: FilePathLike p => p -> IO ()
 setCurrentDirectory = System.Directory.setCurrentDirectory . toFilePath
 
@@ -238,3 +235,17 @@ is_relative "" = False
 
 is_absolute :: String -> Bool
 is_absolute = not . is_relative
+
+getCurrentDirectory :: IO AbsolutePath
+#ifdef WIN32
+{- System.Directory.getCurrentDirectory returns a path with
+   backslashes in it under windows, and the code is simpler if we just
+   avoid that, so we override getCurrentDirectory and translates '\\'
+   to '/' -}
+getCurrentDirectory = do d <- System.Directory.getCurrentDirectory
+                         return $ AbsolutePath $ map rb d
+    where rb '\\' = '/'
+          rb c = c
+#else
+getCurrentDirectory = AbsolutePath `fmap` System.Directory.getCurrentDirectory
+#endif

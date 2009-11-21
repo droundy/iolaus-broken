@@ -15,57 +15,41 @@
 -- the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 -- Boston, MA 02110-1301, USA.
 
-{-# OPTIONS_GHC -fglasgow-exts #-}
-module Iolaus.IO ( ReadableDirectory(..), WriteableDirectory(..), MonadCatchy(..),
-                 ExecutableBit(..), TolerantIO, runTolerantly, runSilently,
-                ) where
+{-# LANGUAGE CPP #-}
+module Iolaus.IO ( WriteableDirectory(..), ExecutableBit(..),
+                   runTolerantly ) where
 
 import Prelude hiding ( catch )
 import Data.List ( isSuffixOf )
 import System.IO.Error ( isDoesNotExistError, isPermissionError )
 import Control.Exception ( catch, catchJust, ioErrors )
-import System.Directory ( getDirectoryContents, createDirectory,
-                          removeDirectory, removeFile,
+import System.Directory ( createDirectory, removeDirectory, removeFile,
                           renameFile, renameDirectory,
-                          doesDirectoryExist, doesFileExist,
-                        )
+                          doesDirectoryExist, doesFileExist )
+#ifndef WIN32
+import System.Posix.Files (fileMode,getFileStatus, setFileMode,
+                           setFileCreationMask,
+                           ownerReadMode, ownerWriteMode, ownerExecuteMode,
+                           groupReadMode, groupWriteMode, groupExecuteMode,
+                           otherReadMode, otherWriteMode, otherExecuteMode)
+import Data.Bits ( (.&.), (.|.), complement )
+#endif
 
-import Iolaus.ByteStringUtils ( linesPS, unlinesPS)
 import qualified Data.ByteString as B (ByteString, empty, null, readFile)
-import qualified Data.ByteString.Char8 as BC (unpack, pack)
 
-import Iolaus.Utils ( withCurrentDirectory, prettyException )
-import Iolaus.FileName ( FileName, fn2fp, fp2fn )
-import Iolaus.Lock ( writeBinFile, readBinFile, writeAtomicFilePS )
-import Iolaus.Workaround ( setExecutable )
+import Iolaus.Show ( pretty )
+import Iolaus.FileName ( FileName, fn2fp )
+import Iolaus.Lock ( writeAtomicFilePS )
 
 data ExecutableBit = IsExecutable | NotExecutable
                    deriving ( Eq, Ord )
 
-class Monad m => MonadCatchy m where
-    catchMe :: m a -> m a -> m a
-instance MonadCatchy IO where
-    a `catchMe` b = catchJust ioErrors a (const b)
-
-class (Functor m, MonadCatchy m) => ReadableDirectory m where
+class (Functor m, Monad m) => WriteableDirectory m where
     mDoesDirectoryExist :: FileName -> m Bool
     mDoesFileExist :: FileName -> m Bool
-    mInCurrentDirectory :: FileName -> m a -> m a
-    mGetDirectoryContents :: m [FileName]
-    mReadBinFile :: FileName -> m String
-    mReadBinFile f = BC.unpack `fmap` mReadFilePS f
     mReadFilePS :: FileName -> m B.ByteString
-    mReadFilePSs :: FileName -> m [B.ByteString]
-    mReadFilePSs f = linesPS `fmap` mReadFilePS f
-
-class ReadableDirectory m => WriteableDirectory m where
-    mWithCurrentDirectory :: FileName -> m a -> m a
     mSetFileExecutable :: FileName -> ExecutableBit -> m ()
-    mWriteBinFile :: FileName -> String -> m ()
-    mWriteBinFile fn s = mWriteFilePS fn $ BC.pack s
     mWriteFilePS :: FileName -> B.ByteString -> m ()
-    mWriteFilePSs :: FileName -> [B.ByteString] -> m ()
-    mWriteFilePSs f ss = mWriteFilePS f (unlinesPS ss)
     mCreateDirectory :: FileName -> m ()
     mRemoveDirectory :: FileName -> m ()
     mCreateFile :: FileName -> m ()
@@ -76,24 +60,29 @@ class ReadableDirectory m => WriteableDirectory m where
     mModifyFilePS f j = do ps <- mReadFilePS f
                            ps' <- j ps
                            mWriteFilePS f ps'
-    mModifyFilePSs :: FileName -> ([B.ByteString] -> m [B.ByteString]) -> m ()
-    mModifyFilePSs f j = do ps <- mReadFilePSs f
-                            ps' <- j ps
-                            mWriteFilePSs f ps'
-
-instance ReadableDirectory IO where
-    mDoesDirectoryExist = doesDirectoryExist . fn2fp
-    mDoesFileExist = doesFileExist . fn2fp
-    mInCurrentDirectory = withCurrentDirectory . fn2fp
-    mGetDirectoryContents = map fp2fn `fmap` getDirectoryContents "."
-    mReadBinFile = readBinFile . fn2fp
-    mReadFilePS = B.readFile . fn2fp
 
 instance WriteableDirectory IO where
-    mWithCurrentDirectory = mInCurrentDirectory
-    mSetFileExecutable f IsExecutable = setExecutable (fn2fp f) True
-    mSetFileExecutable f NotExecutable = setExecutable (fn2fp f) False
-    mWriteBinFile = writeBinFile . fn2fp
+    mDoesDirectoryExist = doesDirectoryExist . fn2fp
+    mDoesFileExist = doesFileExist . fn2fp
+    mReadFilePS = B.readFile . fn2fp
+    mSetFileExecutable f ex =
+#ifdef WIN32
+        return ()
+#else
+        do st <- getFileStatus $ fn2fp f
+           umask <- setFileCreationMask 0
+           setFileCreationMask umask
+           let rw = fileMode st .&.
+                    (ownerReadMode .|. ownerWriteMode .|.
+                     groupReadMode .|. groupWriteMode .|.
+                     otherReadMode .|. otherWriteMode)
+               total = if ex == IsExecutable then rw .|.
+                       ((ownerExecuteMode .|. groupExecuteMode .|.
+                         otherExecuteMode)
+                        .&. complement umask)
+                       else rw
+           setFileMode (fn2fp f) total
+#endif
     mWriteFilePS = writeAtomicFilePS . fn2fp
     mCreateDirectory = createDirectory . fn2fp
     mCreateFile f = do exf <- mDoesFileExist f
@@ -107,35 +96,21 @@ instance WriteableDirectory IO where
                           then fail $ "Cannot remove non-empty file "++fp
                           else removeFile fp
     mRemoveDirectory = removeDirectory . fn2fp
-    mRename a b = renameDirectory x y `catchMe` renameFile x y
+    mRename a b = renameDirectory x y `catch` \_ -> renameFile x y
       where x = fn2fp a
             y = fn2fp b
 
-class Monad m => TolerantMonad m where
-    warning :: IO () -> m ()
-    runIO :: m a -> IO a
-    runTM :: IO a -> m a
-
 newtype TolerantIO a = TIO { runTolerantly :: IO a }
-instance TolerantMonad TolerantIO where
-    warning io = TIO $ io `catch` \e -> putStrLn $ "Warning: " ++ prettyException e
-    runIO (TIO io) = io
-    runTM io = TIO io
 
-newtype SilentIO a = SIO { runSilently :: IO a }
-instance TolerantMonad SilentIO where
-    warning io = SIO $ io `catch` \_ -> return ()
-    runIO (SIO io) = io
-    runTM io = SIO io
+warning :: IO () -> TolerantIO ()
+warning io = TIO $ io `catch` \e -> putStrLn $ "Warning: " ++ pretty e
 
--- NOTE: The following instance declarations are duplicated merely to avoid
--- enabling -fallow-undecidable-instances.  If we used
--- -fallow-undecidable-instances, we would write instead:
+runIO :: TolerantIO a -> IO a
+runIO (TIO io) = io
 
--- instance TolerantMonad m => Monad m where
---      ...
+runTM :: IO a -> TolerantIO a
+runTM io = TIO io
 
--- etc.
 instance Functor TolerantIO where
     fmap f m = m >>= return . f
 
@@ -145,39 +120,11 @@ instance Monad TolerantIO where
     fail s = runTM $ fail s
     return x = runTM $ return x
 
-instance Functor SilentIO where
-    fmap f m = m >>= return . f
-
-instance Monad SilentIO where
-    f >>= g = runTM $ runIO f >>= runIO . g
-    f >> g = runTM $ runIO f >> runIO g
-    fail s = runTM $ fail s
-    return x = runTM $ return x
-
-instance MonadCatchy TolerantIO where
-    catchMe a b = runTM (catchMe (runIO a) (runIO b))
-instance MonadCatchy SilentIO where
-    catchMe a b = runTM (catchMe (runIO a) (runIO b))
-
-instance ReadableDirectory TolerantIO where
-    mDoesDirectoryExist d = runTM $ mDoesDirectoryExist d
-    mDoesFileExist f = runTM $ mDoesFileExist f
-    mInCurrentDirectory i j = runTM $ mInCurrentDirectory i (runIO j)
-    mGetDirectoryContents = runTM mGetDirectoryContents
-    mReadBinFile f = runTM $ mReadBinFile f
-    mReadFilePS f = runTM $ mReadFilePS f
-instance ReadableDirectory SilentIO where
-    mDoesDirectoryExist d = runTM $ mDoesDirectoryExist d
-    mDoesFileExist f = runTM $ mDoesFileExist f
-    mInCurrentDirectory i j = runTM $ mInCurrentDirectory i (runIO j)
-    mGetDirectoryContents = runTM mGetDirectoryContents
-    mReadBinFile f = runTM $ mReadBinFile f
-    mReadFilePS f = runTM $ mReadFilePS f
-
 instance WriteableDirectory TolerantIO where
-     mWithCurrentDirectory = mInCurrentDirectory
+     mDoesDirectoryExist d = runTM $ mDoesDirectoryExist d
+     mDoesFileExist f = runTM $ mDoesFileExist f
+     mReadFilePS f = runTM $ mReadFilePS f
      mSetFileExecutable f e = warning $ mSetFileExecutable f e
-     mWriteBinFile f s = warning $ mWriteBinFile f s
      mWriteFilePS f s = warning $ mWriteFilePS f s
      mCreateFile f = warning $ mWriteFilePS f B.empty
      mCreateDirectory d = warning $ mCreateDirectory d
@@ -185,40 +132,14 @@ instance WriteableDirectory TolerantIO where
      mRemoveDirectory d = warning $ catchJust ioErrors
                                  (mRemoveDirectory d)
                                  (\e ->
-                                   if "(Directory not empty)" `isSuffixOf` show e
+                                   if "(Directory not empty)"
+                                          `isSuffixOf` show e
                                    then ioError $ userError $
-                                            "Not deleting " ++ fn2fp d ++ " because it is not empty."
+                                            "Not deleting " ++ fn2fp d ++
+                                            " because it is not empty."
                                    else ioError $ userError $
-                                            "Not deleting " ++ fn2fp d ++ " because:\n" ++ show e)
-     mRename a b = warning $ catchJust ioErrors
-                          (mRename a b)
-                          (\e -> case () of
-                                 _ | isPermissionError e -> ioError $ userError $
-                                       couldNotRename ++ "."
-                                   | isDoesNotExistError e -> ioError $ userError $
-                                       couldNotRename ++ " because " ++ x ++ " does not exist."
-                                   | otherwise -> ioError e
-                          )
-       where
-        x = fn2fp a
-        y = fn2fp b
-        couldNotRename = "Could not rename " ++ x ++ " to " ++ y
-instance WriteableDirectory SilentIO where
-     mWithCurrentDirectory = mInCurrentDirectory
-     mSetFileExecutable f e = warning $ mSetFileExecutable f e
-     mWriteBinFile f s = warning $ mWriteBinFile f s
-     mWriteFilePS f s = warning $ mWriteFilePS f s
-     mCreateFile f = warning $ mWriteFilePS f B.empty
-     mCreateDirectory d = warning $ mCreateDirectory d
-     mRemoveFile f = warning $ mRemoveFile f
-     mRemoveDirectory d = warning $ catchJust ioErrors
-                                 (mRemoveDirectory d)
-                                 (\e ->
-                                   if "(Directory not empty)" `isSuffixOf` show e
-                                   then ioError $ userError $
-                                            "Not deleting " ++ fn2fp d ++ " because it is not empty."
-                                   else ioError $ userError $
-                                            "Not deleting " ++ fn2fp d ++ " because:\n" ++ show e)
+                                            "Not deleting " ++ fn2fp d ++
+                                            " because:\n" ++ pretty e)
      mRename a b = warning $ catchJust ioErrors
                           (mRename a b)
                           (\e -> case () of

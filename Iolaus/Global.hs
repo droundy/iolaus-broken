@@ -30,6 +30,8 @@ import System.IO (hPutStrLn, hPutStr, stderr)
 import System.Time ( calendarTimeToString, toCalendarTime, getClockTime )
 import Prelude hiding (catch)
 
+import Iolaus.Show ( pretty )
+
 {-# NOINLINE atexit_actions #-}
 atexit_actions :: MVar (Maybe [IO ()])
 atexit_actions = unsafePerformIO (newMVar (Just []))
@@ -60,7 +62,7 @@ with_atexit prog = do
     runAction action = do
         catch (unblock action) $ \exn -> do
             hPutStrLn stderr $ "Exception thrown by an atexit registered action:"
-            hPutStrLn stderr $ show exn
+            hPutStrLn stderr $ pretty exn
 
 
 -- Write-once-read-many global variables make it easier to implement flags, such

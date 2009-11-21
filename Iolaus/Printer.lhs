@@ -41,9 +41,9 @@ This code was made generic in the element type by Juliusz Chroboczek.
 module Iolaus.Printer
     (Doc,
      hPutDoc, hPutDocLn, putDoc, putDocLn,
-     prefix, colorPS, text, printable, wrap_text, blueText,
+     prefix, colorPS, text, printable, wrap_text, colorText,
      unsafeText, packedString, unsafePackedString, userchunkPS,
-     empty, (<>), (<?>), (<+>), ($$), vcat, vsep, hcat,
+     empty, (<>), (<?>), (<+>), ($$), vcat, vsep,
      minus, newline, plus, space,
      traceDoc, assertDoc, errorDoc ) where
 
@@ -60,21 +60,13 @@ import qualified Data.ByteString as B (ByteString, hPut, null,
 import qualified Data.ByteString.Char8 as BC
     (unpack, pack, singleton, any, last)
 
-import Iolaus.Colors ( Color, colorCode, spaceColor, colorMeta, colorOld )
+import Iolaus.Colors ( Color, colorCode, spaceColor, colorOld )
 
 data Printable = S !String
                | PS !B.ByteString
                | Both !String !B.ByteString
                | GitDefaultColor !Color
                | ColorReset
-
--- | 'space_p' is the 'Printable' representation of a space.
-space_p :: Printable
-space_p   = PS (BC.singleton ' ')
-
--- | 'newline_p' is the 'Printable' representation of a newline.
-newline_p :: Printable
-newline_p = PS (BC.singleton '\n')
 
 -- | Minimal 'Doc's representing the common characters 'space', 'newline'
 -- 'minus', 'plus'
@@ -189,12 +181,8 @@ unsafeChar = unsafeText . (:"")
 text :: String -> Doc
 -- | 'unsafeText' creates a 'Doc' from a 'String', using 'simplePrinter' directly
 unsafeText :: String -> Doc
--- | 'blueText' creates a 'Doc' containing blue text from a @String@
 text = printable . S
 unsafeText = Doc . simplePrinter . S
-
-blueText :: String -> Doc
-blueText = colorText colorMeta
 
 -- | 'colorText' creates a 'Doc' containing colored text from a @String@
 colorText :: Color -> String -> Doc
@@ -285,6 +273,9 @@ Doc a <+> Doc b =
                                                      Document bf ->
                                                          space_p:bf s)
 
+space_p :: Printable
+space_p   = PS (BC.singleton ' ')
+
 -- a above b
 Doc a $$ Doc b =
    Doc $ \st -> case a st of
@@ -294,6 +285,9 @@ Doc a $$ Doc b =
                                          Empty -> s
                                          Document bf -> newline_p:pf (bf s))
                         where pf = current_prefix st
+
+newline_p :: Printable
+newline_p = PS (BC.singleton '\n')
 
 -- | 'vcat' piles vertically a list of 'Doc's.
 vcat :: [Doc] -> Doc

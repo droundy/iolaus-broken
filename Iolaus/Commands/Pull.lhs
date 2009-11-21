@@ -35,6 +35,7 @@ import Iolaus.Sealed ( Sealed(..), mapSealM )
 import Iolaus.Repository ( add_heads, slurp_working, slurp_recorded )
 import Iolaus.SelectCommits ( select_commits )
 import Iolaus.Utils ( askUser )
+import Iolaus.IO ( runTolerantly )
 
 import Git.Dag ( notIn )
 import Git.LocateRepo ( amInRepository )
@@ -117,7 +118,7 @@ pull_cmd opts repodirs@(_:_) =
        testCommits (testByDefault opts)
                        (unwords $ "Merge":repodirs) (hs++newhs')
        add_heads opts newhs'
-       apply nps
+       runTolerantly $ apply nps
        tns <- concat `fmap` mapM remoteTagNames repodirs
        let writeTag (h,n) | take 10 n == "refs/tags/" =
                               writeFile (".git/"++n) (show h)

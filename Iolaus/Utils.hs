@@ -3,16 +3,12 @@
 {-# OPTIONS_GHC -cpp #-}
 {-# LANGUAGE CPP, ForeignFunctionInterface #-}
 
-module Iolaus.Utils ( catchall, ortryrunning, nubsort, breakCommand,
-                     clarify_errors, prettyException, prettyError,
-                    putStrLnError, putDocLnError,
-                    withCurrentDirectory,
-                    askUser, stripCr,
-                    showHexLen, add_to_error_loc,
-                    maybeGetEnv, firstNotBlank, firstJustM, firstJustIO,
-                    isUnsupportedOperationError, isHardwareFaultError,
-                    get_viewer, edit_file, promptYorn, promptCharFancy, without_buffering,
-                    formatPath ) where
+module Iolaus.Utils ( catchall, ortryrunning, nubsort,
+                      clarify_errors, withCurrentDirectory, askUser, stripCr,
+                      add_to_error_loc,
+                      maybeGetEnv, firstNotBlank, firstJustIO,
+                      get_viewer, edit_file, promptYorn, promptCharFancy,
+                      without_buffering, formatPath ) where
 
 import Prelude hiding ( catch )
 import Control.Exception ( bracket, catch, Exception(IOException),
@@ -21,27 +17,24 @@ import Control.Concurrent ( newEmptyMVar, takeMVar, putMVar, forkIO )
 #if !defined(WIN32) ||  __GLASGOW_HASKELL__>=609
 import Control.Concurrent ( threadWaitRead )
 #endif
-import GHC.IOBase ( IOException(ioe_location),
-                    IOErrorType(UnsupportedOperation, HardwareFault) )
-import System.IO.Error ( isUserError, ioeGetErrorType, ioeGetErrorString,
-                         isEOFError )
+import GHC.IOBase ( IOException(ioe_location) )
+import System.IO.Error ( isEOFError )
 
 import Iolaus.SignalHandler ( catchNonSignal )
-import Numeric ( showHex )
 import System.Exit ( ExitCode(..) )
 import System.Environment ( getEnv )
-import System.IO ( hFlush, hPutStrLn, stderr, stdout, stdin,
-                   BufferMode ( NoBuffering ),
-                   hLookAhead, hReady, hSetBuffering, hGetBuffering, hIsTerminalDevice )
+import System.IO ( hFlush, stdout, stdin, BufferMode ( NoBuffering ),
+                   hLookAhead, hReady, hSetBuffering, hGetBuffering,
+                   hIsTerminalDevice )
 import Data.Char ( toUpper )
-import Iolaus.RepoPath ( FilePathLike, getCurrentDirectory, setCurrentDirectory, toFilePath )
+import Iolaus.RepoPath ( FilePathLike, getCurrentDirectory,
+                         setCurrentDirectory, toFilePath )
 import Data.Maybe ( listToMaybe, isJust )
 import Data.List ( group, sort )
 import Control.Monad ( when )
 import Iolaus.Exec ( exec_interactive )
-import Iolaus.Printer ( Doc, hPutDocLn )
-
 import Iolaus.Global ( debugMessage )
+import Iolaus.Show ( pretty )
 
 #ifdef HAVE_HASKELINE
 import System.Console.Haskeline ( runInputT, defaultSettings, getInputLine )
@@ -51,74 +44,33 @@ import System.Console.Haskeline ( runInputT, defaultSettings, getInputLine )
 import System.Posix.Internals ( getEcho, setCooked, setEcho )
 #endif
 
-showHexLen :: (Integral a) => Int -> a -> String
-showHexLen n x = let s = showHex x ""
-                 in replicate (n - length s) ' ' ++ s
-
 add_to_error_loc :: Exception -> String -> Exception
 add_to_error_loc (IOException ioe) s
     = IOException $ ioe { ioe_location = s ++ ": " ++ ioe_location ioe }
 add_to_error_loc e _ = e
 
-isUnsupportedOperationError :: IOError -> Bool
-isUnsupportedOperationError = isUnsupportedOperationErrorType . ioeGetErrorType
-
-isUnsupportedOperationErrorType :: IOErrorType -> Bool
-isUnsupportedOperationErrorType UnsupportedOperation = True
-isUnsupportedOperationErrorType _ = False
-
-isHardwareFaultError :: IOError -> Bool
-isHardwareFaultError = isHardwareFaultErrorType . ioeGetErrorType
-
-isHardwareFaultErrorType :: IOErrorType -> Bool
-isHardwareFaultErrorType HardwareFault = True
-isHardwareFaultErrorType _ = False
-
 catchall :: IO a -> IO a -> IO a
 a `catchall` b = a `catchNonSignal` (\_ -> b)
 
 maybeGetEnv :: String -> IO (Maybe String)
-maybeGetEnv s = (getEnv s >>= return.Just) `catchall` return Nothing -- err can only be isDoesNotExist
+maybeGetEnv s = (getEnv s >>= return.Just)
+                `catchall` return Nothing -- err can only be isDoesNotExist
 
-
--- |The firstJustM returns the first Just entry in a list of monadic operations.  This is close to
---  `listToMaybe `fmap` sequence`, but the sequence operator evaluates all monadic members of the
---  list before passing it along (i.e. sequence is strict).  The firstJustM is lazy in that list
---  member monads are only evaluated up to the point where the first Just entry is obtained.
-firstJustM :: Monad m => [m (Maybe a)] -> m (Maybe a)
-firstJustM [] = return Nothing
-firstJustM (e:es) = e >>= (\v -> if isJust v then return v else firstJustM es)
-
--- |The firstJustIO is a slight modification to firstJustM: the
---  entries in the list must be IO monad operations and the
---  firstJustIO will silently turn any monad call that throws an
---  exception into Nothing, basically causing it to be ignored.
 firstJustIO :: [IO (Maybe a)] -> IO (Maybe a)
 firstJustIO = firstJustM . map (\o -> o `catchall` return Nothing)
-
+    where firstJustM :: Monad m => [m (Maybe a)] -> m (Maybe a)
+          firstJustM [] = return Nothing
+          firstJustM (e:es) =
+              e >>= (\v -> if isJust v then return v else firstJustM es)
 
 clarify_errors :: IO a -> String -> IO a
-clarify_errors a e = a `catch` (\x -> fail $ unlines [prettyException x,e])
-
-prettyException :: Control.Exception.Exception -> String
-prettyException (IOException e) | isUserError e = ioeGetErrorString e
-prettyException e = show e
-
-prettyError :: IOError -> String
-prettyError e | isUserError e = ioeGetErrorString e
-              | otherwise = show e
+clarify_errors a e = a `catch` (\x -> fail $ unlines [pretty x,e])
 
 ortryrunning :: IO ExitCode -> IO ExitCode -> IO ExitCode
 a `ortryrunning` b = do ret <- try a
                         case ret of
                           (Right ExitSuccess) -> return ExitSuccess
                           _ -> b
-
-putStrLnError :: String -> IO ()
-putStrLnError = hPutStrLn stderr
-
-putDocLnError :: Doc -> IO ()
-putDocLnError = hPutDocLn stderr
 
 withCurrentDirectory :: FilePathLike p => p -> IO a -> IO a
 withCurrentDirectory name m =
@@ -184,11 +136,6 @@ formatPath path = "\"" ++ quote path ++ "\""
           quote (c:cs) = if c=='\\' || c=='"'
                          then '\\':c:quote cs
                          else c:quote cs
-
-breakCommand :: String -> (String, [String])
-breakCommand s = case words s of
-                   (arg0:args) -> (arg0,args)
-                   [] -> (s,[])
 
 nubsort :: Ord a => [a] -> [a]
 nubsort = map head . group . sort

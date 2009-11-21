@@ -34,7 +34,7 @@ import Iolaus.Patch.Core ( Named(..) )
 import Iolaus.Patch.Prim ( Prim(..), is_chunk,
                            DirPatchType(..), FilePatchType(..) )
 import Iolaus.SlurpDirectory ( Slurpy, withSlurpy )
-import Iolaus.IO ( WriteableDirectory(..), mReadFilePS )
+import Iolaus.IO ( WriteableDirectory(..) )
 --import Iolaus.FilePathMonad ( withFilePaths, withSubPaths )
 #include "impossible.h"
 import Iolaus.Ordered ( FL(..), (:>)(..), mapFL_FL, spanFL, unsafeCoerceS )

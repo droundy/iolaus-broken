@@ -26,12 +26,11 @@ import Iolaus.Flags ( Flag(..) )
 import Iolaus.Ordered ( FL(..), unsafeCoerceP, unsafeCoerceS )
 import Data.List ( partition, sort )
 import Data.List ( intersperse )
-import qualified Data.ByteString.Char8 as BC ( pack )
-import qualified Data.ByteString as B (empty, elem, ByteString)
+import qualified Data.ByteString.Char8 as BC ( pack, lines )
+import qualified Data.ByteString as B (null, empty, elem, ByteString)
 
 import Iolaus.Ordered ( (+>+) )
 import Iolaus.Lcs2 ( patientLcs )
-import Iolaus.ByteStringUtils ( linesPS )
 import Iolaus.IO ( ExecutableBit(..) )
 import Iolaus.SlurpDirectory ( Slurpy, subslurpies, slurp_name, is_dir, is_file,
                                get_filehash, get_dirhash, get_fileEbit,
@@ -160,9 +159,9 @@ diff_added summary fps s
 
 diff_files :: FilePath -> B.ByteString -> B.ByteString
            -> (FL Prim C(x x) -> FL Prim C(x x))
-diff_files f o n | linesPS o == [B.empty] && linesPS n == [B.empty] = id
-                 | linesPS o == [B.empty] = diff_from_empty id f n
-                 | linesPS n == [B.empty] = diff_from_empty invert f o
+diff_files f o n | B.null o && B.null n = id
+                 | B.null o = diff_from_empty id f n
+                 | B.null n = diff_from_empty invert f o
 diff_files f o n =
     if o == n
     then id
@@ -200,13 +199,14 @@ diff_removed fps s
 similar :: Slurpy C(x) -> Slurpy C(x) -> Bool
 similar aaa bbb
     | afile /= bfile = False
+    | afile == bfile = True
     | afile = length (patientLcs lsaaa lsbbb)
               > (max 1 (min (length lsaaa `div` 2)
                        (min (length lsbbb `div` 2) 40)))
     | otherwise = compared (sort $ get_dircontents aaa)
                            (sort $ get_dircontents bbb)
-    where lsaaa = linesPS $ get_filecontents aaa
-          lsbbb = linesPS $ get_filecontents bbb
+    where lsaaa = BC.lines $ get_filecontents aaa
+          lsbbb = BC.lines $ get_filecontents bbb
           afile = is_file aaa
           bfile = is_file bbb
           compared (a:as) (b:bs)

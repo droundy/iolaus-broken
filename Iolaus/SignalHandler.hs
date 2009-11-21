@@ -34,8 +34,9 @@ import Data.Dynamic ( Typeable, fromDynamic )
 import System.IO ( hPutStrLn, stderr )
 import Control.Monad ( when )
 
-import Iolaus.Workaround ( installHandler, raiseSignal, Handler(..), Signal,
-                    sigINT, sigHUP, sigABRT, sigALRM, sigTERM, sigPIPE )
+import System.Posix.Signals
+    ( installHandler, raiseSignal, Handler(..), Signal,
+      sigINT, sigHUP, sigABRT, sigALRM, sigTERM, sigPIPE )
 #ifdef WIN32
 import CtrlC ( withCtrlCHandler )
 #endif

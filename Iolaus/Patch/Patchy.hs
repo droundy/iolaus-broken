@@ -24,7 +24,6 @@
 module Iolaus.Patch.Patchy ( Patchy,
                             Apply, apply,
                             Commute(..), commuteFL, commuteRL, commuteRLFL,
-                            mergeFL,
                             ShowPatch(..),
                             Invert(..), invertFL, invertRL ) where
 
@@ -32,8 +31,7 @@ import Data.List ( nub )
 
 import Iolaus.SlurpDirectory ( Slurpy )
 import Iolaus.Ordered
-import Iolaus.Printer ( Doc, (<>), text )
-import Iolaus.Lock ( writeDocBinFile )
+import Iolaus.Printer ( Doc )
 import Iolaus.IO ( WriteableDirectory )
 import Iolaus.English ( plural, Noun(Noun) )
 
@@ -55,8 +53,6 @@ class Commute p => ShowPatch p where
     showPatch :: p C(x y) -> Doc
     showContextPatch :: Slurpy C(x) -> p C(x y) -> Doc
     showContextPatch _ p = showPatch p
-    writePatch :: FilePath -> p C(x y) -> IO ()
-    writePatch f p = writeDocBinFile f $ showPatch p <> text "\n"
     thing :: p C(x y) -> String
     thing _ = "patch"
     things :: p C(x y) -> String

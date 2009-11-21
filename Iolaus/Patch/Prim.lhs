@@ -31,36 +31,28 @@ module Iolaus.Patch.Prim
          adddir, addfile,
          chunk, binary, move, rmdir, rmfile, chmod,
          is_addfile, is_chunk,
-         is_adddir,
-         canonize, try_to_shrink,
-         subcommutes, sort_coalesceFL, join,
-         splatter, splatterFL,
-         try_shrinking_inverse,
-         Effect(..)
+         is_adddir, canonize,
+         subcommutes,
+         splatter, splatterFL, Effect(..)
        )
        where
 
 import Control.Monad ( MonadPlus, msum, mzero, mplus )
-#ifndef GADT_WITNESSES
-import Data.Map ( elems, fromListWith, mapWithKey )
-import Iolaus.Ordered ( mapFL )
-#endif
-
 import qualified Data.ByteString as B ( ByteString, concat )
 
 import Iolaus.FileName ( FileName, fn2fp, fp2fn, norm_path,
                          movedirfilename, encode_white )
 import Iolaus.RepoPath ( toFilePath )
 import Iolaus.Ordered ( EqCheck(..), MyEq(..),
-                       (:>)(..), (:\/:)(..), (:/\:)(..), FL(..), RL(..), (+>+),
+                       (:>)(..), (:\/:)(..), (:/\:)(..), FL(..), RL(..),
                        concatFL, concatRL, mapFL_FL, mapRL_RL,
-                       reverseFL, reverseRL, lengthFL, unsafeCoerceP )
+                       reverseFL, reverseRL, unsafeCoerceP )
 import Iolaus.Patch.Patchy ( Invert(..), Commute(..) )
 import Iolaus.Patch.Permutations () -- for Invert instance of FL
 import Iolaus.Show
 import Iolaus.Lcs2 ( nestedChanges )
-import Iolaus.Colors ( colorOld, colorNew )
-import Iolaus.Printer ( Doc, text, blueText, colorPS, ($$), (<+>), (<>) )
+import Iolaus.Colors ( colorMeta, colorOld, colorNew )
+import Iolaus.Printer ( Doc, text, colorText, colorPS, ($$), (<+>), (<>) )
 import Iolaus.IO ( ExecutableBit(IsExecutable, NotExecutable) )
 #include "impossible.h"
 
@@ -179,145 +171,25 @@ instance Show (DirPatchType C(x y)) where
     showsPrec _ AddDir = showString "AddDir"
 
 formatFileName :: FileName -> Doc
-formatFileName = blueText . encode_white . toFilePath
+formatFileName = colorText colorMeta . encode_white . toFilePath
 
 showPrim :: Prim C(a b) -> Doc
-showPrim (FP f AddFile) = blueText "addfile" <+> formatFileName f
-showPrim (FP f RmFile)  = blueText "rmfile" <+> formatFileName f
-showPrim (FP f (Chmod IsExecutable)) = blueText "chmod +x" <+> formatFileName f
-showPrim (FP f (Chmod NotExecutable)) = blueText "chmod -x" <+> formatFileName f
+showPrim (FP f AddFile) = colorText colorMeta "addfile" <+> formatFileName f
+showPrim (FP f RmFile)  = colorText colorMeta "rmfile" <+> formatFileName f
+showPrim (FP f (Chmod IsExecutable)) =
+    colorText colorMeta "chmod +x" <+> formatFileName f
+showPrim (FP f (Chmod NotExecutable)) =
+    colorText colorMeta "chmod -x" <+> formatFileName f
 showPrim (FP f (Chunk _ word old new)) =
-           blueText "chunk" <+> formatFileName f <+> text (show word) $$
+    colorText colorMeta "chunk" <+> formatFileName f <+> text (show word) $$
               (colorPS colorOld $ B.concat old) <>
               (colorPS colorNew $ B.concat new)
-showPrim (FP f (Binary _ _)) = blueText "binary" <+> formatFileName f
-showPrim (DP d AddDir) = blueText "adddir" <+> formatFileName d
-showPrim (DP d RmDir) = blueText "rmdir" <+> formatFileName d
+showPrim (FP f (Binary _ _)) = colorText colorMeta "binary" <+> formatFileName f
+showPrim (DP d AddDir) = colorText colorMeta "adddir" <+> formatFileName d
+showPrim (DP d RmDir) = colorText colorMeta "rmdir" <+> formatFileName d
 showPrim (Move f f') =
-    blueText "mv" <+> formatFileName f <+> formatFileName f'
-showPrim Identity = blueText "{}"
-
-try_to_shrink :: FL Prim C(x y) -> FL Prim C(x y)
-try_to_shrink = mapPrimFL try_harder_to_shrink
-
-mapPrimFL :: (FORALL(x y) FL Prim C(x y) -> FL Prim C(x y))
-             -> FL Prim C(w z) -> FL Prim C(w z)
-mapPrimFL f x =
-#ifdef GADT_WITNESSES
-                f x
-#else 
--- an optimisation; break the list up into independent sublists
--- and apply f to each of them
-     case mapM toSimple $ mapFL id x of
-     Just sx -> foldr (+>+) NilFL $ elems $
-                mapWithKey (\ k p -> f (fromSimples k (p NilFL))) $
-                fromListWith (flip (.)) $
-                map (\ (a,b) -> (a,(b:>:))) sx
-     Nothing -> f x
-
-data Simple C(x y) = SFP !(FilePatchType C(x y)) | SDP !(DirPatchType C(x y))
-                   deriving ( Show )
-
-toSimple :: Prim C(x y) -> Maybe (FileName, Simple C(x y))
-toSimple (FP a b) = Just (a, SFP b)
-toSimple (DP a AddDir) = Just (a, SDP AddDir)
-toSimple (DP _ RmDir) = Nothing -- ordering is trickier with rmdir present
-toSimple (Move _ _) = Nothing
-toSimple Identity = Nothing
-
-fromSimple :: FileName -> Simple C(x y) -> Prim C(x y)
-fromSimple a (SFP b) = FP a b
-fromSimple a (SDP b) = DP a b
-
-fromSimples :: FileName -> FL Simple C(x y) -> FL Prim C(x y)
-fromSimples a bs = mapFL_FL (fromSimple a) bs
-#endif
-
-try_harder_to_shrink :: FL Prim C(x y) -> FL Prim C(x y)
-try_harder_to_shrink x = try_to_shrink2 $ maybe x id (try_shrinking_inverse x)
-
-try_to_shrink2 :: FL Prim C(x y) -> FL Prim C(x y)
-try_to_shrink2 psold =
-    let ps = sort_coalesceFL psold
-        ps_shrunk = shrink_a_bit ps
-                    in
-    if lengthFL ps_shrunk < lengthFL ps
-    then try_to_shrink2 ps_shrunk
-    else ps_shrunk
-
-try_shrinking_inverse :: FL Prim C(x y) -> Maybe (FL Prim C(x y))
-try_shrinking_inverse (x:>:y:>:z)
-    | IsEq <- invert x =\/= y = Just z
-    | otherwise = case try_shrinking_inverse (y:>:z) of
-                  Nothing -> Nothing
-                  Just yz' -> Just $ case try_shrinking_inverse (x:>:yz') of
-                                     Nothing -> x:>:yz'
-                                     Just xyz' -> xyz'
-try_shrinking_inverse _ = Nothing
-
-shrink_a_bit :: FL Prim C(x y) -> FL Prim C(x y)
-shrink_a_bit NilFL = NilFL
-shrink_a_bit (p:>:ps) =
-    case try_one NilRL p ps of
-    Nothing -> p :>: shrink_a_bit ps
-    Just ps' -> ps'
-
-try_one :: RL Prim C(w x) -> Prim C(x y) -> FL Prim C(y z)
-        -> Maybe (FL Prim C(w z))
-try_one _ _ NilFL = Nothing
-try_one sofar p (p1:>:ps) =
-    case join (p :> p1) of
-    Just p' -> Just (reverseRL sofar +>+ p':>:NilFL +>+ ps)
-    Nothing -> case commute (p :> p1) of
-               Nothing -> Nothing
-               Just (p1' :> p') -> try_one (p1':<:sofar) p' ps
-
--- | 'sort_coalesceFL' @ps@ joins as many patches in @ps@ as
---   possible, sorting the results according to the scheme defined
---   in 'comparePrim'
-sort_coalesceFL :: FL Prim C(x y) -> FL Prim C(x y)
-sort_coalesceFL = mapPrimFL sort_coalesceFL2
-
--- | The heart of "sort_coalesceFL"
-sort_coalesceFL2 :: FL Prim C(x y) -> FL Prim C(x y)
-sort_coalesceFL2 NilFL = NilFL
-sort_coalesceFL2 (x:>:xs) | IsEq <- sloppyIdentity x = sort_coalesceFL2 xs
-sort_coalesceFL2 (x:>:xs) | IsEq <- is_identity x = sort_coalesceFL2 xs
-sort_coalesceFL2 (x:>:xs) = either id id $ push_coalesce_patch x $ sort_coalesceFL2 xs
-
--- | 'push_coalesce_patch' @new ps@ is almost like @new :>: ps@ except
---   as an alternative to consing, we first try to join @new@ with
---   the head of @ps@.  If this fails, we try again, using commutation
---   to push @new@ down the list until we find a place where either
---   (a) @new@ is @LT@ the next member of the list [see 'comparePrim']
---   (b) commutation fails or
---   (c) coalescing succeeds.
---   The basic principle is to join if we can and cons otherwise.
---
---   As an additional optimization, push_coalesce_patch outputs a Left
---   value if it wasn't able to shrink the patch sequence at all, and
---   a Right value if it was indeed able to shrink the patch sequence.
---   This avoids the O(N) calls to lengthFL that were in the older
---   code.
---
---   Also note that push_coalesce_patch is only ever used (and should
---   only ever be used) as an internal function in in
---   sort_coalesceFL2.
-push_coalesce_patch :: Prim C(x y) -> FL Prim C(y z)
-                    -> Either (FL Prim C(x z)) (FL Prim C(x z))
-push_coalesce_patch new NilFL = Left (new:>:NilFL)
-push_coalesce_patch new ps@(p:>:ps')
-    = case join (new :> p) of
-      Just new' | IsEq <- sloppyIdentity new' -> Right ps'
-                | otherwise -> Right $ either id id $ push_coalesce_patch new' ps'
-      Nothing -> if comparePrim new p == LT then Left (new:>:ps)
-                            else case commute (new :> p) of
-                                 Just (p' :> new') ->
-                                     case push_coalesce_patch new' ps' of
-                                     Right r -> Right $ either id id $
-                                                push_coalesce_patch p' r
-                                     Left r -> Left (p' :>: r)
-                                 Nothing -> Left (new:>:ps)
+    colorText colorMeta "mv" <+> formatFileName f <+> formatFileName f'
+showPrim Identity = colorText colorMeta "{}"
 
 is_in_directory :: FileName -> FileName -> Bool
 is_in_directory d f = iid (fn2fp d) (fn2fp f)
@@ -493,36 +365,6 @@ canonize (FP f (Chunk c w old new)) = canonizeChunk f c w old new
 canonize p = p :>: NilFL
 \end{code}
 
-A simpler, faster (and more generally useful) cousin of canonize is the
-coalescing function.  This takes two sequential patches, and tries to turn
-them into one patch.  This function is used to deal with ``split'' patches,
-which are created when the commutation of a primitive patch can only be
-represented by a composite patch.  In this case the resulting composite
-patch must return to the original primitive patch when the commutation is
-reversed, which a split patch accomplishes by trying to join its
-contents each time it is commuted.
-
-\begin{code}
--- | 'join' @p1 :> p2@ tries to combine @p1@ and @p2@ into a single
---   patch without intermediary changes.  For example, two hunk patches
---   modifying adjacent lines can be joined into a bigger hunk patch.
---   Or a patch which moves file A to file B can be joined with a
---   patch that moves file B into file C, yielding a patch that moves
---   file A to file C.
-join :: (Prim :> Prim) C(x y) -> Maybe (Prim C(x y))
-join (FP f2 _ :> FP f1 _) | f1 /= f2 = Nothing
-join (p1 :> p2) | IsEq <- p2 =\/= invert p1 = Just Identity
-join (FP _ p2 :> FP f1 p1) = coalesceFilePrim f1 (p2 :> p1) -- f1 = f2
-join (Identity :> p) = Just p
-join (p :> Identity) = Just p
-join (Move b' a' :> Move a b) | a == a' = Just $ Move b' b
-join (FP f AddFile :> Move a b) | f == a = Just $ FP b AddFile
-join (DP f AddDir :> Move a b) | f == a = Just $ DP b AddDir
-join (Move a b :> FP f RmFile) | b == f = Just $ FP a RmFile
-join (Move a b :> DP f RmDir) | b == f = Just $ DP a RmDir
-join _ = Nothing
-\end{code}
-
 \subsection{File patches}
 
 A file patch is a patch which only modifies a single
@@ -574,12 +416,6 @@ splatter (FP f (Binary o n1) :> FP f' (Binary o1 n))
 splatter _ = Nothing
 
 
-coalesceFilePrim :: FileName -> (FilePatchType :> FilePatchType) C(x y)
-                  -> Maybe (Prim C(x y))
-coalesceFilePrim f (Chunk c1 w1 o1 n1 :> Chunk c2 w2 o2 n2)
-    | c1 == c2 = coalesceChunk f c1 w1 o1 n1 w2 o2 n2
-coalesceFilePrim _ _ = Nothing
-
 commuteChunk :: FileName -> (FilePatchType :> FilePatchType) C(x y)
              -> Maybe ((Prim :> Prim) C(x y))
 commuteChunk f (Chunk c line1 old1 new1 :> Chunk _ line2 old2 new2)
@@ -604,33 +440,6 @@ commuteChunk f (Chunk c line1 old1 new1 :> Chunk _ line2 old2 new2)
         lengthold2 = length old2
 commuteChunk _ _ = impossible
 
-coalesceChunk :: FileName -> B.ByteString
-             -> Int -> [B.ByteString] -> [B.ByteString]
-             -> Int -> [B.ByteString] -> [B.ByteString]
-             -> Maybe (Prim C(x y))
-coalesceChunk f c line1 old1 new1 line2 old2 new2
-    | line1 == line2 && lengthold1 < lengthnew2 =
-        if take lengthold1 new2 /= old1
-        then Nothing
-        else case drop lengthold1 new2 of
-        extranew -> Just (FP f (Chunk c line1 old2 (new1 ++ extranew)))
-    | line1 == line2 && lengthold1 > lengthnew2 =
-        if take lengthnew2 old1 /= new2
-        then Nothing
-        else case drop lengthnew2 old1 of
-        extraold -> Just (FP f (Chunk c line1 (old2 ++ extraold) new1))
-    | line1 == line2 = if new2 == old1 then Just (FP f (Chunk c line1 old2 new1))
-                       else Nothing
-    | line1 < line2 && lengthold1 >= line2 - line1 =
-        case take (line2 - line1) old1 of
-        extra-> coalesceChunk f c line1 old1 new1 line1 (extra ++ old2) (extra ++ new2)
-    | line1 > line2 && lengthnew2 >= line1 - line2 =
-        case take (line1 - line2) new2 of
-        extra-> coalesceChunk f c line2 (extra ++ old1) (extra ++ new1) line2 old2 new2
-    | otherwise = Nothing
-    where lengthold1 = length old1
-          lengthnew2 = length new2
-
 canonizeChunk :: FileName -> B.ByteString -> Int
              -> [B.ByteString] -> [B.ByteString] -> FL Prim C(x y)
 canonizeChunk f c w old new
@@ -648,25 +457,6 @@ instance MyEq Prim where
         = f1 == f2 && fp1 `unsafeCompare` fp2
     unsafeCompare Identity Identity = True
     unsafeCompare _ _ = False
-
--- | 'comparePrim' @p1 p2@ is used to provide an arbitrary ordering between
---   @p1@ and @p2@.  Basically, identical patches are equal and
---   @Move < DP < FP < Identity@.
---   Everything else is compared in dictionary order of its arguments.
-comparePrim :: Prim C(x y) -> Prim C(w z) -> Ordering
-comparePrim (Move a b) (Move c d) = compare (a, b) (c, d)
-comparePrim (Move _ _) _ = LT
-comparePrim _ (Move _ _) = GT
-comparePrim (DP d1 p1) (DP d2 p2) = compare (d1, p1) $ unsafeCoerceP (d2, p2)
-comparePrim (DP _ _) _ = LT
-comparePrim _ (DP _ _) = GT
-comparePrim (FP f1 fp1) (FP f2 fp2) = compare (f1, fp1) $ unsafeCoerceP (f2, fp2)
-comparePrim (FP _ _) _ = LT
-comparePrim _ (FP _ _) = GT
-comparePrim Identity Identity = EQ
-\end{code}
-
-\begin{code}
 
 class Effect p where
     effect :: p C(x y) -> FL Prim C(x y)

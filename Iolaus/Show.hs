@@ -1,9 +1,11 @@
-{-# OPTIONS_GHC -cpp #-}
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, TypeSynonymInstances #-}
 
 module Iolaus.Show(Show1(..), Show2(..), Eq1(..), Ord1(..),
                    Pretty(..), Pretty1(..),
                    showOp2, app_prec) where
+
+import Control.Exception ( Exception(IOException) )
+import System.IO.Error ( isUserError, ioeGetErrorString )
 
 #include "gadts.h"
 
@@ -34,3 +36,11 @@ class Pretty a where
     pretty :: a -> String
 class Pretty1 a where
     pretty1 :: a C(x) -> String
+
+instance Pretty Control.Exception.Exception where
+    pretty (IOException e) | isUserError e = ioeGetErrorString e
+    pretty e = show e
+
+instance Pretty IOError where
+    pretty e | isUserError e = ioeGetErrorString e
+             | otherwise = show e

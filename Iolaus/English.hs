@@ -22,9 +22,9 @@
 --
 --  * countable nouns (plurality); and
 --  * lists of clauses (foo, bar and/or baz).
-module Iolaus.English where
+module Iolaus.English ( Noun(Noun), This(This), plural, englishNum ) where
 
-import Data.List (isSuffixOf, intersperse)
+import Data.List ( isSuffixOf )
 
 -- | > englishNum 0 (Noun "watch") "" == "watches"
 --   > englishNum 1 (Noun "watch") "" == "watch"
@@ -59,18 +59,3 @@ data This = This Noun
 instance Countable This where
   plural (This s)   = showString "these "  . plural s
   singular (This s) = showString "this "   . singular s
-
--- | Given a list of things, combine them thusly:
---
---   > orClauses ["foo", "bar", "baz"] == "foo, bar or baz"
-andClauses, orClauses :: [String] -> String
-andClauses = intersperseLast ", " " and "
-orClauses  = intersperseLast ", " " or "
-
--- | As 'intersperse', with a different separator for the last
--- | interspersal.
-intersperseLast :: String -> String -> [String] -> String
-intersperseLast _ _ [] = ""
-intersperseLast _ _ [clause] = clause
-intersperseLast sep sepLast clauses =
-    concat (intersperse sep $ init clauses) ++ sepLast ++ last clauses
