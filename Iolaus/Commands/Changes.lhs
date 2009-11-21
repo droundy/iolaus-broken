@@ -21,18 +21,14 @@
 module Iolaus.Commands.Changes ( changes ) where
 
 import Iolaus.Command ( Command(..), nodefaults )
-import Iolaus.Arguments ( Flag(MaxC, Reverse, Graph, Count), changes_format,
-                          commit_format, max_count,
+import Iolaus.Arguments ( Flag, changes_format, commit_format, max_count,
                           possibly_remote_repo_dir, working_repo_dir,
                           only_to_files,
                           match_several_or_range, all_interactive )
-import Iolaus.Sealed ( unseal )
-import Iolaus.Printer ( putDocLn )
 import Iolaus.Graph ( putGraph )
 
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( heads, RevListOption(MaxCount, TopoOrder) )
-import Git.Helpers ( revListHeadsHashes, showCommit )
+import Git.Plumbing ( heads )
 
 changes_description :: String
 changes_description =
@@ -63,14 +59,5 @@ changes = Command {command_name = "changes",
                                             all_interactive]}
 
 changes_cmd :: [Flag] -> [String] -> IO ()
-changes_cmd opts _ | Graph `elem` opts = heads >>= putGraph opts (const True)
-changes_cmd opts _ =
-    do cs <- revListHeadsHashes flags
-       if Count `elem` opts
-          then putStrLn $ show $ length $ filt cs
-          else mapM_ (showC `unseal`) $ filt cs
-    where flags = [MaxCount n | MaxC n <- opts]++[TopoOrder]
-          showC c = do showCommit opts c >>= putDocLn
-                       putStrLn ""
-          filt = if Reverse `elem` opts then reverse else id
+changes_cmd opts _ = heads >>= putGraph opts (const True)
 \end{code}

@@ -19,6 +19,12 @@ cat num
 echo 4 | diff -u num -
 rm num
 
+# check that changes --max-count --count works properly
+iolaus changes --max-count 3 --count > num
+cat num
+echo 3 | diff -u num -
+rm num
+
 iolaus changes > ch
 cat ch
 grep bye ch

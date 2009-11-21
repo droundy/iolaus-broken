@@ -664,7 +664,7 @@ verify = IolausMultipleChoiceOption
           "don't verify patch signature"]
 
 reponame :: IolausOption
-reponame = IolausArgOption [] ["repo-name"] WorkDir "DIRECTORY"
+reponame = IolausArgOption [] ["repo-name"] RepoDir "DIRECTORY"
            "path of output directory"
 
 commitApproach :: IolausOption

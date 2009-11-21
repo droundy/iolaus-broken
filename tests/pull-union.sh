@@ -32,11 +32,22 @@ date > baz
 iolaus record --nice -am datebaz
 iolaus changes | grep dateba
 
-cd ../temp
+cd ..
+iolaus get temp temp3
+
+cd temp
 iolaus changes | grep dateba && exit 1
 iolaus changes | grep modfoo && exit 1
 
-iolaus pull -a --intersection ../temp1 ../temp2
+iolaus pull -a --union ../temp1 ../temp2
 
+iolaus changes | grep dateba
+iolaus changes | grep modfoo
+cd ../temp3
 iolaus changes | grep dateba && exit 1
+iolaus changes | grep modfoo && exit 1
+
+iolaus pull -a --union ../temp1 ../temp2
+
+iolaus changes | grep dateba
 iolaus changes | grep modfoo
