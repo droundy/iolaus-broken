@@ -22,7 +22,6 @@
 
 module Iolaus.Diff ( diff ) where
 
-import Iolaus.SlurpDirectory ( Slurpy )
 import Iolaus.Flags ( Flag(..) )
 import Iolaus.Ordered ( FL(..), unsafeCoerceP, unsafeCoerceS )
 import Data.List ( partition, sort )
@@ -34,7 +33,7 @@ import Iolaus.Ordered ( (+>+) )
 import Iolaus.Lcs2 ( patientLcs )
 import Iolaus.ByteStringUtils ( linesPS )
 import Iolaus.IO ( ExecutableBit(..) )
-import Iolaus.SlurpDirectory ( slurp_name, is_dir, is_file,
+import Iolaus.SlurpDirectory ( Slurpy, subslurpies, slurp_name, is_dir, is_file,
                                get_filehash, get_dirhash, get_fileEbit,
                                get_dircontents, get_filecontents )
 import Iolaus.Patch ( Prim, binary, chunk, chunkify,
@@ -76,12 +75,12 @@ addedremoved o n
     | is_file o && is_file n = ([],[])
     | is_dir o && is_dir n = addrm (get_dircontents o) (get_dircontents n)
     | otherwise = ([],[])
-    where addrm [] xs = ([], map (\x -> (slurp_name x,x)) xs)
-          addrm xs [] = (map (\x -> (slurp_name x,x)) xs, [])
+    where addrm [] xs = ([], concatMap subslurpies xs)
+          addrm xs [] = (concatMap subslurpies xs, [])
           addrm (s:xs) ys =
               case partition ((==slurp_name s).slurp_name) ys of
                 ([],_) -> case addrm xs ys of
-                            (a,b) -> ((slurp_name s,s):a, b)
+                            (a,b) -> (subslurpies s++a, b)
                 ([s'],ys') ->
                     case addedremoved s s' of
                       (a, b) -> case addrm xs ys' of

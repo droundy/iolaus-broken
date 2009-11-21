@@ -20,7 +20,7 @@
 -- | SlurpDirectory is intended to give a nice lazy way of traversing directory
 -- trees.
 module Iolaus.SlurpDirectoryInternal
-                      ( Slurpy(..), SlurpyContents(..),
+                      ( Slurpy(..), SlurpyContents(..), subslurpies,
                         get_filehash, get_dirhash, get_fileEbit,
                         slurpies_to_map, map_to_slurpies,
                         empty_slurpy, filterSlurpyPaths,
@@ -643,6 +643,13 @@ get_path_list' (Slurpy d (SlurpDir _ ss)) fp
       in map (d' ///) $ concatMap (\s -> get_path_list' s fp') $ map_to_slurpies ss
     where d' = fn2fp d
 get_path_list' _ _ = []
+
+subslurpies :: Slurpy C(x) -> [(FilePath, Slurpy C(x))]
+subslurpies s@(Slurpy dd (SlurpDir _ ss)) =
+    (d,s) : map (\ (d',s') -> (d ///d',s'))
+            (concatMap subslurpies (map_to_slurpies ss))
+    where d = fn2fp dd
+subslurpies s@(Slurpy f _) = [(fn2fp f, s)]
 
 list_slurpy :: Slurpy C(x) -> [FilePath]
 list_slurpy (Slurpy dd (SlurpDir _ ss)) = d : map (d ///) (concatMap list_slurpy (map_to_slurpies ss))
