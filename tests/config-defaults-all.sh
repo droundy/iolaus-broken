@@ -3,9 +3,8 @@ set -ev
 mkdir temp
 cd temp
 iolaus init
-mkdir .git-hooks
-echo true > .git-hooks/test
-chmod +x .git-hooks/test
+echo true > .test
+chmod +x .test
 
 iolaus all --config-default --no-test
 
@@ -29,9 +28,8 @@ cat ~/.gitconfig
 mkdir temp
 cd temp
 iolaus init
-mkdir .git-hooks
-echo true > .git-hooks/test
-chmod +x .git-hooks/test
+echo true > .test
+chmod +x .test
 
 iolaus wh | grep chmod
 
