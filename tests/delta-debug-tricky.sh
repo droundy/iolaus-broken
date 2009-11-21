@@ -3,9 +3,7 @@ set -ev
 mkdir temp
 cd temp
 
-mkdir .git-hooks
-
-cat > .git-hooks/test <<EOF
+cat > .test <<EOF
 #!/usr/bin/env perl
 
 foo();
@@ -24,12 +22,12 @@ sub bar {
 bar("another nice","test");
 
 EOF
-chmod +x .git-hooks/test
+chmod +x .test
 
 iolaus init
 iolaus record -am 'create test'
 
-cat > .git-hooks/test <<EOF
+cat > .test <<EOF
 #!/usr/bin/env perl
 
 foo();
@@ -61,19 +59,19 @@ iolaus record --delta-debug -am 'safe parts of test'
 
 iolaus wh
 
-#grep baz .git-hooks/test
-#grep bar .git-hooks/test
+#grep baz .test
+#grep bar .test
 
 # test still fail
-./.git-hooks/test && exit 1
+./.test && exit 1
 
 iolaus revert -a
 
 # make sure test now passes
-./.git-hooks/test
+./.test
 
-#grep bar .git-hooks/test && exit 1
-#grep baz .git-hooks/test
+#grep bar .test && exit 1
+#grep baz .test
 
 # This test passes, but not very well.  I'd like for iolaus to be able
 # to figure out that if it just reverses the print -> prin

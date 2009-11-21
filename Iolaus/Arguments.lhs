@@ -557,12 +557,13 @@ __indexes = IolausArgOption ['n'] ["index"] indexrange "N-M" "select a range of 
 \end{code}
 
 \begin{options}
---test, --no-test
+--test, --build, --no-test
 \end{options}
 
 If you like, you can configure your repository to be able to run a
 test suite of some sort.  You can do this by creating an executable
-file named `.git-hooks/test`.
+file named `.test`.  You may also wish to create an executable called
+`.build`, which will be run before the test.
 
 \begin{options}
 --leave-test-directory, --remove-test-directory

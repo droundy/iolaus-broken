@@ -3,12 +3,11 @@ set -ev
 mkdir temp
 cd temp
 
-mkdir .git-hooks
-cat > .git-hooks/test <<EOF
+cat > .test <<EOF
 #!/bin/sh
 set -ev
 
-. ./.git-hooks/build
+. ./.build
 
 \$ECHO hello world
 
@@ -16,8 +15,8 @@ set -ev
 
 \$ECHO this is another nice test
 EOF
-chmod +x .git-hooks/test
-cat > .git-hooks/build <<EOF
+chmod +x .test
+cat > .build <<EOF
 #!/bin/sh
 set -ev
 
@@ -30,7 +29,7 @@ ECHO=echo
 # be sure ECHO works
 \$ECHO goodbye world
 EOF
-chmod +x .git-hooks/build
+chmod +x .build
 
 iolaus init
 iolaus record -am 'create build/test' > out 2> err
@@ -41,11 +40,11 @@ grep goodbye out
 grep 'another nice test' out
 grep ECHO err
 
-cat > .git-hooks/test <<EOF
+cat > .test <<EOF
 #!/bin/sh
 set -ev
 
-. .git-hooks/build
+. .build
 
 \$ECHO hello world
 
@@ -58,7 +57,7 @@ true
 false
 EOF
 
-cat > .git-hooks/build <<EOF
+cat > .build <<EOF
 #!/bin/sh
 set -ev
 

@@ -12,7 +12,7 @@ preproc
 git-imof
 *.log
 .package.conf
-.test*
+.test?*
 tmp
 .merge*
 err

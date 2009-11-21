@@ -3,8 +3,7 @@ set -ev
 mkdir temp
 cd temp
 
-mkdir .git-hooks
-cat > .git-hooks/test <<EOF
+cat > .test <<EOF
 #!/bin/sh
 set -ev
 
@@ -14,7 +13,7 @@ echo goodbye world
 
 echo this is another nice test
 EOF
-chmod +x .git-hooks/test
+chmod +x .test
 
 iolaus init
 iolaus record -am 'create test' > out
@@ -24,7 +23,7 @@ grep hello out
 grep goodbye out
 grep 'another nice test' out
 
-cat > .git-hooks/test <<EOF
+cat > .test <<EOF
 #!/bin/sh
 set -ev
 
@@ -64,14 +63,14 @@ iolaus whatsnew | grep false
 echo `git config --get-color foobar reset`
 
 iolaus revert -a
-grep false .git-hooks/test && exit 1
-grep true .git-hooks/test
+grep false .test && exit 1
+grep true .test
 
 
 # Now we'll check if --delta-debug handles "interference" situations,
 # or logical dependencies.
 
-cat > .git-hooks/test <<EOF
+cat > .test <<EOF
 #!/bin/sh
 set -ev
 

@@ -121,9 +121,9 @@ test opts t =
 
 testMessage :: [Flag] -> IO [String]
 testMessage opts | any (`elem` opts) [Build, Test, TestParents] =
-    do havet <- doesFileExist ".git-hooks/test"
+    do havet <- doesFileExist ".test"
        if not havet || Build `elem` opts
-          then do haveb <- doesFileExist ".git-hooks/build"
+          then do haveb <- doesFileExist ".build"
                   if not haveb
                      then return []
                      else on "Built" `catch` \_ -> by "Built"
@@ -151,16 +151,16 @@ testPredicate opts t =
        removeFileMayNotExist ".git/index.tmp"
        setCurrentDirectory tdir
        when (Nice `elem` opts) $ nice 19
-       ecb <- runIfPresent "./.git-hooks/build"
+       ecb <- runIfPresent "./.build"
        case ecb of
          ExitFailure _ ->
              do setCurrentDirectory here
-                havet <- doesFileExist "./.git-hooks/test"
+                havet <- doesFileExist ".test"
                 if havet && Build `notElem` opts
                     then return Unresolved
                     else return Fail
          ExitSuccess | Build `elem` opts -> return Pass
-         ExitSuccess -> do ec <- runIfPresent "./.git-hooks/test"
+         ExitSuccess -> do ec <- runIfPresent "./.test"
                            setCurrentDirectory here
                            case ec of ExitFailure _ -> return Fail
                                       ExitSuccess -> return Pass

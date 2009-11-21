@@ -4,19 +4,18 @@ mkdir temp
 cd temp
 iolaus init
 echo '*~' > .gitignore
-mkdir .git-hooks
-echo true > .git-hooks/test
-chmod +x .git-hooks/test
+echo true > .test
+chmod +x .test
 
 iolaus wh | grep chmod
 
 iolaus record -am addtest
 
-echo echo hi there > .git-hooks/test
+echo echo hi there > .test
 
 iolaus record -am 'make test more welcoming'
 
-echo echo hello there > .git-hooks/test
+echo echo hello there > .test
 
 echo y | iolaus amend-record -a
 

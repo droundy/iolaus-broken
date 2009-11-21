@@ -5,11 +5,10 @@ cd temp
 iolaus init
 
 echo '*~' > .gitignore
-mkdir .git-hooks
-echo true > .git-hooks/test
-chmod +x .git-hooks/test
-echo true > .git-hooks/build
-chmod +x .git-hooks/build
+echo true > .test
+chmod +x .test
+echo true > .build
+chmod +x .build
 
 iolaus wh | grep chmod
 
@@ -20,10 +19,10 @@ cat ch
 grep Tested- ch && exit 1
 iolaus changes --show-tested | grep Tested-
 
-echo false > .git-hooks/test
+echo false > .test
 iolaus record -am failedtest && exit 1
 
-rm .git-hooks/test
+rm .test
 iolaus record -am onlybuild
 
 iolaus changes
