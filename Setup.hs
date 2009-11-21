@@ -82,6 +82,7 @@ doc =
                    mkFile ("manual/"++lhs2manmd lhs) (header++x)
               m <-markdownToMan ("manual/"++lhs2manmd lhs)
                                 ("man/man1/iolaus-"++dash lhs++".1")
+              man 1 m
               h <- markdownToHtml "../.iolaus.css"
                    ("manual/"++lhs2md lhs) ("manual/"++dash lhs++".html")
               return (h,m)
