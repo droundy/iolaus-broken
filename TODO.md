@@ -22,9 +22,6 @@
 
 - Add support for signing and verification of both commits and tags.
 
-- Add a pull --intersection option to enable a very simple code review
-  mechanism.
-
 - Work out a more sophisticated review mechanism, possibly involving a
   new command "review", which will display a commit, and allow the
   user to create a new commit which depends only on that one commit

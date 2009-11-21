@@ -19,7 +19,7 @@
 module Iolaus.Commands.Get ( get ) where
 
 import Iolaus.Command ( Command(..), nodefaults )
-import Iolaus.Arguments ( Flag, working_repo_dir, reponame )
+import Iolaus.Arguments ( Flag(RepoDir), working_repo_dir, reponame )
 
 import Git.LocateRepo ( amNotInRepository )
 import Git.Plumbing ( clone )
@@ -47,7 +47,10 @@ get = Command {command_name = "get",
 
 get_cmd :: [Flag] -> [String] -> IO ()
 get_cmd _ [inrepodir, outname] = clone [inrepodir, outname]
-get_cmd _ [inrepodir] = clone [inrepodir]
+get_cmd opts [inrepodir] =
+    case [outname | RepoDir outname <- opts] of
+      outname:_ -> clone [inrepodir, outname]
+      [] -> clone [inrepodir]
 get_cmd _ _ = fail "You must provide 'get' with either one or two arguments."
 \end{code}
 

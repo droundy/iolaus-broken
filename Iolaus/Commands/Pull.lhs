@@ -20,10 +20,11 @@ module Iolaus.Commands.Pull ( pull ) where
 
 import System.Exit ( ExitCode(..), exitWith )
 import Control.Monad ( when )
+import Data.List ( union, intersect )
 
 import Iolaus.Command ( Command(..) )
 import Iolaus.Arguments
-    ( Flag(All, NoAllowConflicts), pull_conflict_options,
+    ( Flag(All, NoAllowConflicts, Intersection), pull_conflict_options,
       all_interactive, repo_combinator, match_several_or_first, dryrun,
       notest, testByDefault, working_repo_dir, remote_repo )
 import Iolaus.Patch ( apply, merge, mergeNamed, infopatch, patchcontents,
@@ -77,13 +78,14 @@ pull = Command {command_name = "pull",
 pull_cmd :: [Flag] -> [String] -> IO ()
 
 pull_cmd opts repodirs@(_:_) =
-    do -- Test to make sure we aren't trying to pull from the current repo
-       when (null repodirs) $ fail "Can't pull from current repository!"
-       old <- slurp_recorded opts
+    do old <- slurp_recorded opts
        Sealed work <- slurp_working
        mapM_ fetchPack repodirs
-       newhs <- concat `fmap` mapM remoteHeads repodirs
        hs <- heads
+       allnewhs <- map (`notIn` hs) `fmap` mapM remoteHeads repodirs
+       let newhs = reverse $ if Intersection `elem` opts
+                             then foldl1 intersect allnewhs
+                             else foldl1 union allnewhs
        newhs' <- select_commits "pull" opts (reverse $ newhs `notIn` hs)
        when (null newhs') $ do putStrLn "No patches to pull!"
                                exitWith ExitSuccess
