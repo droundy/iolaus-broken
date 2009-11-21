@@ -23,6 +23,16 @@ ul {
     margin-left: 2em;
 }
 
+div.verseblock {
+  text-indent: -5em;
+  padding-left: 5em;
+}
+
+dt {
+    font-style: italic;
+    color: #107010;
+}
+
 PRE     {
   background: #eeeeee;
   border: 1px solid #888888;

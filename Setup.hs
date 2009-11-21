@@ -67,13 +67,9 @@ doc =
           commandPage lhs =
            do rule ["manual/"++lhs2md lhs, "manual/"++lhs2manmd lhs]
                    ["preproc", "Iolaus/Commands/"++lhs] $
-                do hsin <- cat ("Iolaus/Commands/"++lhs)
-                   mkFile ("manual/"++lhs2md lhs++".in") $
-                           ("\n\n\\haskell{"++undr lhs++"_description}\n\n"++
-                            "\\options{"++nam lhs++"}\n\n"++
-                            "\\haskell{"++undr lhs++"_help}\n\n"++
-                            hsin)
-                   x <- systemOut "./preproc" [nam lhs,
+                do x <- systemOut "./preproc" [nam lhs,
+                                               "Iolaus/Commands/"++lhs]
+                   h <- systemOut "./preproc" ["--html", nam lhs,
                                                "Iolaus/Commands/"++lhs]
                    mkdir "manual"
                    mkdir "man"
@@ -82,7 +78,7 @@ doc =
                                 "% David Roundy\n"++
                                 "% date?\n\n"
                    mkFile ("manual/"++lhs2md lhs)
-                          (header++prefix "../" (cmd lhs)++x)
+                          (header++prefix "../" (cmd lhs)++h)
                    mkFile ("manual/"++lhs2manmd lhs) (header++x)
               m <-markdownToMan ("manual/"++lhs2manmd lhs)
                                 ("man/man1/iolaus-"++dash lhs++".1")

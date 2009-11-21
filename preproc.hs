@@ -10,16 +10,32 @@ import Iolaus.Commands ( command_control_list )
 the_commands :: [Command]
 the_commands = extract_commands command_control_list
 
+data Formatting = Html | Plain
+
 main :: IO ()
 main = do
   args <- getArgs
   case args of
     [x] -> preproc ["\\input{"++x++"}"]
+    ["--html",c,fn] ->
+        do putStrLn $ "\n# NAME\n"
+           putStr $ "iolaus "++c++" - "
+           putStrLn $ command_property command_description the_commands c
+           putStrLn "\n# SYNOPSIS"
+           putStrLn $ "<div class='verseblock'>"
+           putStrLn $ "*iolaus "++c++"*  "++get_synopsis Html c
+           putStrLn $ "</div>"
+           putStrLn "\n# DESCRIPTION"
+           putStrLn $ command_property command_help the_commands c
+           cs <- readFile fn
+           preproc (lines cs)
+           putStrLn "\n# OPTIONS"
+           putStrLn $ get_options c
     [c,fn] -> do putStrLn $ "\n# NAME\n"
                  putStr $ "iolaus "++c++" - "
                  putStrLn $ command_property command_description the_commands c
                  putStrLn "\n# SYNOPSIS"
-                 putStrLn $ "*iolaus "++c++"* `"++get_synopsis c++"`"
+                 putStrLn $ "*iolaus "++c++"*  "++get_synopsis Plain c
                  putStrLn "\n# DESCRIPTION"
                  putStrLn $ command_property command_help the_commands c
                  cs <- readFile fn
@@ -62,8 +78,9 @@ get_options :: String -> String
 get_options comm = get_com_options $ get_c names the_commands
     where names = words comm
 
-get_synopsis :: String -> String
-get_synopsis comm = get_com_synopsis $ get_c names the_commands
+get_synopsis :: Formatting -> String -> String
+get_synopsis f comm = unwords $ get_com_synopsis f (get_c names the_commands)++
+                      command_extra_arg_help (last $ get_c names the_commands)
     where names = words comm
 
 instance Show CommandControl where
@@ -93,11 +110,16 @@ get_c (name:ns) commands =
           get n [] = error $ "No such command:  "++n
 get_c [] _ = error "no command specified"
 
-get_com_synopsis :: [Command] -> String
-get_com_synopsis cs = unwords $ map bar $ concatMap optionDescription $
-                      basic_options (Command_data c)
+get_com_synopsis :: Formatting -> [Command] -> [String]
+get_com_synopsis f cs = map bar $ map optionDescription $
+                        basic_options (Command_data c)
     where c = last cs
-          bar (x,_) = "["++pipeit x++"]"
+          bar xs = case f of
+                     Html -> "<nobr>["++pipethem (map fst xs)++"]</nobr>"
+                     Plain -> "["++pipethem (map fst xs)++"]"
+          pipethem (x:y:z) = pipeit x ++ " | " ++ pipethem (y:z)
+          pipethem [x] = pipeit x
+          pipethem [] = ""
           pipeit (',':' ':r) = " | "++pipeit r
           pipeit (x:xs) = x : pipeit xs
           pipeit "" = ""
