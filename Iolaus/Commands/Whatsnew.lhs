@@ -19,9 +19,13 @@
 module Iolaus.Commands.Whatsnew ( whatsnew ) where
 
 import Iolaus.Command ( Command(..), nodefaults )
-import Iolaus.Arguments ( Flag(Summary), working_repo_dir, summary )
+import Iolaus.Arguments ( Flag(Summary), working_repo_dir, summary,
+                          fixSubPaths )
 import Iolaus.Patch ( showContextPatch, summarize )
 import Iolaus.Printer ( putDocLn )
+import Iolaus.RepoPath ( toFilePath )
+import Iolaus.Sealed ( unseal )
+import Iolaus.TouchesFiles ( choose_touching )
 import Iolaus.Repository ( get_recorded_and_unrecorded, Unrecorded(..) )
 
 import Git.LocateRepo ( amInRepository )
@@ -41,11 +45,13 @@ whatsnew = Command {command_name = "whatsnew",
                          command_basic_options = [summary, working_repo_dir]}
 
 whatsnew_cmd :: [Flag] -> [String] -> IO ()
-whatsnew_cmd opts _ =
-    do (old, Unrecorded chs _) <- get_recorded_and_unrecorded opts
+whatsnew_cmd opts args =
+    do files <- fixSubPaths opts args
+       (old, Unrecorded chs0 _) <- get_recorded_and_unrecorded opts
+       let chs = choose_touching (map toFilePath files) chs0
        putDocLn $ if Summary `elem` opts
-                  then summarize chs
-                  else showContextPatch old chs
+                  then summarize `unseal` chs
+                  else showContextPatch old `unseal` chs
 
 whatsnew_description :: String
 whatsnew_description = "Display unrecorded changes in the working copy."
