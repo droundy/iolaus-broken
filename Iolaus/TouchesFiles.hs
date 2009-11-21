@@ -21,9 +21,9 @@
 #include "gadts.h"
 
 module Iolaus.TouchesFiles ( look_touch, choose_touching,
-                      select_touching,
-                      deselect_not_touching, select_not_touching,
-                    ) where
+                             select_touching,
+                             deselect_not_touching, select_not_touching
+                           ) where
 
 import Iolaus.PatchChoices ( PatchChoices, Tag, TaggedPatch,
                              patch_choices, tag, get_choices,
@@ -33,7 +33,8 @@ import Iolaus.Patch ( Patchy, list_touched_files )
 import Iolaus.Ordered ( FL(..), (:>)(..), mapFL_FL, (+>+) )
 import Iolaus.Sealed ( Sealed, seal )
 
-select_touching :: Patchy p => [FilePath] -> PatchChoices p C(x y) -> PatchChoices p C(x y)
+select_touching :: Patchy p => [FilePath] -> PatchChoices p C(x y)
+                -> PatchChoices p C(x y)
 select_touching [] pc = pc
 select_touching files pc = force_firsts xs pc
     where ct :: Patchy p => [FilePath] -> FL (TaggedPatch p) C(x y) -> [Tag]
@@ -44,7 +45,8 @@ select_touching files pc = force_firsts xs pc
           xs = case get_choices pc of
                _ :> mc :> lc -> ct (map fix files) (mc +>+ lc)
 
-deselect_not_touching :: Patchy p => [FilePath] -> PatchChoices p C(x y) -> PatchChoices p C(x y)
+deselect_not_touching :: Patchy p => [FilePath] -> PatchChoices p C(x y)
+                      -> PatchChoices p C(x y)
 deselect_not_touching [] pc = pc
 deselect_not_touching files pc = force_lasts xs pc
     where ct :: Patchy p => [FilePath] -> FL (TaggedPatch p) C(x y) -> [Tag]
@@ -55,7 +57,8 @@ deselect_not_touching files pc = force_lasts xs pc
           xs = case get_choices pc of
                fc :> mc :> _ -> ct (map fix files) (fc +>+ mc)
 
-select_not_touching :: Patchy p => [FilePath] -> PatchChoices p C(x y) -> PatchChoices p C(x y)
+select_not_touching :: Patchy p => [FilePath] -> PatchChoices p C(x y) ->
+                       PatchChoices p C(x y)
 select_not_touching [] pc = pc
 select_not_touching files pc = force_firsts xs pc
     where ct :: Patchy p => [FilePath] -> FL (TaggedPatch p) C(x y) -> [Tag]
@@ -78,8 +81,9 @@ fix0 f = "./" ++ f
 
 choose_touching :: Patchy p => [FilePath] -> FL p C(x y) -> Sealed (FL p C(x))
 choose_touching [] p = seal p
-choose_touching files p = case get_choices $ select_touching files $ patch_choices p of
-                          fc :> _ :> _ -> seal $ mapFL_FL tp_patch fc
+choose_touching files p =
+    case get_choices $ select_touching files $ patch_choices p of
+      fc :> _ :> _ -> seal $ mapFL_FL tp_patch fc
 
 look_touch :: Patchy p => [FilePath] -> p C(x y) -> Bool
 look_touch fs p = fst $ look_touch0 fs p
