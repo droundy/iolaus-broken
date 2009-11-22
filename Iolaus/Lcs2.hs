@@ -313,17 +313,10 @@ find_sorted_matches [] _ _ _ = []
 find_sorted_matches _ [] _ _ = []
 find_sorted_matches ((a,na):as) ((b,nb):bs) aold aoldmatches
     | [a] == aold = (na, aoldmatches) :
-                  find_sorted_matches as ((b,nb):bs) aold aoldmatches
+                    find_sorted_matches as ((b,nb):bs) aold aoldmatches
     | a > b = find_sorted_matches ((a,na):as) bs aold aoldmatches
     | a < b = find_sorted_matches as ((b,nb):bs) aold aoldmatches
 -- following line is inefficient if a line is repeated many times.
-    | otherwise -- a == b
-      = case reverse $ find_matches_one a ((b,nb):bs) of
-        matches -> (na, matches) :
-                   find_sorted_matches as ((b,nb):bs) [a] matches
-
-find_matches_one :: Eq a => a -> [(a, Int)] -> [Int]
-find_matches_one _ [] = []
-find_matches_one a ((b,nb):bs)
-    | a == b = nb: find_matches_one a bs
-    | otherwise = []
+find_sorted_matches ((a,na):as) bs _ _ -- a == b
+      = (na, matches) : find_sorted_matches as bs [a] matches
+    where matches = reverse $ map snd $ filter ((==a) . fst) bs
