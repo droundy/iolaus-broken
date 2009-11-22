@@ -15,6 +15,7 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"],
           withDirectory "etc" $ etc "bash_completion.d/iolaus"
           withModule "System.Process.Redirects" $ define "HAVE_REDIRECTS"
           executable "iolaus" "iolaus.hs" []
+          executable "idiff" "idiff.hs" []
           enforceAllPrivacy
           doc
           allTests
