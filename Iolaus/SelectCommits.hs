@@ -30,7 +30,7 @@ import System.Exit ( exitWith, ExitCode(ExitSuccess) )
 import Control.Monad ( filterM )
 
 import Iolaus.Flags ( Flag( All, SeveralPatch, Verbose, Summary, DryRun,
-                            ShowMerges ) )
+                            ShowMerges, Graph ) )
 import Iolaus.Utils ( promptCharFancy )
 import Iolaus.Sealed ( Sealed( Sealed ), mapSealM, unseal )
 import Iolaus.Printer ( putDocLn )
@@ -67,7 +67,7 @@ select_commit jn opts cs0 =
     do cs <- filterM (match opts) cs0
        if DryRun `elem` opts
           then do putStrLn ("Would "++jn++" the following commits:")
-                  putGraph opts (`elem` cs) cs
+                  putGraph (Graph:opts) (`elem` cs) cs
                   exitWith ExitSuccess
           else do xs <- text_select One [] jn opts cs []
                   case xs of
@@ -80,7 +80,7 @@ select_commits jn opts cs0 =
     do cs <- filterM (match opts) cs0
        if DryRun `elem` opts
           then do putStrLn ("Would "++jn++" the following commits:")
-                  putGraph opts (`elem` cs) cs
+                  putGraph (Graph:opts) (`elem` cs) cs
                   exitWith ExitSuccess
           else text_select First [] jn opts cs []
 
@@ -90,7 +90,7 @@ select_last_commits jn opts cs0 =
     do cs <- filterM (match opts) cs0
        if DryRun `elem` opts
           then do putStrLn ("Would "++jn++" the following commits:")
-                  putGraph opts (`elem` cs) cs
+                  putGraph (Graph:opts) (`elem` cs) cs
                   exitWith ExitSuccess
           else text_select Last [] jn opts cs []
 
