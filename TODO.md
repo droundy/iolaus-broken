@@ -51,3 +51,5 @@
   silly.  For a few things it makes sense (probably for test scripts),
   but for most others, it's much nicer to be able to work with a
   single file.
+
+- `push --dry-run` should say there are no commits to push when that's true.
