@@ -151,9 +151,10 @@ diff_added summary fps s
                    else id) .
                   (if summary then id
                               else diff_from_empty id f (get_filecontents s))
-    | otherwise {- is_dir s -} =
+    | is_dir s =
         (adddir f:>:)
       . foldr (.) id (map (diff_added summary (n:fps)) (get_dircontents s))
+    | otherwise = id -- ignore symlic links
     where n = slurp_name s
           f = mk_filepath (n:fps)
 
@@ -199,7 +200,7 @@ diff_removed fps s
 similar :: Slurpy C(x) -> Slurpy C(x) -> Bool
 similar aaa bbb
     | afile /= bfile = False
-    | afile == bfile = True
+    | afile && lsaaa == lsbbb = True
     | afile = length (patientLcs lsaaa lsbbb)
               > (max 1 (min (length lsaaa `div` 2)
                        (min (length lsbbb `div` 2) 40)))

@@ -8,6 +8,7 @@
 config.d
 *.depend
 iolaus
+idiff
 preproc
 git-imof
 *.log

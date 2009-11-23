@@ -24,38 +24,23 @@ module Iolaus.SlurpDirectoryInternal
                         get_filehash, get_dirhash, get_fileEbit,
                         slurpies_to_map, map_to_slurpies,
                         empty_slurpy, filterSlurpyPaths,
-                        slurp, slurp_unboring, co_slurp,
                         slurp_name, is_file, is_dir,
                         get_filecontents, get_dircontents, get_slurp,
-                        slurp_removefile, slurp_removedir,
-                        slurp_remove,
-                        slurp_modfile, slurp_hasfile, slurp_hasdir,
-                        slurp_has_anycase,
-                        slurp_has, list_slurpy, list_slurpy_files,
-                        get_path_list,
+                        list_slurpy, list_slurpy_files, get_path_list,
                         list_slurpy_dirs,
-                        isFileReallySymlink,
                         doesFileReallyExist, doesDirectoryReallyExist,
-                        SlurpMonad, withSlurpy, write_files,
-                        writeSlurpy
+                        SlurpMonad, withSlurpy
                       ) where
 
 import System.IO
-import System.Directory hiding ( getCurrentDirectory, renameFile )
-import Iolaus.Utils ( withCurrentDirectory, formatPath )
-import Iolaus.RepoPath ( FilePathLike, toFilePath, getCurrentDirectory )
-import System.IO.Unsafe ( unsafeInterleaveIO )
 import Data.List ( isPrefixOf )
-import Data.Bits ( (.&.) )
-import Control.Monad ( when, guard )
-import Data.Char ( toLower )
-import System.Posix.Files ( getSymbolicLinkStatus, fileMode, ownerExecuteMode,
-                            isRegularFile, isDirectory, isSymbolicLink )
+import Control.Monad ( guard )
+import System.Posix.Files ( getSymbolicLinkStatus, isRegularFile, isDirectory )
 import Data.Maybe ( catMaybes, isJust, maybeToList )
 import Data.Map (Map)
 import qualified Data.Map as Map
 
-import Iolaus.SignalHandler ( tryNonSignal )
+import Iolaus.Utils ( formatPath )
 import Iolaus.IO ( WriteableDirectory(..), ExecutableBit(..) )
 import Iolaus.Show ( Ord1(..), Eq1(..), Show1(..) )
 import qualified Data.ByteString as B
@@ -107,17 +92,9 @@ instance Show1 Slurpy where
     show1 (Slurpy fn (SlurpSymlink _)) = "Symlink " ++ (fn2fp fn) ++ "\n"
 instance Show (Slurpy C(x)) where show = show1
 
-mapSlurpyNames :: (FileName -> FileName) -> Slurpy C(x) -> Slurpy C(x)
-mapSlurpyNames f = onSlurpy
-  where onSlurpy (Slurpy fn sc) = Slurpy (f fn) (onSlurpyContents sc)
-        onSlurpyContents (SlurpDir x sm) =
-            SlurpDir x . slurpies_to_map . map onSlurpy . map_to_slurpies $ sm
-        onSlurpyContents sf = sf
-
-slurp :: FilePathLike p => p -> IO (Slurpy C(x))
-slurp_unboring :: (FilePath->Bool) -> FilePath -> IO (Slurpy C(x))
 empty_slurpy :: Slurpy C(x)
 empty_slurpy = Slurpy (fp2fn ".") (SlurpDir Nothing Map.empty)
+
 slurp_name :: Slurpy C(x) -> FilePath
 is_file :: Slurpy C(x) -> Bool
 is_dir :: Slurpy C(x) -> Bool
@@ -165,38 +142,6 @@ instance WriteableDirectory (SlurpMonad C(x x)) where
     mRename = smRename
     mRemoveDirectory = smRemoveDirectory
     mRemoveFile = smRemoveFile
-
-write_file :: Slurpy C(x) -> FileName -> IO ()
-write_file s fn = case withSlurpy s $ smReadFilePS fn of
-                     Left err -> fail err
-                     Right (_, c) -> do
-                       ensureDirectories (super_name fn)
-                       mWriteFilePS fn c
-                       
-try_write_file :: Slurpy C(x) -> FilePath -> IO ()
-try_write_file s fp = let fn = fp2fn fp in
-  if slurp_hasfile fn s
-      then write_file s fn
-      else if slurp_hasdir fn s
-               then ensureDirectories fn
-               else return ()
-
-ensureDirectories :: WriteableDirectory m => FileName -> m ()
-ensureDirectories d = do
-          isPar <- mDoesDirectoryExist d
-          if isPar 
-            then return ()
-            else ensureDirectories (super_name d) >> (mCreateDirectory d)
-
-write_files ::  Slurpy C(x) -> [FilePath] -> IO ()
-write_files s fps = mapM_ (try_write_file s) fps
-
--- don't overwrite non-empty directories unless explicitly asked by
--- being passed "." (which always exists)
-writeSlurpy :: Slurpy C(x) -> FilePath -> IO ()
-writeSlurpy s d = do
-  when (d /= ".") $ createDirectory d
-  withCurrentDirectory d $ write_files s (list_slurpy s)
 
 withSlurpy :: Slurpy C(x) -> SlurpMonad C(x x) a
            -> Either String (Slurpy C(x), a)
@@ -303,11 +248,7 @@ get_filecontents (Slurpy _ (SlurpFile _ _ c)) = c
 get_filecontents _ = bug "Can't get_filecontents on SlurpDir."
 
 get_dircontents (Slurpy _ (SlurpDir _ c)) = map_to_slurpies c
-get_dircontents _ = bug "Can't get_dircontents on SlurpFile."
-
-isFileReallySymlink :: FilePath -> IO Bool
-isFileReallySymlink f = do fs <- getSymbolicLinkStatus f
-                           return (isSymbolicLink fs)
+get_dircontents x = bug ("Can't get_dircontents on SlurpFile. "++show x)
 
 doesFileReallyExist :: FilePath -> IO Bool
 doesFileReallyExist f = do fs <- getSymbolicLinkStatus f
@@ -317,102 +258,11 @@ doesDirectoryReallyExist :: FilePath -> IO Bool
 doesDirectoryReallyExist f = do fs <- getSymbolicLinkStatus f
                                 return (isDirectory fs)
 
--- |slurp is how we get a slurpy in the first place\ldots
-slurp = slurp_unboring (\_->True) . toFilePath
-slurp_unboring = genslurp
-genslurp :: (FilePath -> Bool)
-         -> FilePath -> IO (Slurpy C(x))
-genslurp nb dirname = do
-    isdir <- doesDirectoryExist dirname
-    ms <- if isdir
-          then withCurrentDirectory dirname $
-               do actualname <- toFilePath `fmap` getCurrentDirectory
-                  genslurp_helper nb (reverse actualname) "" "."
-          else do former_dir <- toFilePath `fmap` getCurrentDirectory
-                  genslurp_helper nb (reverse former_dir) "" dirname
-    case ms of
-      Just s -> return s
-      Nothing -> fail $ "Unable to read directory " ++ dirname ++
-                 " (it appears to be neither file nor directory)"
-
-unsafeInterleaveMapIO :: (a -> IO b) -> [a] -> IO [b]
-unsafeInterleaveMapIO _ [] = return []
-unsafeInterleaveMapIO f (x:xs)
- = do x' <- f x
-      xs' <- unsafeInterleaveIO $ unsafeInterleaveMapIO f xs
-      return (x':xs')
-
-genslurp_helper :: (FilePath -> Bool)
-                -> FilePath -> String -> String -> IO (Maybe (Slurpy C(x)))
-genslurp_helper nb formerdir fullpath dirname = do
-    fs <- getSymbolicLinkStatus fulldirname
-    if isRegularFile fs
-     then do ls <- unsafeInterleaveIO $ B.readFile fulldirname
-             let ex = if fileMode fs .&. ownerExecuteMode == 0
-                      then NotExecutable
-                      else IsExecutable
-             return $ Just $ Slurpy (fp2fn dirname) $ SlurpFile ex Nothing ls
-     else if isDirectory fs || (isSymbolicLink fs && dirname == ".")
-          then do sl <- unsafeInterleaveIO $
-                        do fnames <- getDirectoryContents fulldirname
-                           unsafeInterleaveMapIO
-                                             (\f -> genslurp_helper nb fulldirname'
-                                              (fullpath///f) f)
-                                             $ filter (nb . (fullpath///)) $ filter not_hidden fnames
-                  return $ Just $ Slurpy (fp2fn dirname) $ SlurpDir Nothing $ slurpies_to_map $ catMaybes sl
-          else return Nothing
-    where fulldirname' = formerdir\\\dirname
-          fulldirname = reverse fulldirname'
-
-not_hidden :: FilePath -> Bool
-not_hidden "." = False
-not_hidden ".." = False
-not_hidden _ = True
-
-(\\\) :: FilePath -> FilePath -> FilePath
-(\\\) "" d = d
-(\\\) d "." = d
-(\\\) d subdir = reverse subdir ++ "/" ++ d
-
 (///) :: FilePath -> FilePath -> FilePath
 "" /// d = d
 "." /// d = d
 d /// "." = d
 d /// subdir = d ++ "/" ++ subdir
-
-co_slurp :: Slurpy C(x) -> FilePath -> IO (Slurpy C(y))
-co_slurp guide dirname = do
-    isdir <- doesDirectoryExist dirname
-    if isdir
-       then withCurrentDirectory dirname $ do
-              actualname <- toFilePath `fmap` getCurrentDirectory
-              Just slurpy <- co_slurp_helper (reverse actualname) guide
-              return slurpy
-       else error "Error coslurping!!! Please report this."
-
-co_slurp_helper :: FilePath -> Slurpy C(x) -> IO (Maybe (Slurpy C(y)))
-co_slurp_helper former_dir (Slurpy d (SlurpDir _ c)) = unsafeInterleaveIO $ do
-    let d' = fn2fp d
-        fn' = former_dir\\\d'
-        fn = reverse fn'
-    efs <- tryNonSignal $ getSymbolicLinkStatus fn
-    case efs of
-        Right fs
-         | isDirectory fs || (isSymbolicLink fs && d' == ".") ->
-            do sl <- unsafeInterleaveIO
-                   $ unsafeInterleaveMapIO (co_slurp_helper fn') (map_to_slurpies c)
-               return $ Just $ Slurpy d $ SlurpDir Nothing $ slurpies_to_map $ catMaybes sl
-        _ -> return Nothing
-co_slurp_helper former_dir (Slurpy f _) = unsafeInterleaveIO $ do
-   let fn' = former_dir\\\fn2fp f
-       fn = reverse fn'
-   efs <- tryNonSignal $ getSymbolicLinkStatus fn
-   case efs of
-       Right fs
-        | isRegularFile fs ->
-           do ls <- unsafeInterleaveIO $ B.readFile fn
-              return $ Just $ Slurpy f $ SlurpFile NotExecutable Nothing ls
-       _ -> return Nothing
 
 get_slurp_context_generic :: (Slurpy C(x) -> a)
                           -> (a -> [Slurpy C(x)])
@@ -485,14 +335,6 @@ slurp_remove fname s@(Slurpy _ (SlurpDir _ _)) =
         Nothing -> Nothing
 slurp_remove _ _ = bug "slurp_remove only acts on SlurpDirs"
 
-slurp_removefile :: FileName -> Slurpy C(x) -> Maybe (Slurpy C(x))
-slurp_removefile f s =
-  if slurp_hasfile f s
-  then case slurp_remove f s of
-       s'@(Just (Slurpy _ (SlurpDir _ _))) -> s'
-       _ -> impossible
-  else Nothing
-
 slurp_move :: FileName -> FileName -> Slurpy C(x) -> Maybe (Slurpy C(x))
 slurp_move f f' s =
     if not (slurp_has f' s) && slurp_hasdir (super_name f') s
@@ -517,32 +359,11 @@ addslurp fname s s' =
 get_slurp :: FileName -> Slurpy C(x) -> Maybe (Slurpy C(x))
 get_slurp f s = fmap snd (get_slurp_context f s)
 
-slurp_removedir :: FileName -> Slurpy C(x) -> Maybe (Slurpy C(x))
-slurp_removedir f s =
-    case get_slurp f s of
-    Just (Slurpy _ (SlurpDir _ l)) | Map.null l ->
-        case slurp_remove f s of
-        s'@(Just (Slurpy _ (SlurpDir _ _))) -> s'
-        _ -> impossible
-    _ -> Nothing
-
 slurp_adddir :: FileName -> Slurpy C(x) -> Maybe (Slurpy C(x))
 slurp_adddir f s =
   if slurp_hasfile f s || slurp_hasdir f s || not (slurp_hasdir (super_name f) s)
   then Nothing
   else Just $ addslurp f (Slurpy (own_name f) (SlurpDir Nothing Map.empty)) s
-
--- |Code to modify a given file in a slurpy.
-slurp_modfile :: FileName -> (B.ByteString -> Maybe B.ByteString)
-              -> Slurpy C(x) -> Maybe (Slurpy C(x))
-slurp_modfile fname modify sl =
-    case get_slurp_context fname sl of
-        Just (ctx, Slurpy ff (SlurpFile _ _ c)) ->
-            case modify c of
-                Nothing -> Nothing
-                Just c' -> Just (ctx (Slurpy ff (SlurpFile NotExecutable Nothing c')))
-        _ -> 
-            Nothing
 
 slurp_hasfile :: FileName -> Slurpy C(x) -> Bool
 slurp_hasfile f s =
@@ -552,14 +373,6 @@ slurp_hasfile f s =
 
 slurp_has :: FileName -> Slurpy C(x) -> Bool
 slurp_has f s = isJust (get_slurp f s)
-
-slurp_has_anycase :: FilePath -> Slurpy C(x) -> Bool
-slurp_has_anycase fname s =
-  seq normed_name $ isJust $ get_slurp normed_name $ mapSlurpyNames tolower s
-  where normed_name = norm_path $ fp2fn $ map toLower fname
-
-tolower :: FileName -> FileName
-tolower = fp2fn . (map toLower) . fn2fp
 
 findSubSlurpy :: FileName -> Map FileName (SlurpyContents C(x))
               -> Maybe (Slurpy C(x))
