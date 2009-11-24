@@ -52,8 +52,6 @@
   but for most others, it's much nicer to be able to work with a
   single file.
 
-- `push --dry-run` should say there are no commits to push when that's true.
-
 - Make push (when possible) push a merge commit (ideally that's been
   tested), so git pull and git clone will behave well on any
   repository in which records aren't being done.  This will go a long

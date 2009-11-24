@@ -66,8 +66,10 @@ select_commit jn _ [] = do putStrLn ("There is no commit to "++jn++"!")
 select_commit jn opts cs0 =
     do cs <- filterM (match opts) cs0
        if DryRun `elem` opts
-          then do putStrLn ("Would "++jn++" the following commits:")
-                  putGraph (Graph:opts) (`elem` cs) cs
+          then do if null cs
+                     then putStrLn ("No commit to "++jn++".")
+                     else putStrLn ("Would "++jn++" the following commit:")
+                  putGraph (Graph:opts) (`elem` cs) $ take 1 cs
                   exitWith ExitSuccess
           else do xs <- text_select One [] jn opts cs []
                   case xs of
@@ -79,7 +81,9 @@ select_commits :: String -> [Flag] -> [Sealed (Hash Commit)]
 select_commits jn opts cs0 =
     do cs <- filterM (match opts) cs0
        if DryRun `elem` opts
-          then do putStrLn ("Would "++jn++" the following commits:")
+          then do if null cs
+                     then putStrLn ("No commits to "++jn++".")
+                     else putStrLn ("Would "++jn++" the following commits:")
                   putGraph (Graph:opts) (`elem` cs) cs
                   exitWith ExitSuccess
           else text_select First [] jn opts cs []
@@ -89,7 +93,9 @@ select_last_commits :: String -> [Flag] -> [Sealed (Hash Commit)]
 select_last_commits jn opts cs0 =
     do cs <- filterM (match opts) cs0
        if DryRun `elem` opts
-          then do putStrLn ("Would "++jn++" the following commits:")
+          then do if null cs
+                     then putStrLn ("No commits to "++jn++".")
+                     else putStrLn ("Would "++jn++" the following commits:")
                   putGraph (Graph:opts) (`elem` cs) cs
                   exitWith ExitSuccess
           else text_select Last [] jn opts cs []

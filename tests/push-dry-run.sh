@@ -39,3 +39,7 @@ grep addbar out && exit 1
 grep another out
 
 
+iolaus push -a ../temp
+iolaus push --dry-run ../temp
+iolaus push --dry-run ../temp | grep 'Would push the following' && exit 1
+iolaus push --dry-run ../temp | grep 'No commits'
