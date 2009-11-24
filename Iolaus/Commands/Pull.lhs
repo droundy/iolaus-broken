@@ -24,7 +24,7 @@ import Data.List ( union, intersect )
 
 import Iolaus.Command ( Command(..) )
 import Iolaus.Arguments
-    ( Flag(All, NoAllowConflicts, Intersection), pull_conflict_options,
+    ( Flag(All, NoAllowConflicts, Intersection), pull_conflict_options, verify,
       all_interactive, repo_combinator, match_several_or_first, dryrun,
       notest, testByDefault, working_repo_dir, remote_repo )
 import Iolaus.Patch ( apply, merge, mergeNamed, infopatch, patchcontents,
@@ -41,7 +41,7 @@ import Git.Dag ( notIn )
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( heads, remoteHeads, remoteTagNames,
                       listRemotes, fetchPack )
-import Git.Helpers ( testCommits, slurpTree, mergeCommits )
+import Git.Helpers ( testCommits, slurpTree, mergeCommits, verifyCommit )
 
 pull_description :: String
 pull_description =
@@ -71,7 +71,7 @@ pull = Command {command_name = "pull",
                 command_basic_options = [all_interactive,
                                          pull_conflict_options,
                                          match_several_or_first]++
-                                         notest++dryrun "pull"++
+                                         notest++verify++dryrun "pull"++
                                          [working_repo_dir]}
     where deforigin _ _ [] = return ["origin"]
           deforigin _ _ xs = return xs
@@ -87,6 +87,7 @@ pull_cmd opts repodirs@(_:_) =
        let newhs = reverse $ if Intersection `elem` opts
                              then foldl1 intersect allnewhs
                              else foldl1 union allnewhs
+       mapM_ (verifyCommit opts) newhs
        newhs' <- select_commits "pull" opts (reverse $ newhs `notIn` hs)
        when (null newhs') $ do putStrLn "No patches to pull!"
                                exitWith ExitSuccess

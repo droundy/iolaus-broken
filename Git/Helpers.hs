@@ -3,7 +3,7 @@
 
 module Git.Helpers ( test, testCommits, testMessage,
                      testPredicate, TestResult(..),
-                     commitTreeNicely,
+                     commitTreeNicely, verifyCommit,
                      revListHeads, revListHeadsHashes,
                      slurpTree, writeSlurpTree, touchedFiles,
                      simplifyParents, configDefaults,
@@ -33,7 +33,7 @@ import Git.Dag ( chokePoints, makeDag, Dag(..), greatGrandFather, parents,
 import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       uname, committer, remoteHeads,
                       setConfig, unsetConfig, ConfigOption(Global, System),
-                      catCommit, CommitEntry(..),
+                      catCommit, catCommitRaw, CommitEntry(..),
                       commitTree, updateref, parseRev,
                       mkTree, hashObject, lsothers,
                       diffFiles, diffTreeCommit,
@@ -43,7 +43,7 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       catTree, catBlob, catCommitTree )
 
 import Iolaus.Global ( debugMessage )
-import Iolaus.Flags ( Flag( Test, Build, TestParents,
+import Iolaus.Flags ( Flag( Test, Build, TestParents, Sign, Verify, VerifyAny,
                             RecordFor, Summary, Verbose,
                             CauterizeAllHeads, CommutePast, ShowHash, Nice,
                             ShowParents, GlobalConfig, SystemConfig,
@@ -63,6 +63,7 @@ import Iolaus.TouchesFiles ( look_touch )
 import Iolaus.Ordered ( FL(..), (:>)(..), (+>+), unsafeCoerceP, mapFL_FL )
 import Iolaus.Sealed ( Sealed(..), FlippedSeal(..), mapSealM, unseal )
 import Iolaus.Printer ( Doc, empty, text, prefix, ($$) )
+import Iolaus.Gpg ( signGPG, verifyGPG )
 
 #include "impossible.h"
 
@@ -76,16 +77,34 @@ commitTouches :: Sealed (Hash Commit) -> IO [FilePath]
 commitTouches (Sealed c) =
     lines `fmap` diffTreeCommit [NameOnly, DiffRecursive] c []
 
-commitTreeNicely :: Hash Tree C(x) -> [Sealed (Hash Commit)] -> String
+commitTreeNicely :: [Flag] -> Hash Tree C(x) -> [Sealed (Hash Commit)] -> String
                  -> IO (Hash Commit C(x))
-commitTreeNicely t hs0 msg =
+commitTreeNicely opts t hs0 msg =
     do let hs1 = cauterizeHeads hs0
        hs <- if length hs1 < 2
              then return hs1
              else do k <- hashObject (`hPutStrLn` show (sort hs1))
                      ((:[]) `fmap` parseRev ("refs/tested/"++show k))
                             `catch` (\_ -> return hs1)
-       commitTree t hs msg
+       x <- commitTree t hs msg
+       if Sign `elem` opts 
+           then do raw <- catCommitRaw x
+                   putStrLn ("signing: "++show raw)
+                   raw' <- signGPG raw
+                   putStrLn ("signed: "++show raw')
+                   commitTree t hs (unlines $ drop 1 $ dropWhile (/= "") $
+                                            lines raw')
+           else return x
+
+verifyCommit :: [Flag] -> Sealed (Hash Commit) -> IO ()
+verifyCommit opts c
+    | not $ null ([True | VerifyAny <- opts]++
+                  [True | Verify _ <- opts]) =
+        do x <- catCommitRaw `unseal` c
+           debugMessage ("verifying: "++show x)
+           verifyGPG opts x
+           debugMessage $ "Commit "++show c++" verified..."
+verifyCommit _ _ = return ()
 
 testCommits :: [Flag] -> String -> [Sealed (Hash Commit)]
             -> IO (Sealed (Hash Commit))

@@ -114,8 +114,9 @@ getContent Count = NoContent
 getContent All = NoContent
 getContent RmLogFile = NoContent
 getContent (SignAs s) = StringContent s
-getContent (SignSSL s) = StringContent s
 getContent (Verify s) = AbsoluteContent s
+getContent VerifyAny = NoContent
+getContent NonVerify = NoContent
 getContent Intersection = NoContent
 getContent Unified = NoContent
 getContent Union = NoContent
@@ -137,7 +138,6 @@ getContent NoSummary = NoContent
 getContent Reverse = NoContent
 getContent Graph = NoContent
 getContent (FixFilePath _ _) = NoContent -- FIXME!!!
-getContent NonVerify = NoContent
 getContent DryRun = NoContent
 getContent GlobalConfig = NoContent
 getContent SystemConfig = NoContent
@@ -372,8 +372,6 @@ all_interactive, all_patches, interactive, ask_long_comment, match_one_nontag,
   summary, match_several_or_range, match_several_or_last,
   match_several_or_first, help, help_on_match,
   match_one, match_range, match_several, logfile, rmlogfile :: IolausOption
-
-sign, verify :: IolausOption
 \end{code}
 
 \section{Common options to iolaus commands}
@@ -641,6 +639,7 @@ edit_description =
      IolausNoArgOption [] ["dont-edit-description"] NoEditDescription
                       "don't edit the patch bundle description"]
 
+sign :: IolausOption
 sign = IolausMultipleChoiceOption
        [IolausNoArgOption [] ["sign"] Sign
         "sign the patch with your gpg key",
@@ -657,11 +656,14 @@ config_defaults = [IolausNoArgOption [] ["config-default"] ConfigDefault
                IolausNoArgOption [] ["system"] SystemConfig
                "configure the system-wide defaults"]
 
-verify = IolausMultipleChoiceOption
-         [IolausAbsPathOption [] ["verify"] Verify "PUBRING"
-          "verify that the patch was signed by a key in PUBRING",
-          IolausNoArgOption [] ["no-verify"] NonVerify
-          "don't verify patch signature"]
+verify :: [IolausOption]
+verify = [IolausMultipleChoiceOption
+          [IolausAbsPathOption [] ["verify-with"] Verify "PUBRING"
+           "verify that the patch was signed by a key in PUBRING",
+           IolausNoArgOption [] ["verify"] VerifyAny
+           "verify that the patch was signed by some key",
+           IolausNoArgOption [] ["no-verify"] NonVerify
+           "don't verify patch signature"]]
 
 reponame :: IolausOption
 reponame = IolausArgOption [] ["repo-name"] RepoDir "DIRECTORY"

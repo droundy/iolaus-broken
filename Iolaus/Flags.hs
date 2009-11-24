@@ -37,8 +37,8 @@ data Flag = Help | ListOptions | NoTest | Test | Build | TestParents
           | OneTag String | AfterTag String | UpToTag String
           | LogFile AbsolutePath | RmLogFile | All
           | Intersection | Union
-          | Sign | SignAs String | NoSign | SignSSL String
-          | Verify AbsolutePath
+          | Sign | SignAs String | NoSign
+          | Verify AbsolutePath | VerifyAny | NonVerify
           | EditDescription | NoEditDescription
           | EditLongComment | NoEditLongComment | PromptLongComment
           | AllowConflicts | NoAllowConflicts
@@ -49,7 +49,6 @@ data Flag = Help | ListOptions | NoTest | Test | Build | TestParents
           | ShowParents | ShowHash | NoShowHash | ShowTested | HideTested
           | Unified | Reverse | Graph
           | FixFilePath AbsolutePath AbsolutePath
-          | NonVerify
           | DryRun | ConfigDefault | GlobalConfig | SystemConfig
           | Disable
           | Sibling AbsolutePath

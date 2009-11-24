@@ -28,12 +28,12 @@ import Iolaus.Lock ( world_readable_temp )
 import Iolaus.Command ( Command(..), nodefaults )
 import Iolaus.Arguments ( Flag( Quiet, PatchName, All, RecordFor,
                                 DeltaDebugWorkingSubset ),
-                        working_repo_dir, commitApproach,
-                        fixSubPaths, testByDefault,
-                        ask_long_comment, recordDeltaDebug,
-                        all_interactive, notest,
-                        author, patchname_option,
-                        rmlogfile, logfile )
+                          sign, working_repo_dir, commitApproach,
+                          fixSubPaths, testByDefault,
+                          ask_long_comment, recordDeltaDebug,
+                          all_interactive, notest,
+                          author, patchname_option,
+                          rmlogfile, logfile )
 import Iolaus.Utils ( promptYorn )
 import Iolaus.RepoPath ( FilePathLike, toFilePath )
 import Iolaus.Patch ( apply_to_slurpy )
@@ -77,7 +77,7 @@ amend_record = Command {command_name = "amend-record",
                                                 notest++recordDeltaDebug++
                                                 [commitApproach,
                                                  all_interactive,
-                                                 ask_long_comment,
+                                                 sign, ask_long_comment,
                                                  working_repo_dir]}
 
 amend_record_cmd :: [Flag] -> [String] -> IO ()
@@ -121,7 +121,7 @@ amend_record_cmd opts args = do
                cleanup (a:b) = a : cleanup b
                cleanup [] = []
                message = (unlines $ cleanup $ name:my_log++testedby)
-           com <- commitTreeNicely newtree' hs' message
+           com <- commitTreeNicely opts newtree' hs' message
            -- we'll first run the test on the commit in its
            -- "primitive" context...
            debugMessage "Testing on \"canonical\" tree..."

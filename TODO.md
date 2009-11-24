@@ -20,7 +20,10 @@
   support for the mechanism for turning color off.  The default will
   be color, however.
 
-- Add support for signing and verification of both commits and tags.
+- Add support for signing and verification of tags.
+
+- Add support for checking that signature is by a key with the same ID
+  as the committer.
 
 - Work out a more sophisticated review mechanism, possibly involving a
   new command "review", which will display a commit, and allow the

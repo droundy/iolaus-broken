@@ -35,7 +35,7 @@ import Iolaus.Arguments ( Flag( PromptLongComment, NoEditLongComment,
                                 LogFile, PatchName, All,
                                 DeltaDebugWorkingSubset ),
                         working_repo_dir, commitApproach,
-                        fixSubPaths, testByDefault,
+                        fixSubPaths, testByDefault, sign,
                         ask_long_comment, recordDeltaDebug,
                         all_interactive, notest,
                         author, patchname_option,
@@ -71,7 +71,7 @@ record = Command {command_name = "record",
                        command_basic_options = [patchname_option, author]++
                                                notest++recordDeltaDebug++
                                                [commitApproach, all_interactive,
-                                                ask_long_comment,
+                                                sign, ask_long_comment,
                                                 working_repo_dir]}
 
 record_cmd :: [Flag] -> [String] -> IO ()
@@ -104,7 +104,7 @@ record_cmd opts args = do
                cleanup (a:b) = a : cleanup b
                cleanup [] = []
                message = (unlines $ cleanup $ name:my_log++testedby)
-           com <- commitTreeNicely newtree' hs' message
+           com <- commitTreeNicely opts newtree' hs' message
            -- we'll first run the test on the commit in its
            -- "primitive" context...
            debugMessage "Testing on \"canonical\" tree..."
