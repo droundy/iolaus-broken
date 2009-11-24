@@ -22,9 +22,6 @@
 
 - Add support for signing and verification of tags.
 
-- Add support for checking that signature is by a key with the same ID
-  as the committer.
-
 - Work out a more sophisticated review mechanism, possibly involving a
   new command "review", which will display a commit, and allow the
   user to create a new commit which depends only on that one commit

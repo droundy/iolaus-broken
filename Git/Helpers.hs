@@ -102,7 +102,8 @@ verifyCommit opts c
                   [True | Verify _ <- opts]) =
         do x <- catCommitRaw `unseal` c
            debugMessage ("verifying: "++show x)
-           verifyGPG opts x
+           ctr <- unseal myCommitter `fmap` mapSealM catCommit c
+           verifyGPG opts (takeWhile (/= '>') ctr++">") x
            debugMessage $ "Commit "++show c++" verified..."
 verifyCommit _ _ = return ()
 
