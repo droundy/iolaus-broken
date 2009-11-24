@@ -4,7 +4,7 @@
 module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag, emptyCommit,
                       catBlob, hashObject, committer, uname,
                       catTree, TreeEntry(..),
-                      catCommit, CommitEntry(..),
+                      catCommit, catCommitRaw, CommitEntry(..),
                       catCommitTree, parseRev, maybeParseRev,
                       heads, remoteHeads, headNames, tagNames,
                       remoteHeadNames, remoteTagNames,
@@ -556,16 +556,19 @@ instance Pretty1 CommitEntry where
 instance Pretty (CommitEntry C(x)) where
     pretty = pretty1
 
-catCommit :: Hash Commit C(x) -> IO (CommitEntry C(x))
-catCommit (Hash Commit h0) =
+catCommitRaw :: Hash Commit C(x) -> IO String
+catCommitRaw (Hash Commit h0) =
     do (Nothing, Just stdout, Nothing, pid) <-
            createProcess (proc "git" ["cat-file","commit",h0])
                              { std_out = CreatePipe }
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> parseit $ lines out
+         ExitSuccess -> return out
          ExitFailure _ -> fail "git cat-file blob failed"
+
+catCommit :: Hash Commit C(x) -> IO (CommitEntry C(x))
+catCommit h0 = catCommitRaw h0 >>= (parseit . lines)
     where parseit (x:xs) =
               case words x of
               [] -> return $ CommitEntry { myParents = [],
