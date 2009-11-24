@@ -39,7 +39,7 @@ module Iolaus.Arguments
       patch_select_flag ) where
 import System.Console.GetOpt
 import Data.List ( nub )
-import Data.Maybe ( fromMaybe, catMaybes )
+import Data.Maybe ( fromMaybe, listToMaybe )
 import Control.Monad ( unless )
 import Data.Char ( isDigit )
 
@@ -350,17 +350,12 @@ list_options = IolausNoArgOption [] ["list-options"] ListOptions
                "simply list the command's arguments"
 
 flagToString :: [IolausOption] -> Flag -> Maybe String
-flagToString x f = maybeHead $ catMaybes $ map f2o x
-    where f2o (IolausArgOption _ (s:_) c _ _) =
-              do arg <- get_content f
-                 if c arg == f
-                     then return $ unwords [('-':'-':s), arg]
-                     else Nothing
-          f2o (IolausNoArgOption _ (s:_) f' _) | f == f' = Just ('-':'-':s)
-          f2o (IolausMultipleChoiceOption xs) = maybeHead $ catMaybes $ map f2o xs
-          f2o _ = Nothing
-          maybeHead (a:_) = Just a
-          maybeHead [] = Nothing
+flagToString x f = listToMaybe $ concatMap f2o x
+    where f2o o = case pull_apart_option f o of
+                    Left s:_ -> [s]
+                    Right (s1,"true"):_ -> ["--"++s1]
+                    Right (s1,s2):_ -> ["--"++s1++"="++show s2]
+                    [] -> []
 
 working_repo_dir :: IolausOption
 possibly_remote_repo_dir :: IolausOption
