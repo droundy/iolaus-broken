@@ -1,3 +1,5 @@
+# Interacting with other repositories
+
 This is an overview of the commands you can use to interact with
 remote repositories.  To get more detail about any given command,
 just click on its name.

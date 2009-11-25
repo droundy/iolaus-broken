@@ -27,26 +27,24 @@ doc =
        mkdir "manual"
        rule ["manual/manual.md"] ("preproc":"doc/iolaus.md":map fst hs) $
             do x <- systemOut "./preproc" ["doc/iolaus.md"]
-               mkFile "manual/manual.md" (prefix "" "Iolaus manual"++x)
-       mdToHtml "README.md" "index.html" "Iolaus"
-       mdToHtml "TODO.md" "TODO.html" "Iolaus to-do list"
-       mdToHtml "doc/FAQ.md" "FAQ.html" "FAQ"
-       mdToHtml "doc/local-changes.md" "manual/local-changes.html"
-                    "Making changes locally"
-       mdToHtml "doc/querying.md" "manual/querying.html"
-                    "Querying local changes"
-       mdToHtml "doc/remote.md" "manual/remote.html"
-                    "Interacting with other repositories"
+               mkFile "manual/manual.md" (prefix "" "# Iolaus manual"++x)
+       mdToHtml "README.md" "index.html"
+       mdToHtml "TODO.md" "TODO.html"
+       mdToHtml "doc/FAQ.md" "FAQ.html"
+       mapM_ docToManual ["local-changes","querying","remote","basic-usage"]
        markdownToHtml ".iolaus.css" "manual/manual.md" "manual.html"
        addDependencies "manpages" (map snd hs)
        addDependencies "html" ("manual.html":map fst hs)
        addDependencies "doc" ["manpages", "html"]
-    where mdToHtml md ht title =
+    where docToManual f = mdToHtml ("doc/"++f++".md")
+                                   ("manual/"++f++".html")
+          mdToHtml md ht =
               do rule [ht] [md] $
-                    do mdin <- cat md
+                    do title:mdin <- lines `fmap` cat md
                        let toroot = if '/' `elem` ht then "../" else ""
                        markdownStringToHtmlString
-                           (toroot++".iolaus.css") (prefix toroot title++mdin)
+                           (toroot++".iolaus.css") (prefix toroot title++
+                                                    unlines mdin)
                                              >>= mkFile ht
                  addDependencies "html" [ht]
           lhs2md "Amend.lhs" = "amend-record.md"
@@ -66,7 +64,7 @@ doc =
           prefix toroot x =
               "\n<object data='"++toroot++"doc/hydra.svg' align='right' "++
                "type='image/svg+xml' width=265> Image here! </object>\n\n"++
-              "\n# "++ x++
+              "\n"++ x++
               "\n[about]("++toroot++"index.html) | "++
               "[manual]("++toroot++"manual.html) | "++
               "[download](http://github.com/droundy/iolaus/downloads) | "++
@@ -86,7 +84,7 @@ doc =
                                 "% David Roundy\n"++
                                 "% date?\n\n"
                    mkFile ("manual/"++lhs2md lhs)
-                          (header++prefix "../" (cmd lhs)++h)
+                          (header++prefix "../" ("# "++cmd lhs)++h)
                    mkFile ("manual/"++lhs2manmd lhs) (header++x)
               m <-markdownToMan ("manual/"++lhs2manmd lhs)
                                 ("man/man1/iolaus-"++dash lhs++".1")

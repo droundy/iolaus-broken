@@ -1,3 +1,5 @@
+# Querying local changes
+
 This is an overview of the commands you can use to query the state of
 your local repository.  To get more detail about any given command,
 just click on its name.

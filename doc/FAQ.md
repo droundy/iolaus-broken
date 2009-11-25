@@ -1,3 +1,5 @@
+# FAQ
+
 Why would I want to use Iolaus?
 -------------------------------
 
