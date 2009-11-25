@@ -108,14 +108,14 @@ verifyCommit opts c
 verifyCommit _ _ = return ()
 
 testCommits :: [Flag] -> String -> [Sealed (Hash Commit)]
-            -> IO (Sealed (Hash Commit))
+            -> IO (Maybe (Sealed (Hash Commit)))
 testCommits opts msg hs0 =
     do let hs = sort $ cauterizeHeads hs0
        k <- hashObject (`hPutStrLn` show hs)
        mt <- (Just `fmap` parseRev ("refs/tested/"++show k))
              `catch` (\_ -> return Nothing)
        case mt of
-         Just c -> return c
+         Just c -> return $ Just c
          Nothing ->
              do Sealed t <- mergeCommits opts hs
                 x <- testPredicate opts t
@@ -127,7 +127,8 @@ testCommits opts msg hs0 =
                              updateref ("refs/tested/"++show k) (Sealed c)
                                                                 Nothing
                                  `catch` (\_ -> return ())
-                             return (Sealed c)
+                             return $ if null m then Nothing
+                                                else Just (Sealed c)
                   Fail -> fail "test failed"
                   Unresolved -> fail "build failed"
 

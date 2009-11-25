@@ -16,7 +16,7 @@ iolaus changes --show-parents | grep Parent && exit 1
 
 echo y | iolaus unrecord --patches datebar
 
-iolaus record --config-default --cauterize-all
+iolaus all --config-default --cauterize-all
 
 iolaus record -am datebar
 

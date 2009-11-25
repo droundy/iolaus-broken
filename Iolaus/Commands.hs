@@ -19,6 +19,7 @@ module Iolaus.Commands ( command_control_list ) where
 
 import Data.List ( nub, (\\) )
 
+import Iolaus.Arguments ( IolausOption(..) )
 import Iolaus.Commands.Record ( record )
 import Iolaus.Commands.Amend ( amend_record )
 import Iolaus.Commands.Unrecord ( unrecord )
@@ -57,8 +58,10 @@ command_control_list =
      Command_data push,
      Hidden_command al
     ]
-    where albasics = nub $ concatMap basic_options command_control_list
-          aladv = nub (concatMap adv_options command_control_list) \\ albasics
+    where albasics = nub $ concatMap simpl $
+                     concatMap basic_options command_control_list
+          aladv = nub (concatMap simpl $
+                       concatMap adv_options command_control_list) \\ albasics
           al = Command { command_name = "all",
                          command_help = "set defaults for all commands",
                          command_description =
@@ -73,3 +76,5 @@ command_control_list =
                          command_command = \_ _ ->
                                            putStrLn "this is a dummy command."
                        }
+          simpl (IolausMultipleChoiceOption os) = os
+          simpl o = [o]
