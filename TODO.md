@@ -51,15 +51,3 @@
   silly.  For a few things it makes sense (probably for test scripts),
   but for most others, it's much nicer to be able to work with a
   single file.
-
-- Make push (when possible) push a merge commit (ideally that's been
-  tested), so git pull and git clone will behave well on any
-  repository in which records aren't being done.  This will go a long
-  way towards smoothing interoperability with git.  Add a --test
-  option to push, which will test before pushing (if a test hasn't
-  been done), and thus will always lead to the push generating a
-  single head.  Note that perhaps this behavior should be determined
-  by the --record-for flag.  If you're pushing to a repository that
-  you aren't recording for, then probably we want multiple heads
-  (e.g. it may be a "proposed updates" repository that is meant to be
-  in flux).

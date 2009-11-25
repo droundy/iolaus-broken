@@ -24,13 +24,14 @@ import Control.Monad ( when )
 import System.Exit ( exitWith, ExitCode(ExitSuccess) )
 
 import Iolaus.Command ( Command(..) )
-import Iolaus.Arguments ( Flag, working_repo_dir, dryrun,
+import Iolaus.Arguments ( Flag, working_repo_dir, dryrun, test, testByDefault,
                           match_several_or_first, all_interactive, remote_repo )
 import Iolaus.Repository ( push_heads )
 import Iolaus.SelectCommits ( select_commits )
 
 import Git.Dag ( notIn )
 import Git.Plumbing ( listRemotes, heads, remoteHeads, fetchPack )
+import Git.Helpers ( testCommits )
 import Git.LocateRepo ( amInRepository )
 #include "impossible.h"
 
@@ -56,7 +57,7 @@ push = Command {command_name = "push",
                 command_advanced_options = [remote_repo],
                 command_basic_options = [match_several_or_first,
                                          all_interactive]++
-                                        dryrun "push"++
+                                        dryrun "push"++test++
                                         [working_repo_dir]}
     where deforigin _ _ [] = return ["origin"]
           deforigin _ _ xs = return xs
@@ -70,8 +71,11 @@ push_cmd opts [repodir] =
                   else fetchPack repodir -- so we can see what they've got!
        ourhs <- heads
        topush <- select_commits "push" opts (reverse $ ourhs `notIn` hs)
+       mc <- testCommits (testByDefault opts) "Merge" (topush++hs)
        when (null topush) $ do putStrLn "No patches to push!"
                                exitWith ExitSuccess
-       push_heads repodir topush
+       push_heads repodir $
+                  case mc of Just c | length topush > 1 -> [c]
+                             _ -> topush
 push_cmd _ _ = impossible
 \end{code}
