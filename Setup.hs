@@ -31,16 +31,24 @@ doc =
        mdToHtml "README.md" "index.html" "Iolaus"
        mdToHtml "TODO.md" "TODO.html" "Iolaus to-do list"
        mdToHtml "doc/FAQ.md" "FAQ.html" "FAQ"
+       mdToHtml "doc/local-changes.md" "manual/local-changes.html"
+                    "Making changes locally"
+       mdToHtml "doc/querying.md" "manual/querying.html"
+                    "Querying local changes"
+       mdToHtml "doc/remote.md" "manual/remote.html"
+                    "Interacting with other repositories"
        markdownToHtml ".iolaus.css" "manual/manual.md" "manual.html"
        addDependencies "manpages" (map snd hs)
-       addDependencies "html" ("index.html" : "FAQ.html" : "TODO.html":
-                               "manual.html" : map fst hs)
+       addDependencies "html" ("manual.html":map fst hs)
        addDependencies "doc" ["manpages", "html"]
     where mdToHtml md ht title =
               do rule [ht] [md] $
                     do mdin <- cat md
+                       let toroot = if '/' `elem` ht then "../" else ""
                        markdownStringToHtmlString
-                           ".iolaus.css" (prefix "" title++mdin) >>= mkFile ht
+                           (toroot++".iolaus.css") (prefix toroot title++mdin)
+                                             >>= mkFile ht
+                 addDependencies "html" [ht]
           lhs2md "Amend.lhs" = "amend-record.md"
           lhs2md (x0:x) = toLower x0 : tolower (take (length x-4) x) ++ ".md"
           lhs2manmd x = lhs2md x ++ ".man"

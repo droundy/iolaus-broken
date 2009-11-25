@@ -85,14 +85,15 @@ get_synopsis f comm = unwords $ get_com_synopsis f (get_c names the_commands)++
 
 instance Show CommandControl where
     show (Command_data (Command { command_name = n})) =
-              "- [iolaus "++n++"](manual/"++n++".html)"
+              "    - [iolaus "++n++"](manual/"++n++".html)"
     show (Command_data (SuperCommand { command_name = n,
                                        command_sub_commands = cs })) =
-          "- iolaus "++n++"  \n" ++ init (unlines
-           (map (\c ->"    - [iolaus "++n++" "++c++
+          "    - iolaus "++n++"  \n" ++ init (unlines
+           (map (\c ->"        - [iolaus "++n++" "++c++
                       "](manual/"++n++"-"++c++".html)")
             (map command_name $ extract_commands cs)))
-    show (Group_name g) = "\n"++g++"\n"
+    show (Group_name g "") = "- "++g
+    show (Group_name g page) = "- ["++g++"]("++page++")"
     show (Hidden_command _) = ""
 
 get_c :: [String] -> [Command] -> [Command]
