@@ -40,21 +40,21 @@ import Iolaus.Command ( CommandControl( Command_data, Hidden_command,
 --   are also listed here.
 command_control_list :: [CommandControl]
 command_control_list =
-    [Group_name "Changing and querying the working copy:",
-     Command_data whatsnew,
-     Command_data changes,
-     Command_data unrecord,
+    [Group_name "Changing a repository:" "manual/local-changes.html",
+     Command_data initialize,
      Command_data record,
      Command_data amend_record,
+     Command_data unrecord,
      Command_data revert,
      Command_data unrevert,
+     Group_name "Querying repository state:" "manual/querying.html",
+     Command_data whatsnew,
+     Command_data changes,
      Command_data show_command,
-     Command_data initialize,
-
-     Group_name "Interacting with other repositories:",
+     Group_name "Interacting with other repositories:" "manual/remote.html",
      Command_data get,
-     Command_data push,
      Command_data pull,
+     Command_data push,
      Hidden_command al
     ]
     where albasics = nub $ concatMap basic_options command_control_list

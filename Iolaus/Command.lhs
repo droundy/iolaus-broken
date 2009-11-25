@@ -114,7 +114,7 @@ extract_hidden_commands cs =
 \begin{code}
 data CommandControl = Command_data Command
                     | Hidden_command Command
-                    | Group_name String
+                    | Group_name String String
 
 data Command =
     Command {command_name, command_help, command_description :: String,
@@ -201,7 +201,7 @@ usage_helper ((Command_data c):cs) =
     where endnewline "" = "\n"
           endnewline "\n" = ""
           endnewline (x:xs) = x : endnewline xs
-usage_helper ((Group_name n):cs) = n ++ "\n" ++ usage_helper cs
+usage_helper ((Group_name n _):cs) = n ++ "\n" ++ usage_helper cs
 
 pad_spaces :: String -> Int -> String
 pad_spaces s n = s ++ replicate (n - length s) ' '
