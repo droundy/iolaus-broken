@@ -19,7 +19,7 @@
 module Iolaus.Commands.Pull ( pull ) where
 
 import System.Exit ( ExitCode(..), exitWith )
-import Control.Monad ( when )
+import Control.Monad ( when, filterM )
 import Data.List ( union, intersect )
 
 import Iolaus.Command ( Command(..) )
@@ -33,7 +33,7 @@ import Iolaus.Ordered ( (:/\:)(..), (:\/:)(..), (+>+), mapFL_FL )
 import Iolaus.Diff ( diff )
 import Iolaus.Sealed ( Sealed(..), mapSealM )
 import Iolaus.Repository ( add_heads, slurp_working, slurp_recorded )
-import Iolaus.SelectCommits ( select_commits )
+import Iolaus.SelectCommits ( select_commits, isMerge )
 import Iolaus.Utils ( askUser )
 import Iolaus.IO ( runTolerantly )
 
@@ -88,6 +88,7 @@ pull_cmd opts repodirs@(_:_) =
                              then foldl1 intersect allnewhs
                              else foldl1 union allnewhs
        mapM_ (verifyCommit opts) newhs
+       merges <- filterM isMerge newhs
        newhs' <- select_commits "pull" opts (reverse $ newhs `notIn` hs)
        when (null newhs') $ do putStrLn "No patches to pull!"
                                exitWith ExitSuccess
@@ -116,9 +117,11 @@ pull_cmd opts repodirs@(_:_) =
                   _ -> do putStrLn "Pull cancelled."
                           exitWith (ExitFailure 1)
            Just (nps :/\: _) -> return (Sealed nps)
+       let newhs'' = newhs' ++ filter nicemerge merges
+               where nicemerge x = [x] `notIn` newhs' == [x]
        testCommits (testByDefault opts)
-                       (unwords $ "Merge":repodirs) (hs++newhs')
-       add_heads opts newhs'
+                       (unwords $ "Merge":repodirs) (hs++newhs'')
+       add_heads opts newhs''
        runTolerantly $ apply nps
        tns <- concat `fmap` mapM remoteTagNames repodirs
        let writeTag (h,n) | take 10 n == "refs/tags/" =

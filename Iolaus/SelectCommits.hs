@@ -21,7 +21,7 @@
 #include "gadts.h"
 
 module Iolaus.SelectCommits ( select_commits, select_last_commits,
-                              select_commit ) where
+                              select_commit, isMerge ) where
 
 import System.IO
 import Data.List ( intersperse, partition, isInfixOf )
@@ -43,12 +43,15 @@ import Git.Helpers ( showCommit )
 data WhichChanges = Last | First | One
                     deriving (Eq, Show)
 
+isMerge :: Sealed (Hash Commit) -> IO Bool
+isMerge (Sealed x) = do ce <- catCommit x
+                        return (take 5 (myMessage ce) == "Merge" &&
+                                length (myParents ce) > 1) 
+
 match :: [Flag] -> Sealed (Hash Commit) -> IO Bool
 match opts x =
-    do Sealed ce <- mapSealM catCommit x
-       if ShowMerges `notElem` opts &&
-          take 5 (myMessage ce) == "Merge" &&
-          length (myParents ce) > 1
+    do ismerge <- isMerge x
+       if ShowMerges `notElem` opts && ismerge
          then return False
          else matchPat opts x
 

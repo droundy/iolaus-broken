@@ -26,7 +26,7 @@ import System.Exit ( exitWith, ExitCode(ExitSuccess) )
 import Iolaus.Command ( Command(..) )
 import Iolaus.Arguments ( Flag, working_repo_dir, dryrun, test, testByDefault,
                           match_several_or_first, all_interactive, remote_repo )
-import Iolaus.Repository ( push_heads )
+import Iolaus.Repository ( push_heads, add_heads )
 import Iolaus.SelectCommits ( select_commits )
 
 import Git.Dag ( notIn )
@@ -74,8 +74,9 @@ push_cmd opts [repodir] =
        mc <- testCommits (testByDefault opts) "Merge" (topush++hs)
        when (null topush) $ do putStrLn "No patches to push!"
                                exitWith ExitSuccess
-       push_heads repodir $
-                  case mc of Just c | length topush > 1 -> [c]
-                             _ -> topush
+       let topush' = case mc of Just c | length topush > 1 -> [c]
+                                _ -> topush
+       push_heads repodir topush'
+       add_heads opts topush'
 push_cmd _ _ = impossible
 \end{code}
