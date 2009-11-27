@@ -6,6 +6,7 @@ module Iolaus.DeltaDebug ( largestPassingSet, smallestFailingSet,
 
 import Data.List ( (\\), sort, nub )
 import System.IO.Unsafe ( unsafePerformIO )
+import Control.Monad ( msum )
 
 import Iolaus.Flags ( Flag(Test) )
 import Iolaus.Ordered ( (:>)(..), FL(..), (+>+), mapFL, mapFL_FL, reverseFL )
@@ -82,20 +83,15 @@ ddpatches t ps = return (tps, unsafePerformIO . testtags)
 dd2 :: (Show a, Eq a) => ([a] -> TestResult) -> [a] -> [a] -> Int -> ([a],[a])
 dd2 _ ok [b] _ = (ok, [b])
 dd2 f0 ok bad n =
- case rlookup Pass scoreLess  of
- Just mygood -> dd2 f (mygood++ok) (bad\\mygood) 2
- Nothing ->
-     case rlookup Pass scoreBads of
-     Just mygood -> dd2 f (mygood++ok) (bad\\mygood) (max (n-1) 2)
-     Nothing ->
-         case rlookup Fail scoreBads of
-         Just mybad -> dd2 f ok mybad 2
-         Nothing ->
-             case rlookup Fail scoreLess of
-             Just mybad -> dd2 f ok mybad (max (n-1) 2)
-             Nothing -> if n < length bad
-                        then dd2 f ok bad (min (2*n) (length bad))
-                        else (ok,bad)
+     maybe (ok,bad) id $
+     msum [(\mygood -> dd2 f (mygood++ok) (bad\\mygood) 2)
+           `fmap` rlookup Pass scoreLess,
+           (\mygood -> dd2 f (mygood++ok) (bad\\mygood) (max (n-1) 2))
+           `fmap` rlookup Pass scoreBads,
+           (\mybad -> dd2 f ok mybad 2)
+           `fmap` rlookup Fail scoreBads,
+           (\mybad -> dd2 f ok mybad (max (n-1) 2))
+           `fmap` rlookup Fail scoreLess]
  where f a = maybe (f0 a) id $ lookup a known
        known = totry `zip` map f0 totry
        totry = map (ok++) $ nub (bads++lessbads)
