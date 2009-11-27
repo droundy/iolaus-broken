@@ -4,7 +4,7 @@
 module Iolaus.DeltaDebug ( largestPassingSet, smallestFailingSet,
                            smallestFailingChange ) where
 
-import Data.List ( (\\), sort )
+import Data.List ( (\\), sort, nub )
 import System.IO.Unsafe ( unsafePerformIO )
 
 import Iolaus.Flags ( Flag(Test) )
@@ -73,30 +73,42 @@ ddpatches t ps = return (tps, unsafePerformIO . testtags)
               case separate_first_from_middle_last $
                    force_matching_first ((`elem` ts) . tag) pc of
                 xs :> _ | sort (mapFL tag xs) == sort ts ->
-                            do t' <- slurpTree t >>= apply_to_slurpy xs
+                            do putStrLn ("Testing: "++ unwords (map show ts))
+                               t' <- slurpTree t >>= apply_to_slurpy xs
                                      >>= writeSlurpTree
                                testPredicate [Test] t'
                 _ -> return Unresolved
 
 dd2 :: (Show a, Eq a) => ([a] -> TestResult) -> [a] -> [a] -> Int -> ([a],[a])
 dd2 _ ok [b] _ = (ok, [b])
-dd2 f ok bad n =
- case map snd (filter ((== Pass) . fst) $ scoreLess) of
- mygood:_ -> dd2 f (mygood++ok) (bad\\mygood) 2
- [] -> case map snd $ filter ((== Pass) . fst) scoreBads of
-       mygood:_ -> dd2 f (mygood++ok) (bad\\mygood) (max (n-1) 2)
-       [] -> case map snd $ filter ((== Fail) . fst) scoreBads of
-             mybad:_ -> dd2 f ok mybad 2
-             [] -> case map snd $ filter ((== Fail) . fst) $ scoreLess of
-                   mybad:_ -> dd2 f ok mybad (max (n-1) 2)
-                   [] -> if n < length bad
-                         then dd2 f ok bad (min (2*n) (length bad))
-                         else (ok,bad)
- where splitit [] = []
+dd2 f0 ok bad n =
+ case rlookup Pass scoreLess  of
+ Just mygood -> dd2 f (mygood++ok) (bad\\mygood) 2
+ Nothing ->
+     case rlookup Pass scoreBads of
+     Just mygood -> dd2 f (mygood++ok) (bad\\mygood) (max (n-1) 2)
+     Nothing ->
+         case rlookup Fail scoreBads of
+         Just mybad -> dd2 f ok mybad 2
+         Nothing ->
+             case rlookup Fail scoreLess of
+             Just mybad -> dd2 f ok mybad (max (n-1) 2)
+             Nothing -> if n < length bad
+                        then dd2 f ok bad (min (2*n) (length bad))
+                        else (ok,bad)
+ where f a = maybe (f0 a) id $ lookup a known
+       known = totry `zip` map f0 totry
+       totry = map (ok++) $ nub (bads++lessbads)
+       splitit [] = []
        splitit xs = take nn xs : splitit (drop nn xs)
        bads = splitit bad
-       score bs = map (\b -> f (ok++b)) bs `zip` bs
+       score bs = bs `zip` map (\b -> f (ok++b)) bs
        lessbads = map (\x -> take x bad ++ drop (x+nn) bad) [0,nn ..length bad]
        nn = max 1 $ length bad `div` n
        scoreLess = score lessbads
        scoreBads = score bads
+
+rlookup :: Eq a => a -> [(b,a)] -> Maybe b
+rlookup _ [] = Nothing
+rlookup a ((x,y):xs) = if a == y then Just x
+                                 else rlookup a xs
