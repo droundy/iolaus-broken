@@ -71,9 +71,9 @@ push_cmd opts [repodir] =
                   else fetchPack repodir -- so we can see what they've got!
        ourhs <- heads
        topush <- select_commits "push" opts (reverse $ ourhs `notIn` hs)
-       mc <- testCommits (testByDefault opts) "Merge" (topush++hs)
-       when (null topush) $ do putStrLn "No patches to push!"
+       when (null topush) $ do putStrLn "No commits to push!"
                                exitWith ExitSuccess
+       mc <- testCommits (testByDefault opts) "Merge" (topush++hs)
        let topush' = case mc of Just c | length topush > 1 -> [c]
                                 _ -> topush
        push_heads repodir topush'
