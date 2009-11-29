@@ -15,6 +15,8 @@
   with this particular remote, so *never* contacting the remote on
   record doesn't sound like such a hot idea.
 
+- Make new repositories (gotten by get) have --record-for set!
+
 - Add support (and documentation) for proper git-style hooks.
 
 - Add proper support (and documentation) for proper git-style color
@@ -53,3 +55,11 @@
   silly.  For a few things it makes sense (probably for test scripts),
   but for most others, it's much nicer to be able to work with a
   single file.
+
+- Fix mergeCommits.  Currently, we just merge a bunch of "big" diffs,
+  which are simply sequences of named primitive patches.  This gives
+  us trouble when some of these commits involve conflict resolution.
+  Somehow, we're not seeing the conflict as resolved.  I think the
+  key is to actually go ahead and let the merge algorithm know about
+  the commit structure, rather than simply flattening everything into
+  a single sequence of primitive patches.  :(
