@@ -29,7 +29,7 @@ import Iolaus.Arguments ( Flag, working_repo_dir, dryrun, test, testByDefault,
 import Iolaus.Repository ( push_heads, add_heads )
 import Iolaus.SelectCommits ( select_commits )
 
-import Git.Dag ( notIn )
+import Git.Dag ( notIn, cauterizeHeads )
 import Git.Plumbing ( listRemotes, heads, remoteHeads, fetchPack )
 import Git.Helpers ( testCommits )
 import Git.LocateRepo ( amInRepository )
@@ -74,8 +74,9 @@ push_cmd opts [repodir] =
        when (null topush) $ do putStrLn "No commits to push!"
                                exitWith ExitSuccess
        mc <- testCommits (testByDefault opts) "Merge" (topush++hs)
-       let topush' = case mc of Just c | length topush > 1 -> [c]
-                                _ -> topush
+       let topush' = case mc of
+                       Just c | length (cauterizeHeads topush) > 1 -> [c]
+                       _ -> topush
        push_heads repodir topush'
        add_heads opts topush'
 push_cmd _ _ = impossible
