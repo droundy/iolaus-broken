@@ -33,3 +33,41 @@ iolaus pull -a ../temp1
 iolaus changes --show-merge --graph
 iolaus changes --show-merge | grep Merge
 iolaus changes --show-merge --show-tested --max-count 1 | grep Tested
+
+iolaus pull -a ../temp2
+
+iolaus changes --graph --show-merge --show-hash
+
+iolaus wh
+
+grep '|||' bar && exit 1
+
+echo hello > bar
+iolaus wh
+iolaus record -am hibar
+iolaus changes --graph --max-count 5 --show-hash -s
+
+iolaus wh
+
+grep '|||' bar && exit 1
+cat bar
+
+echo bye > bar
+iolaus whatsnew
+#iolaus all --config-default --record-for ../temp1
+
+
+iolaus record -am byebar --debug
+
+iolaus push -a ../temp2
+
+cd ../temp2
+
+iolaus changes --graph
+iolaus changes | grep hibar
+iolaus changes | grep byebar
+
+# I'm not sure about the number below, but right now the test fails
+# before it gets here.
+
+iolaus changes --count | grep 6

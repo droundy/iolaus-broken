@@ -72,7 +72,12 @@ chokePoints hs0 = join_same $ zip (repeat S.empty)
                     -> [Sealed (Hash Commit)]
           join_same [] = []
           join_same [(_,x)] = x
-          join_same cs | [] `elem` map snd cs = []
+          join_same cs | [] `elem` map snd cs =
+                           case partition (null . snd) cs of
+                             (es,os) ->
+                                 join_same $ map fixit os
+                                     where fixit (a,b) = (a,filter isok b)
+                                           isok x = all (S.member x)$ map fst es
           join_same cs =
               case filter (\h -> all (h `S.member`) passedby) hs of
                 h:_ -> case filter ((h==) . head) $ map snd cs of
