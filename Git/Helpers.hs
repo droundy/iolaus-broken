@@ -329,7 +329,7 @@ simpHelp opts for pars0 pat0 = sp (cpnum opts) [] pars0 pat0
 mergeCommits :: [Flag] -> [Sealed (Hash Commit)]
              -> IO (Sealed (Hash Tree))
 mergeCommits _ hs0 =
-    do let hs = cauterizeHeads hs0
+    do hs <- cauterizeHeads `fmap` expandTrivialMerges hs0
        mt <- readCached hs0
        case mt of
          Just t -> return t
@@ -363,17 +363,20 @@ mergeCommitsX xs =
              oldest <- catCommitTree ancestor >>= slurpTree
              Sealed `fmap` writeSlurpTree (fromJust $ apply_to_slurpy ps oldest)
 
+cacheKey :: [Sealed (Hash Commit)] -> String
+cacheKey hs = "fixed merge "++show (sort hs)
+
 cacheTree :: [Sealed (Hash Commit)] -> Hash Tree C(x) -> IO ()
 cacheTree x t =
-    do k <- hashObject (`hPutStrLn` show (sort x))
-       c <- commitTree t (sort x) (show $ sort x)
+    do k <- hashObject (`hPutStrLn` cacheKey x)
+       c <- commitTree t (sort x) (cacheKey x)
        updateref ("refs/merges/"++show k) (Sealed c) Nothing
                      `catch` (\_ -> return ())
        return ()
 
 readCached :: [Sealed (Hash Commit)] -> IO (Maybe (Sealed (Hash Tree)))
 readCached x =
-    do k <- hashObject (`hPutStrLn` show (sort x))
+    do k <- hashObject (`hPutStrLn` cacheKey x)
        Just `fmap`
                 (parseRev ("refs/merges/"++show k) >>= mapSealM catCommitTree)
     `catch` \_ -> return Nothing
@@ -389,11 +392,12 @@ diffDag :: IORef (M.Map (Sealed (Hash Commit))
                  (Sealed (FL (Named String Prim) C(x))))
         -> Dag C(x y) -> IO (FL (Named String Prim) C(x y))
 diffDag _ (Ancestor _) = return NilFL
-diffDag c (Node x ys) =
+diffDag c (Node x ys0) =
     do m <- readIORef c
        case M.lookup (Sealed x) m of
          Just (Sealed ps) -> return $ unsafeCoerceP ps
-         Nothing -> do ps <- diffDagHelper c (Node x ys)
+         Nothing -> do ys <- expandTrivialNodes ys0
+                       ps <- diffDagHelper c (Node x ys)
                        modifyIORef c (M.insert (Sealed x) (Sealed ps))
                        return ps
 
@@ -459,6 +463,38 @@ configDefaults msuper cmd cs fs = mapM_ configit xs
                  else if SystemConfig `elem` fs
                       then [System]
                       else []
+
+-- The following "trivial merges" stuff is a workaround for a proper
+-- algorithm for merging conflict resolutions, which at least keeps
+-- "automerge" commits from causing trouble.  I'm not sure what a
+-- proper merge algorithm will look like... :(
+
+expandTrivialNodes :: [Sealed (Dag C(x))] -> IO [Sealed (Dag C(x))]
+expandTrivialNodes [] = return []
+expandTrivialNodes (n@(Sealed (Node x ys)) : ns) =
+    do itm <- isTrivialMerge (Sealed x)
+       rest <- expandTrivialNodes ns
+       return $ if itm then ys ++ rest
+                       else n : rest
+expandTrivialNodes (n:ns) = (n:) `fmap` expandTrivialNodes ns
+
+expandTrivialMerges :: [Sealed (Hash Commit)] -> IO [Sealed (Hash Commit)]
+expandTrivialMerges [] = return []
+expandTrivialMerges (c:cs) =
+    do itm <- isTrivialMerge c
+       rest <- expandTrivialMerges cs
+       return $ if itm then unseal parents c ++ rest
+                       else c : rest
+
+isTrivialMerge :: Sealed (Hash Commit) -> IO Bool
+isTrivialMerge (Sealed c) =
+    do ce <- catCommit c
+       if take 5 (myMessage ce) == "Merge"
+          then do FlippedSeal ch <- diffCommit [] c
+                  case ch of
+                    NilFL -> return True
+                    _ -> return False
+          else return False
 
 showCommit :: [Flag] -> Hash Commit C(x) -> IO Doc
 showCommit opts c =
