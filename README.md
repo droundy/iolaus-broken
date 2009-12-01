@@ -11,7 +11,9 @@ What is Iolaus?
 Iolaus is a [git](http://git-scm.org) porcelain which uses some code
 and ideas from an older SCM I created called
 [darcs](http://darcs.net).  Thus Iolaus is kin to Easy Git, Yap,
-darcs-git, vng, StGIT, Guilt and TopGit.  Clearly there is an
+darcs-git, vng, StGIT, Guilt and TopGit.  I believe that Iolaus is
+closest in design, aims and philosophy to
+[TopGit](http://repo.or.cz/w/topgit.git).  Clearly there is an
 abundance of porcelains, and it's doubtful whether the world needs yet
 another porcelain, particularly as there are already two that
 advertise a darcs-like interface.  On the other hand, the abundance of

@@ -2,8 +2,12 @@
 
 set -ev
 
-# first build with type witnesses enabled
-./Setup.hs --with-type-witnesses --disable-optimize -j2 build
-./Setup.hs clean
-./Setup.hs configure
+if ghc --version | grep 6.8; then
+    # first build with type witnesses enabled
+    ./Setup.hs --with-type-witnesses --disable-optimize -j2 build
+    ./Setup.hs clean
+    ./Setup.hs configure
+else
+    echo I do not expect type witnesses to work so I am skipping them...
+fi
 ./Setup.hs -j2 build doc
