@@ -330,7 +330,7 @@ mergeCommits :: [Flag] -> [Sealed (Hash Commit)]
              -> IO (Sealed (Hash Tree))
 mergeCommits _ hs0 =
     do hs <- cauterizeHeads `fmap` expandTrivialMerges hs0
-       mt <- readCached hs0
+       mt <- readCached hs
        case mt of
          Just t -> return t
          Nothing -> do Sealed t <- mergeCommitsX hs
