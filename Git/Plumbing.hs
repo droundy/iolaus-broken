@@ -681,7 +681,7 @@ getConfig fs v =
        out <- hGetContents o
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> return $ Just out
+         ExitSuccess -> return $ Just $ takeWhile (/= '\0') out
          ExitFailure _ -> return Nothing
 
 setConfig :: [ConfigOption] -> String -> String -> IO ()
