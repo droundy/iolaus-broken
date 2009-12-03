@@ -23,6 +23,7 @@ import Iolaus.Arguments ( IolausOption(..) )
 import Iolaus.Commands.Record ( record )
 import Iolaus.Commands.Amend ( amend_record )
 import Iolaus.Commands.Unrecord ( unrecord )
+import Iolaus.Commands.SicHercules ( sic_hercules )
 import Iolaus.Commands.Whatsnew ( whatsnew )
 import Iolaus.Commands.Changes ( changes )
 import Iolaus.Commands.Get ( get )
@@ -56,6 +57,7 @@ command_control_list =
      Command_data get,
      Command_data pull,
      Command_data push,
+     Command_data sic_hercules,
      Hidden_command al
     ]
     where albasics = nub $ concatMap simpl $
