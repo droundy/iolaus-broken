@@ -6,7 +6,7 @@ iolaus init
 echo hello world > foo
 iolaus record -am 'add foo date'
 
-HEAD=`git-rev-parse --verify HEAD`
+HEAD=`git rev-parse --verify HEAD`
 
 iolaus show commit HEAD > h
 cat h
