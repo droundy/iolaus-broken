@@ -8,7 +8,7 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag, emptyCommit,
                       catCommitTree, parseRev, maybeParseRev,
                       heads, remoteHeads, headNames, tagNames,
                       remoteHeadNames, remoteTagNames,
-                      clone, gitInit, fetchPack, sendPack, listRemotes,
+                      clone, gitInit, sendPack, listRemotes,
                       checkoutCopy,
                       lsfiles, lssomefiles, lsothers,
                       revList, revListHashes, RevListOption(..), nameRevs,
@@ -29,6 +29,7 @@ import System.Exit ( ExitCode(..) )
 import System.IO.Error ( isDoesNotExistError )
 import System.Directory ( removeFile )
 import Control.Exception ( catchJust, ioErrors )
+import Control.Monad ( unless )
 #ifdef HAVE_REDIRECTS
 import System.Process.Redirects ( createProcess, waitForProcess, proc,
                                   CreateProcess(..), StdStream(..) )
@@ -270,7 +271,10 @@ remoteHeads repo =
                              { std_out = CreatePipe }
        out <- hGetContents stdout
        length out `seq` waitForProcess pid
-       return $ map (mkSHash Commit) $ lines out
+       let hs = map (mkSHash Commit) $ lines out
+       -- FIXME we should avoid running fetchPack redundantly!
+       unless (null hs) $ fetchPack repo
+       return hs
 
 headNames :: IO [(Sealed (Hash Commit), String)]
 headNames =
@@ -305,8 +309,11 @@ remoteHeadNames repo =
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> return $ map parse $ lines out
          ExitFailure _ -> fail "git ls-remote failed"
+         ExitSuccess -> do let ns = map parse $ lines out
+                           -- FIXME we should avoid fetchPacking redundantly!
+                           unless (null ns) $ fetchPack repo
+                           return ns
     where parse l = (mkSHash Commit l, drop 41 l)
 
 remoteTagNames :: String -> IO [(Sealed (Hash Tag), String)]
@@ -318,8 +325,11 @@ remoteTagNames repo =
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> return $ map parse $ filter ('^' `notElem`) $ lines out
          ExitFailure _ -> return []
+         ExitSuccess -> do let ts = map parse $ filter ('^' `notElem`) $
+                                    lines out
+                           unless (null ts) $ fetchPack repo
+                           return ts
     where parse l = (mkSHash Tag l, drop 41 l)
 
 parseRev :: String -> IO (Sealed (Hash Commit))

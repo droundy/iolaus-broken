@@ -30,7 +30,7 @@ import Iolaus.Repository ( push_heads, add_heads )
 import Iolaus.SelectCommits ( select_commits )
 
 import Git.Dag ( notIn, cauterizeHeads )
-import Git.Plumbing ( listRemotes, heads, remoteHeads, fetchPack )
+import Git.Plumbing ( listRemotes, heads, remoteHeads )
 import Git.Helpers ( testCommits )
 import Git.LocateRepo ( amInRepository )
 #include "impossible.h"
@@ -67,8 +67,6 @@ push_cmd opts [""] = push_cmd opts []
 push_cmd opts [repodir] =
     do -- absolute '.' also taken into account by fix_filepath
        hs <- remoteHeads repodir
-       if null hs then return () -- nothing to fetch
-                  else fetchPack repodir -- so we can see what they've got!
        ourhs <- heads
        topush <- select_commits "push" opts (reverse $ ourhs `notIn` hs)
        when (null topush) $ do putStrLn "No commits to push!"

@@ -39,8 +39,7 @@ import Iolaus.IO ( runTolerantly )
 
 import Git.Dag ( notIn )
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( heads, remoteHeads, remoteTagNames,
-                      listRemotes, fetchPack )
+import Git.Plumbing ( heads, remoteHeads, remoteTagNames, listRemotes )
 import Git.Helpers ( testCommits, slurpTree, mergeCommits, verifyCommit )
 
 pull_description :: String
@@ -81,7 +80,6 @@ pull_cmd :: [Flag] -> [String] -> IO ()
 pull_cmd opts repodirs@(_:_) =
     do old <- slurp_recorded opts
        Sealed work <- slurp_working
-       mapM_ fetchPack repodirs
        hs <- heads
        allnewhs <- map (`notIn` hs) `fmap` mapM remoteHeads repodirs
        let newhs = reverse $ if Intersection `elem` opts
