@@ -92,7 +92,7 @@ checkoutIndex i pfx =
 
 checkoutCopy :: String -> IO ()
 checkoutCopy pfx =
-    do debugMessage "calling git checkout-index -a --prefix=..."
+    do debugMessage ("calling git checkout-index -a --prefix="++pfx)
        (Nothing, Nothing, Nothing, pid) <-
            createProcess (proc "git" ["checkout-index","-a","--prefix="++pfx])
        ec <- waitForProcess pid

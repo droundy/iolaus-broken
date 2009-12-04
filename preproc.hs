@@ -106,7 +106,6 @@ get_c (name:ns) commands =
          _ ->
              error $ "Not a supercommand: " ++ name
     where get "amend" cs = get "amend-record" cs
-          get "sic_hercules" cs = get "sic-hercules" cs
           get n (c:cs) | command_name c == n = c
                        | otherwise = get n cs
           get n [] = error $ "No such command:  "++n

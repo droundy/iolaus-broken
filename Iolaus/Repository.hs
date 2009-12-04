@@ -18,7 +18,7 @@
 #include "gadts.h"
 
 module Iolaus.Repository
-    ( add_heads, decapitate, push_heads, decapitate_remote,
+    ( add_heads, decapitate, push_heads,
       get_unrecorded_changes, get_recorded_and_unrecorded,
       get_unrecorded, Unrecorded(..), slurp_recorded, slurp_working,
       checkout_recorded ) where
@@ -33,12 +33,11 @@ import Iolaus.Ordered ( FL, unsafeCoerceS )
 import Iolaus.SlurpDirectory ( Slurpy )
 import Iolaus.Sealed ( Sealed(..), mapSealM, unseal )
 
-import Git.Plumbing ( Hash, Commit, emptyCommit, heads,
-                      remoteHeads, remoteHeadNames,
+import Git.Plumbing ( Hash, Commit, emptyCommit, heads, remoteHeads,
                       tagNames, maybeParseRev, readTree, checkoutCopy,
                       writetree, updateindex, updateref, sendPack )
 import Git.Helpers ( touchedFiles, slurpTree, mergeCommits )
-import Git.Dag ( parents, cauterizeHeads, notIn )
+import Git.Dag ( parents, cauterizeHeads )
 
 checkout_recorded :: [Flag] -> IO ()
 checkout_recorded opts = do Sealed r <- heads >>= mergeCommits opts
@@ -104,18 +103,6 @@ decapitate _ xs =
                  (zip masters oldmasters)
                  (hs'++take (length hs-length hs')
                             (repeat $ Sealed emptyCommit))
-
-decapitate_remote :: String -> [Sealed (Hash Commit)] -> IO ()
-decapitate_remote repo xs =
-    do hs <- heads
-       hnsremote <- remoteHeadNames repo
-       let ns = map snd hnsremote
-           hsremote = map fst hnsremote
-           hs' = cauterizeHeads (hs++filter (`notElem` xs) (hsremote`notIn`hs))
-           ns' = ns ++
-                 take (length hs'-length ns) (filter (`notElem` ns) masters)
-           hs'' = hs' ++ repeat (Sealed emptyCommit)
-       sendPack repo (zip hs'' ns') []
 
 push_heads :: String -> [Sealed (Hash Commit)] -> IO ()
 push_heads repo cs =
