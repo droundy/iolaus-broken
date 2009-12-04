@@ -15,8 +15,6 @@
   with this particular remote, so *never* contacting the remote on
   record doesn't sound like such a hot idea.
 
-- Make new repositories (gotten by get) have --record-for set!
-
 - Add support (and documentation) for proper git-style hooks.
 
 - Add proper support (and documentation) for proper git-style color

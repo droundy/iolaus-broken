@@ -67,7 +67,5 @@ iolaus changes --graph
 iolaus changes | grep hibar
 iolaus changes | grep byebar
 
-# I'm not sure about the number below, but right now the test fails
-# before it gets here.
-
-iolaus changes --count | grep 6
+iolaus changes --count
+iolaus changes --count | grep 5

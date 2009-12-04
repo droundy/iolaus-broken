@@ -48,6 +48,7 @@ doc =
                                              >>= mkFile ht
                  addDependencies "html" [ht]
           lhs2md "Amend.lhs" = "amend-record.md"
+          lhs2md "SicHercules.lhs" = "sic-hercules.md"
           lhs2md (x0:x) = toLower x0 : tolower (take (length x-4) x) ++ ".md"
           lhs2manmd x = lhs2md x ++ ".man"
           nam x = take (length (lhs2md x)-3) (lhs2md x)

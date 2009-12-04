@@ -8,7 +8,7 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag, emptyCommit,
                       catCommitTree, parseRev, maybeParseRev,
                       heads, remoteHeads, headNames, tagNames,
                       remoteHeadNames, remoteTagNames,
-                      clone, gitInit, sendPack, listRemotes,
+                      remoteAdd, gitInit, sendPack, listRemotes,
                       checkoutCopy,
                       lsfiles, lssomefiles, lsothers,
                       revList, revListHashes, RevListOption(..), nameRevs,
@@ -464,17 +464,15 @@ revListHashes version opts =
     do x <- revList (map show version) opts
        return $ map (mkSHash Commit) $ words x
 
--- | FIXME: I believe that clone is porcelain...
-
-clone :: [String] -> IO ()
-clone args =
-    do debugMessage "calling git clone"
+remoteAdd :: String -> String -> IO ()
+remoteAdd rname url =
+    do debugMessage "calling git remote add"
        (Nothing, Nothing, Nothing, pid) <-
-           createProcess (proc "git" ("clone":args))
+           createProcess (proc "git" ["remote","add",rname,url])
        ec <- waitForProcess pid
        case ec of
          ExitSuccess -> return ()
-         ExitFailure _ -> fail "git clone failed"
+         ExitFailure _ -> fail "git remote add failed"
 
 -- | FIXME: I believe that init is porcelain...
 
@@ -696,7 +694,7 @@ getConfig fs v =
        out <- hGetContents o
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> return $ Just out
+         ExitSuccess -> return $ Just $ takeWhile (/= '\0') out
          ExitFailure _ -> return Nothing
 
 setConfig :: [ConfigOption] -> String -> String -> IO ()
