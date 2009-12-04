@@ -30,6 +30,7 @@ import System.IO.Error ( isDoesNotExistError )
 import System.Directory ( removeFile )
 import Control.Exception ( catchJust, ioErrors )
 import Control.Monad ( unless )
+import Data.List ( isInfixOf )
 #ifdef HAVE_REDIRECTS
 import System.Process.Redirects ( createProcess, waitForProcess, proc,
                                   CreateProcess(..), StdStream(..) )
@@ -264,7 +265,8 @@ heads =
          ExitFailure _ -> fail "parseRev failed"
 
 remoteHeads :: String -> IO [Sealed (Hash Commit)]
-remoteHeads repo =
+remoteHeads repo = map fst `fmap` remoteHeadNames repo
+{-
     do debugMessage ("calling git ls-remote --heads "++repo)
        (Nothing, Just stdout, Nothing, pid) <-
            createProcess (proc "git" ["ls-remote", "--heads",repo])
@@ -275,6 +277,7 @@ remoteHeads repo =
        -- FIXME we should avoid running fetchPack redundantly!
        unless (null hs) $ fetchPack repo
        return hs
+-}
 
 headNames :: IO [(Sealed (Hash Commit), String)]
 headNames =
@@ -284,9 +287,10 @@ headNames =
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitSuccess -> return $ map parse $ lines out
+         ExitSuccess -> return $ filter ismaster $ map parse $ lines out
          ExitFailure _ -> fail "git show-ref failed"
     where parse l = (mkSHash Commit l, drop 41 l)
+          ismaster = ("master" `isInfixOf`) . snd
 
 tagNames :: IO [(Sealed (Hash Tag), String)]
 tagNames =
@@ -310,11 +314,12 @@ remoteHeadNames repo =
        ec <- length out `seq` waitForProcess pid
        case ec of
          ExitFailure _ -> fail "git ls-remote failed"
-         ExitSuccess -> do let ns = map parse $ lines out
+         ExitSuccess -> do let ns = filter ismaster $ map parse $ lines out
                            -- FIXME we should avoid fetchPacking redundantly!
                            unless (null ns) $ fetchPack repo
                            return ns
     where parse l = (mkSHash Commit l, drop 41 l)
+          ismaster = ("master" `isInfixOf`) . snd
 
 remoteTagNames :: String -> IO [(Sealed (Hash Tag), String)]
 remoteTagNames repo =
