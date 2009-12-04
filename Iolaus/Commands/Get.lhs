@@ -18,11 +18,17 @@
 \begin{code}
 module Iolaus.Commands.Get ( get ) where
 
+import System.Directory ( setCurrentDirectory, createDirectory )
+
 import Iolaus.Command ( Command(..), nodefaults )
-import Iolaus.Arguments ( Flag(RepoDir), working_repo_dir, reponame )
+import Iolaus.Arguments ( Flag(RepoDir, RecordFor), working_repo_dir, reponame,
+                          pull_apart_option, modifySafely )
+import Iolaus.Repository ( add_heads, checkout_recorded )
+import Iolaus.RepoPath ( toFilePath, ioAbsolute )
 
 import Git.LocateRepo ( amNotInRepository )
-import Git.Plumbing ( clone )
+import Git.Plumbing ( gitInit, remoteHeads, remoteAdd )
+import Git.Helpers ( configDefaults )
 
 get_description :: String
 get_description =
@@ -46,12 +52,41 @@ get = Command {command_name = "get",
                command_basic_options = [reponame, working_repo_dir]}
 
 get_cmd :: [Flag] -> [String] -> IO ()
-get_cmd _ [inrepodir, outname] = clone [inrepodir, outname]
 get_cmd opts [inrepodir] =
     case [outname | RepoDir outname <- opts] of
-      outname:_ -> clone [inrepodir, outname]
-      [] -> clone [inrepodir]
+      outname:_ -> get_cmd opts [inrepodir, outname]
+      [] -> get_cmd opts [inrepodir, repo_name inrepodir]
+get_cmd opts [inrepodir, outname0] =
+    do outname <- make_repo_dir outname0
+       absir <- if ':' `elem` inrepodir
+                then return inrepodir
+                else toFilePath `fmap` ioAbsolute inrepodir
+       setCurrentDirectory outname0
+       putStrLn ("Creating repository `"++outname++"'")
+       gitInit []
+       remoteAdd "origin" absir
+       configDefaults Nothing "all" [`pull_apart_option` modifySafely]
+                                    [RecordFor "origin"]
+       hs <- remoteHeads "origin"
+       add_heads opts hs
+       checkout_recorded opts
 get_cmd _ _ = fail "You must provide 'get' with either one or two arguments."
+
+
+repo_name :: String -> String
+repo_name x0 = rn (reverse x0)
+    where rn x | take 4 x == "tig." = rn (drop 4 x)
+          rn x = case takeWhile (/= '/') x of
+                   "" -> "repo"
+                   r -> reverse r
+
+make_repo_dir :: String -> IO String
+make_repo_dir n0 = mrd (0 :: Int)
+    where mrd n = do createDirectory (name n)
+                     return (name n)
+                  `catch` (\_ -> mrd (n+1))
+          name 0 = n0
+          name n = n0++'-':show n
 \end{code}
 
 You may specify the name of the repository created by providing a second

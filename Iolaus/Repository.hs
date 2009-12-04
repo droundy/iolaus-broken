@@ -20,7 +20,8 @@
 module Iolaus.Repository
     ( add_heads, decapitate, push_heads,
       get_unrecorded_changes, get_recorded_and_unrecorded,
-      get_unrecorded, Unrecorded(..), slurp_recorded, slurp_working ) where
+      get_unrecorded, Unrecorded(..), slurp_recorded, slurp_working,
+      checkout_recorded ) where
 
 import Control.Monad ( zipWithM_ )
 import System.IO.Unsafe ( unsafeInterleaveIO )
@@ -33,10 +34,15 @@ import Iolaus.SlurpDirectory ( Slurpy )
 import Iolaus.Sealed ( Sealed(..), mapSealM, unseal )
 
 import Git.Plumbing ( Hash, Commit, emptyCommit, heads, remoteHeads,
-                      tagNames, maybeParseRev,
+                      tagNames, maybeParseRev, readTree, checkoutCopy,
                       writetree, updateindex, updateref, sendPack )
 import Git.Helpers ( touchedFiles, slurpTree, mergeCommits )
 import Git.Dag ( parents, cauterizeHeads )
+
+checkout_recorded :: [Flag] -> IO ()
+checkout_recorded opts = do Sealed r <- heads >>= mergeCommits opts
+                            readTree r "index"
+                            checkoutCopy "./"
 
 slurp_recorded :: [Flag] -> IO (Slurpy C(RecordedState))
 slurp_recorded opts = do Sealed r <- heads >>= mergeCommits opts
