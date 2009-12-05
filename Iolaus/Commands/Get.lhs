@@ -65,7 +65,7 @@ get_cmd opts [inrepodir, outname0] =
        putStrLn ("Creating repository `"++outname++"'")
        gitInit []
        remoteAdd "origin" absir
-       configDefaults Nothing "all" [`pull_apart_option` modifySafely]
+       configDefaults Nothing "all" [(`pull_apart_option` modifySafely)]
                                     [RecordFor "origin"]
        hs <- remoteHeads "origin"
        add_heads opts hs
