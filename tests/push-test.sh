@@ -17,6 +17,10 @@ iolaus all --config-default --record-for ../temp
 date > foo
 iolaus record -am addfoo
 
+iolaus changes --show-parents --graph
+# addfoo should have addtest as a parent
+iolaus changes --show-parents | grep Parent
+
 date > bar
 iolaus record -am addbar
 
