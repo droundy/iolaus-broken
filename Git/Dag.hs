@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP, GADTs #-}
 #include "gadts.h"
 
-module Git.Dag ( parents, isAncestorOf, notIn,
+module Git.Dag ( parents, isAncestorOf, iao, notIn,
                  chokePoints, cauterizeHeads, dag2commit,
                  makeDag, Dag(..), greatGrandFather,
                  Bisection(..), bisect, bisectionPlan ) where

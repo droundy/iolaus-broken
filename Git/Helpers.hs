@@ -23,13 +23,11 @@ import System.Process.Redirects ( system )
 import System.Exit ( ExitCode(..) )
 import System.IO ( hPutStrLn )
 import System.IO.Unsafe ( unsafeInterleaveIO )
-import Data.List ( sort )
-import Data.IORef ( IORef, newIORef, readIORef, modifyIORef )
-import qualified Data.Map as M ( Map, insert, empty, lookup )
+import Data.List ( group, sort, nub, (\\) )
 import Data.ByteString as B ( hPutStr )
 
-import Git.Dag ( chokePoints, makeDag, Dag(..), greatGrandFather, parents,
-                 cauterizeHeads, isAncestorOf )
+import Git.Dag ( chokePoints, parents,
+                 cauterizeHeads, iao, notIn )
 import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       uname, committer, remoteHeads,
                       setConfig, unsetConfig, ConfigOption(Global, System),
@@ -56,16 +54,14 @@ import Iolaus.SlurpDirectoryInternal
 import Iolaus.Lock ( removeFileMayNotExist, withTempDir )
 import Iolaus.RepoPath ( setCurrentDirectory, getCurrentDirectory, toFilePath )
 import Iolaus.Diff ( diff )
-import Iolaus.Patch ( Named, Prim, commute, apply_to_slurpy, mergeNamed,
+import Iolaus.Patch ( Prim, commute, apply_to_slurpy, mergeNamed,
                       list_touched_files, infopatch,
                       invert, summarize, showContextPatch )
 import Iolaus.TouchesFiles ( look_touch )
-import Iolaus.Ordered ( FL(..), (:>)(..), (+>+), unsafeCoerceP, mapFL_FL )
+import Iolaus.Ordered ( FL(..), (:>)(..), unsafeCoerceP, mapFL_FL )
 import Iolaus.Sealed ( Sealed(..), FlippedSeal(..), mapSealM, unseal )
 import Iolaus.Printer ( Doc, empty, text, prefix, ($$) )
 import Iolaus.Gpg ( signGPG, verifyGPG )
-
-#include "impossible.h"
 
 touchedFiles :: IO [FilePath]
 touchedFiles =
@@ -268,8 +264,7 @@ simpHelp opts for pars0 pat0 = sp (cpnum opts) [] pars0 pat0
              t <- apply_to_slurpy (unsafeCoerceP patch) ptree >>= writeSlurpTree
              return (cauterizeHeads (kn++ps),Sealed t)
       sp n kn (p:ps) patch
-          | p `elem` for || any (p `ia`) for = sp n (p:kn) ps patch
-          where Sealed x `ia` Sealed y = x `isAncestorOf` y
+          | p `elem` for || any (p `iao`) for = sp n (p:kn) ps patch
       sp n kn (p:ps) patch =
           do let nop = cauterizeHeads (kn++ps++unseal parents p)
              tf <- commitTouches p
@@ -338,33 +333,37 @@ mergeCommits _ hs0 =
                        return (Sealed t)
 
 mergeCommitsX :: [Sealed (Hash Commit)] -> IO (Sealed (Hash Tree))
-mergeCommitsX [] = Sealed `fmap` writeSlurpTree empty_slurpy
-mergeCommitsX [Sealed h] = Sealed `fmap` catCommitTree h
-mergeCommitsX xs =
-    case chokePoints xs of
-      [] -> do debugMessage $ "mergeCommitsX didn't find any chokePoints for "
-                            ++ unwords (map show xs)
-               ts <- mapM (mapSealM catCommitTree) xs
-               sls <- mapM (mapSealM slurpTree) ts
-               let diffempty (Sealed x,Sealed ss) =
-                      do msg <- (concat.take 1.lines.myMessage)
-                                `fmap` catCommit x
-                         return $ Sealed $ mapFL_FL (infopatch msg) $
-                                diff [] empty_slurpy ss
-               Sealed p <- mergeNamed `fmap` mapM diffempty (zip xs sls)
-               Sealed `fmap` writeSlurpTree
-                          (fromJust $ apply_to_slurpy p empty_slurpy)
-      Sealed ancestor:_ ->
-          do debugMessage ("mergeCommitsX of "++unwords (map show xs)++
-                           " with ancestor "++show ancestor)
-             diffs <- newIORef M.empty
-             pps <- mapM (mapSealM (bigDiff diffs ancestor)) xs
-             Sealed ps <- return $ mergeNamed pps
-             oldest <- catCommitTree ancestor >>= slurpTree
-             Sealed `fmap` writeSlurpTree (fromJust $ apply_to_slurpy ps oldest)
+mergeCommitsX hs0 =
+ case cauterizeHeads hs0 of
+ [] -> Sealed `fmap` writeSlurpTree empty_slurpy
+ [Sealed h] -> Sealed `fmap` catCommitTree h
+ hs ->
+    do let cp = take 1 $ chokePoints hs
+           f0:fs0 = map (\h -> [h] `notIn` cp) hs
+           primaryBase = cauterizeHeads [x | x <- f0, all (elem x) fs0]
+           boring = filter tooOld $ nub $ concat (f0:fs0)
+           tooOld x = not $ all (`iao` x) primaryBase
+           families = map (filter (`notElem` boring)) (f0:fs0)
+           uniques = concatMap singles $ group $ sort $ concat families
+           singles [x] = [x]
+           singles _ = []
+           secondaryBase = cauterizeHeads
+                           (concat families \\ (primaryBase++uniques))
+       Sealed secondaryTree <- mergeCommits [] (primaryBase++secondaryBase++cp)
+       let mergeOne (Sealed h) =
+               do Sealed t <- mergeCommits [] (Sealed h:secondaryBase)
+                  msg <- (concat.take 1.lines.myMessage) `fmap` catCommit h
+                  old <- slurpTree secondaryTree
+                  new <- slurpTree t
+                  return $ Sealed $ mapFL_FL (infopatch msg) $ diff [] old new
+       ps <- mapM mergeOne hs
+       Sealed newp <- return $ mergeNamed ps
+       old <- slurpTree secondaryTree
+       merged <- apply_to_slurpy newp old
+       Sealed `fmap` writeSlurpTree merged
 
 cacheKey :: [Sealed (Hash Commit)] -> String
-cacheKey hs = "fixed merge "++show (sort hs)
+cacheKey hs = "new merge "++show (sort hs)
 
 cacheTree :: [Sealed (Hash Commit)] -> Hash Tree C(x) -> IO ()
 cacheTree x t =
@@ -380,51 +379,6 @@ readCached x =
        Just `fmap`
                 (parseRev ("refs/merges/"++show k) >>= mapSealM catCommitTree)
     `catch` \_ -> return Nothing
-
-bigDiff :: IORef (M.Map (Sealed (Hash Commit))
-                 (Sealed (FL (Named String Prim) C(x))))
-        -> Hash Commit C(x) -> Hash Commit C(y)
-        -> IO (FL (Named String Prim) C(x y))
-bigDiff dags a0 me0 =
-    maybe (error "bad bigDiff") (diffDag dags) $ makeDag a0 me0
-
-diffDag :: IORef (M.Map (Sealed (Hash Commit))
-                 (Sealed (FL (Named String Prim) C(x))))
-        -> Dag C(x y) -> IO (FL (Named String Prim) C(x y))
-diffDag _ (Ancestor _) = return NilFL
-diffDag c (Node x ys0) =
-    do m <- readIORef c
-       case M.lookup (Sealed x) m of
-         Just (Sealed ps) -> return $ unsafeCoerceP ps
-         Nothing -> do ys <- expandTrivialNodes ys0
-                       ps <- diffDagHelper c (Node x ys)
-                       modifyIORef c (M.insert (Sealed x) (Sealed ps))
-                       return ps
-
-diffDagHelper :: IORef (M.Map (Sealed (Hash Commit))
-                       (Sealed (FL (Named String Prim) C(x))))
-              -> Dag C(x y) -> IO (FL (Named String Prim) C(x y))
-diffDagHelper _ (Ancestor _) = return NilFL
-diffDagHelper _ (Node _ []) = impossible
-diffDagHelper _ (Node x [Sealed (Ancestor y)]) =
-    do old <- catCommitTree y >>= slurpTree
-       new <- catCommitTree x >>= slurpTree
-       msg <- (concat . take 1 . lines . myMessage) `fmap` catCommit x
-       return $ mapFL_FL (infopatch msg) $ diff [] old new
-diffDagHelper c (Node x [Sealed y@(Node yy _)]) =
-    do old <- catCommitTree yy >>= slurpTree
-       new <- catCommitTree x >>= slurpTree
-       oldps <- diffDag c y
-       msg <- (concat . take 1 . lines . myMessage) `fmap` catCommit x
-       return $ oldps +>+ mapFL_FL (infopatch msg) (diff [] old new)
-diffDagHelper c (Node x ys) =
-    do oldest <- catCommitTree (greatGrandFather (Node x ys)) >>= slurpTree
-       new <- catCommitTree x >>= slurpTree
-       tracks <- mapM (mapSealM (diffDag c)) ys
-       Sealed oldps <- return $ mergeNamed tracks
-       let Just old = apply_to_slurpy oldps oldest
-       msg <- (concat . take 1 . lines . myMessage) `fmap` catCommit x
-       return $ oldps +>+ mapFL_FL (infopatch msg) (diff [] old new)
 
 diffCommit :: [Flag] -> Hash Commit C(x)
            -> IO (FlippedSeal (FL Prim) C(x))
@@ -468,15 +422,6 @@ configDefaults msuper cmd cs fs = mapM_ configit xs
 -- algorithm for merging conflict resolutions, which at least keeps
 -- "automerge" commits from causing trouble.  I'm not sure what a
 -- proper merge algorithm will look like... :(
-
-expandTrivialNodes :: [Sealed (Dag C(x))] -> IO [Sealed (Dag C(x))]
-expandTrivialNodes [] = return []
-expandTrivialNodes (n@(Sealed (Node x ys)) : ns) =
-    do itm <- isTrivialMerge (Sealed x)
-       rest <- expandTrivialNodes ns
-       return $ if itm then ys ++ rest
-                       else n : rest
-expandTrivialNodes (n:ns) = (n:) `fmap` expandTrivialNodes ns
 
 expandTrivialMerges :: [Sealed (Hash Commit)] -> IO [Sealed (Hash Commit)]
 expandTrivialMerges [] = return []

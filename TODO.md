@@ -54,10 +54,9 @@
   but for most others, it's much nicer to be able to work with a
   single file.
 
-- Fix mergeCommits.  Currently, we just merge a bunch of "big" diffs,
-  which are simply sequences of named primitive patches.  This gives
-  us trouble when some of these commits involve conflict resolution.
-  Somehow, we're not seeing the conflict as resolved.  I think the
-  key is to actually go ahead and let the merge algorithm know about
-  the commit structure, rather than simply flattening everything into
-  a single sequence of primitive patches.  :(
+- Fix `simplifyParents` to use commutation that is properly inverted
+  by the new `mergeCommits`.  At the same time, I'd like to fix it to
+  work more smoothly with bisection, so we can eliminate (make
+  default) the `--test-parents` option, and instead do a true
+  bisection when the tests pass with the `--cauterize-all` merge, but
+  fail with the patch in its minimal context.
