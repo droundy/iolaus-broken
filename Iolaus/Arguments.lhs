@@ -78,14 +78,12 @@ getContent ShowTested = NoContent
 getContent HideTested = NoContent
 getContent Nice = NoContent
 getContent NotNice = NoContent
-getContent (CommutePast n) = StringContent (show n)
 getContent (RecordFor r) = StringContent r
 getContent Verbose = NoContent
 getContent Help = NoContent
 getContent ListOptions = NoContent
 getContent Test = NoContent
 getContent Build = NoContent
-getContent TestParents = NoContent
 getContent NoTest = NoContent
 getContent HelpOnMatch = NoContent
 getContent OnlyChangesToFiles = NoContent
@@ -577,9 +575,7 @@ test, notest :: [IolausOption]
 notest = [IolausMultipleChoiceOption
           [IolausNoArgOption [] ["no-test"] NoTest "don't run the test script",
            IolausNoArgOption [] ["test"] Test "run the test script",
-           IolausNoArgOption [] ["build"] Build "only run the build script",
-           IolausNoArgOption [] ["test-parents"]
-               TestParents "run the test script on all possibilities"],
+           IolausNoArgOption [] ["build"] Build "only run the build script"],
           leave_test_dir, nice_test]
 test = [IolausMultipleChoiceOption
         [IolausNoArgOption [] ["test"] Test "run the test script",
@@ -668,15 +664,10 @@ commitApproach :: IolausOption
 commitApproach = IolausMultipleChoiceOption 
     [IolausNoArgOption [] ["cauterize-all"] CauterizeAllHeads
      "new commit depends on all existing commits",
-     IolausArgOption [] ["commute-past"] cp "NUMBER"
-     "try commuting past the last NUMBER commits",
      IolausArgOption [] ["record-for"] RecordFor "REPOSITORY"
      "try not to depend on commits not present in REPOSITORY",
      IolausNoArgOption [] ["no-cauterize-all"] NoCauterizeAllHeads
      "commit in minimal context [default]"]
-  where cp s = if all isDigit s
-               then CommutePast (read s)
-               else CommutePast (-1)
 
 modifySafely :: IolausOption
 modifySafely = IolausArgOption [] ["record-for"] RecordFor "REPOSITORY"

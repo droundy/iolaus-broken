@@ -20,8 +20,8 @@ import Iolaus.RepoPath ( AbsolutePath, AbsolutePathOrStd )
 
 -- | The 'Flag' type is a list of all flags that can ever be
 -- passed to iolaus, or to one of its commands.
-data Flag = Help | ListOptions | NoTest | Test | Build | TestParents
-          | NoCauterizeAllHeads | CauterizeAllHeads | CommutePast Int
+data Flag = Help | ListOptions | NoTest | Test | Build
+          | NoCauterizeAllHeads | CauterizeAllHeads
           | DeltaDebugWorkingSubset | RecordFor String
           | Nice | NotNice
           | HelpOnMatch | OnlyChangesToFiles
