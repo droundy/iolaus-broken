@@ -47,7 +47,7 @@ whatsnew = Command {command_name = "whatsnew",
 whatsnew_cmd :: [Flag] -> [String] -> IO ()
 whatsnew_cmd opts args =
     do files <- fixSubPaths opts args
-       (old, Unrecorded chs0 _) <- get_recorded_and_unrecorded opts
+       (old, Unrecorded chs0 _) <- get_recorded_and_unrecorded
        let chs = choose_touching (map toFilePath files) chs0
        putDocLn $ if Summary `elem` opts
                   then summarize `unseal` chs

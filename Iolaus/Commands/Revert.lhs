@@ -73,8 +73,8 @@ revert_cmd opts args =
     do files <- sort `fmap` fixSubPaths opts args
        when (areFileArgs files) $
             putStrLn $ "Reverting changes in "++unwords (map show files)++"..\n"
-       old <- slurp_recorded opts
-       Unrecorded chs new <- get_unrecorded opts
+       old <- slurp_recorded
+       Unrecorded chs new <- get_unrecorded
        with_selected_last_changes_to_files "revert" opts old
            (map toFilePath files) chs $ \selected ->
                case selected of

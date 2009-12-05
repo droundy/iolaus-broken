@@ -113,7 +113,7 @@ testCommits opts msg hs0 =
        case mt of
          Just c -> return $ Just c
          Nothing ->
-             do Sealed t <- mergeCommits opts hs
+             do Sealed t <- mergeCommits hs
                 x <- testPredicate opts t
                 case x of
                   Pass -> do m <- testMessage opts
@@ -235,8 +235,7 @@ writeSlurpTree x = writeSlurpTree (Slurpy (fp2fn ".")
 simplifyParents :: [Flag] -> [Sealed (Hash Commit)] -> Hash Tree C(x)
                 -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
 simplifyParents opts pars0 rec0 =
-    do Sealed x <- mergeCommits opts (cauterizeHeads pars0)
-                   >>= mapSealM slurpTree
+    do Sealed x <- mergeCommits pars0 >>= mapSealM slurpTree
        y <- slurpTree rec0
        dependon <- concat `fmap` mapM remoteHeads [for | RecordFor for <- opts]
        simpHelp opts dependon (cauterizeHeads pars0) (diff opts x y)
@@ -254,12 +253,12 @@ simpHelp opts for pars0 pat0 = sp (cpnum opts) [] pars0 pat0
       sp :: Int -> [Sealed (Hash Commit)] -> [Sealed (Hash Commit)]
          -> FL Prim C(w x) -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
       sp _ kn [] patch =
-          do Sealed ptree <- mergeCommits opts kn >>= mapSealM slurpTree
+          do Sealed ptree <- mergeCommits kn >>= mapSealM slurpTree
              debugMessage "In sp, no more parents..."
              t <- apply_to_slurpy (unsafeCoerceP patch) ptree >>= writeSlurpTree
              return (cauterizeHeads kn,Sealed t)
       sp 0 kn ps patch =
-          do Sealed ptree <- mergeCommits opts (kn++ps) >>= mapSealM slurpTree
+          do Sealed ptree <- mergeCommits (kn++ps) >>= mapSealM slurpTree
              debugMessage "In sp, we've tried enough times..."
              t <- apply_to_slurpy (unsafeCoerceP patch) ptree >>= writeSlurpTree
              return (cauterizeHeads (kn++ps),Sealed t)
@@ -277,7 +276,7 @@ simpHelp opts for pars0 pat0 = sp (cpnum opts) [] pars0 pat0
                            then do Sealed x <- mapSealM catCommit p
                                    putStrLn $ "\n\nRunning test without:\n"++
                                             myMessage x
-                                   Sealed noptree <- mergeCommits opts nop
+                                   Sealed noptree <- mergeCommits nop
                                                      >>= mapSealM slurpTree
                                    t' <- apply_to_slurpy (unsafeCoerceP patch)
                                                          noptree
@@ -287,12 +286,12 @@ simpHelp opts for pars0 pat0 = sp (cpnum opts) [] pars0 pat0
                         if ok then sp (n-1) kn (ps++unseal parents p) patch
                               else sp (n-1) (p:kn) ps patch
                 else
-                  do Sealed ptree <- mergeCommits opts (kn++p:ps)
+                  do Sealed ptree <- mergeCommits (kn++p:ps)
                                      >>= mapSealM slurpTree
                      debugMessage "In sp, trying with one less..."
                      t <- apply_to_slurpy (unsafeCoerceP patch) ptree
                           >>= writeSlurpTree
-                     Sealed noptree <- mergeCommits opts nop
+                     Sealed noptree <- mergeCommits nop
                                        >>= mapSealM slurpTree
                      case commute (diff opts noptree ptree :>
                                    unsafeCoerceP patch) of
@@ -321,9 +320,8 @@ simpHelp opts for pars0 pat0 = sp (cpnum opts) [] pars0 pat0
                                 then sp (n-1) kn (filter (`notElem` kn) nop) myp
                                 else sp (n-1) (p:kn) ps patch
 
-mergeCommits :: [Flag] -> [Sealed (Hash Commit)]
-             -> IO (Sealed (Hash Tree))
-mergeCommits _ hs0 =
+mergeCommits :: [Sealed (Hash Commit)] -> IO (Sealed (Hash Tree))
+mergeCommits hs0 =
     do hs <- cauterizeHeads `fmap` expandTrivialMerges hs0
        mt <- readCached hs
        case mt of
@@ -349,9 +347,9 @@ mergeCommitsX hs0 =
            singles _ = []
            secondaryBase = cauterizeHeads
                            (concat families \\ (primaryBase++uniques))
-       Sealed secondaryTree <- mergeCommits [] (primaryBase++secondaryBase++cp)
+       Sealed secondaryTree <- mergeCommits (primaryBase++secondaryBase++cp)
        let mergeOne (Sealed h) =
-               do Sealed t <- mergeCommits [] (Sealed h:secondaryBase)
+               do Sealed t <- mergeCommits (Sealed h:secondaryBase)
                   msg <- (concat.take 1.lines.myMessage) `fmap` catCommit h
                   old <- slurpTree secondaryTree
                   new <- slurpTree t
@@ -385,7 +383,7 @@ diffCommit :: [Flag] -> Hash Commit C(x)
 diffCommit opts c0 =
     do c <- catCommit c0
        new <- slurpTree $ myTree c
-       Sealed oldh <- mergeCommits opts (myParents c)
+       Sealed oldh <- mergeCommits (myParents c)
        old <- slurpTree oldh
        return $ FlippedSeal $ diff [] old new
 

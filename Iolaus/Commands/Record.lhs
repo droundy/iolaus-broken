@@ -79,7 +79,7 @@ record_cmd opts args = do
     check_name_is_not_option opts
     files <- sort `fmap` fixSubPaths opts args
     handleJust only_successful_exits (\_ -> return ()) $ do
-    (old, Unrecorded allchs0 _) <- get_recorded_and_unrecorded opts
+    (old, Unrecorded allchs0 _) <- get_recorded_and_unrecorded
     Sealed allchs <-
         if DeltaDebugWorkingSubset `elem` opts
         then do t <- writeSlurpTree old -- FIXME this issssss stupid

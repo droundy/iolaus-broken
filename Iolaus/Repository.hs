@@ -39,14 +39,14 @@ import Git.Plumbing ( Hash, Commit, emptyCommit, heads, remoteHeads,
 import Git.Helpers ( touchedFiles, slurpTree, mergeCommits )
 import Git.Dag ( parents, cauterizeHeads )
 
-checkout_recorded :: [Flag] -> IO ()
-checkout_recorded opts = do Sealed r <- heads >>= mergeCommits opts
-                            readTree r "index"
-                            checkoutCopy "./"
+checkout_recorded :: IO ()
+checkout_recorded = do Sealed r <- heads >>= mergeCommits
+                       readTree r "index"
+                       checkoutCopy "./"
 
-slurp_recorded :: [Flag] -> IO (Slurpy C(RecordedState))
-slurp_recorded opts = do Sealed r <- heads >>= mergeCommits opts
-                         slurpTree $ unsafeCoerceS r
+slurp_recorded :: IO (Slurpy C(RecordedState))
+slurp_recorded = do Sealed r <- heads >>= mergeCommits
+                    slurpTree $ unsafeCoerceS r
 
 slurp_working :: IO (Sealed Slurpy)
 slurp_working =
@@ -58,23 +58,22 @@ data RecordedState = RecordedState
 data Unrecorded =
     FORALL(x) Unrecorded (FL Prim C(RecordedState x)) (Slurpy C(x))
 
-get_unrecorded :: [Flag] -> IO Unrecorded
-get_unrecorded opts =
+get_unrecorded :: IO Unrecorded
+get_unrecorded =
     do Sealed new <- slurp_working
-       old <- slurp_recorded opts
+       old <- slurp_recorded
        return $ Unrecorded (diff [] old new) new
 
-get_recorded_and_unrecorded :: [Flag]
-                            -> IO (Slurpy C(RecordedState), Unrecorded)
-get_recorded_and_unrecorded opts =
+get_recorded_and_unrecorded :: IO (Slurpy C(RecordedState), Unrecorded)
+get_recorded_and_unrecorded =
     do Sealed new <- slurp_working
-       old <- slurp_recorded opts
+       old <- slurp_recorded
        return (old, Unrecorded (diff [] old new) new)
 
-get_unrecorded_changes :: [Flag] -> IO (Sealed (FL Prim C(RecordedState)))
-get_unrecorded_changes opts =
+get_unrecorded_changes :: IO (Sealed (FL Prim C(RecordedState)))
+get_unrecorded_changes =
     do Sealed new <- slurp_working
-       old <- slurp_recorded opts
+       old <- slurp_recorded
        return $ Sealed $ diff [] old new
 
 mapMlazy :: (a -> IO b) -> [a] -> IO [b]

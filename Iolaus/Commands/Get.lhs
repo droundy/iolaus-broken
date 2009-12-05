@@ -69,7 +69,7 @@ get_cmd opts [inrepodir, outname0] =
                                     [RecordFor "origin"]
        hs <- remoteHeads "origin"
        add_heads opts hs
-       checkout_recorded opts
+       checkout_recorded
 get_cmd _ _ = fail "You must provide 'get' with either one or two arguments."
 
 

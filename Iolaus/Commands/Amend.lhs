@@ -87,7 +87,7 @@ amend_record_cmd opts args = do
     rf <- concat `fmap` mapM remoteHeads [c | RecordFor c <- opts]
     hs0 <- heads
     toamend <- select_commit "amend" opts (hs0 `notIn` rf)
-    (old, Unrecorded allchs0 _) <- get_recorded_and_unrecorded opts
+    (old, Unrecorded allchs0 _) <- get_recorded_and_unrecorded
     Sealed allchs <-
         if DeltaDebugWorkingSubset `elem` opts
         then do t <- writeSlurpTree old -- FIXME this issssss stupid
