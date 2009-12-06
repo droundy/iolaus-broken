@@ -106,14 +106,6 @@ record_cmd opts args = do
                cleanup [] = []
                message = (unlines $ cleanup $ name:my_log++testedby)
            com <- commitTreeNicely opts newtree' hs' message
-           -- we'll first run the test on the commit in its
-           -- "primitive" context...
-           debugMessage "Testing on \"canonical\" tree..."
-           testCommits (testByDefault opts) "Testing" [Sealed com]
-           -- now let's just check that the merged version
-           -- actually passes the tests...
-           debugMessage "Testing on \"current\" tree..."
-           testCommits (testByDefault opts) "Merge" (Sealed com:hs)
            debugMessage "Recording the new commit..."
            add_heads opts [Sealed com]
            putStrLn ("Finished recording patch '"++ name ++"'")
