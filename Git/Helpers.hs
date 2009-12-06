@@ -235,7 +235,6 @@ simplifyParents opts pars0 rec0 =
                       filter (\x -> x `elem` pars0 || any (x `iao`) pars0)
                              dependon0
            pars = pars0 `notIn` dependon
-       putStrLn ("dependon is "++show dependon)
        Sealed t0 <- mergeCommits (pars0++dependon)
        srec <- slurpTree rec0
        p <- (\s0 -> diff opts s0 srec) `fmap` slurpTree t0
