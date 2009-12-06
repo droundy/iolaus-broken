@@ -97,7 +97,8 @@ record_cmd opts args = do
            (name, my_log, _) <- get_log opts Nothing ch
                               (world_readable_temp "iolaus-record")
            hs <- heads
-           (hs', Sealed newtree') <- simplifyParents opts hs newtree
+           (hs', Sealed newtree') <-
+               simplifyParents (testByDefault opts) hs newtree
            testedby <- testMessage (testByDefault opts)
            let -- FIXME join with Signed-off-by:
                cleanup ("":"":r) = cleanup ("":r)

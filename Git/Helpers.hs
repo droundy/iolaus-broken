@@ -260,35 +260,46 @@ simplifyParents opts pars0 rec0 =
              do noneok <- testit []
                 case noneok of
                   Just tnone -> return (dependon,tnone)
-                  Nothing -> do (a,b) <- bisect testit [] (pars, tall)
+                  Nothing -> do (a,b) <- bisect testit dependon [] (pars, tall)
                                 return (cauterizeHeads $ dependon++a,b)
-    where bisect testit bad (good,tgood) =
-               case good \\ bad of
+    where bisect testit dependon bad (good,tgood) =
+               case good `notIn` (bad++dependon) of
                  [] -> return (cauterizeHeads $ bad ++ good,tgood)
                  [_] -> return (cauterizeHeads $ bad ++ good,tgood)
-                 bs -> do let try = take (length bs `div` 2) bs
-                          oktry <- testit (bad++try)
-                          case oktry of
-                            Just ttry -> bisect testit bad (try,ttry)
-                            Nothing ->
-                              if length try == 1
-                                 then bisect testit (bad++try) (good,tgood)
-                                 else do let try2 = bs \\ try
-                                         oktry2 <- testit (bad++try2)
-                                         case oktry2 of
-                                           Just ttry2 -> bisect testit bad
-                                                         (try2,ttry2)
-                                           Nothing ->
-                                               if length try2 == 1
-                                               then bisect testit (bad++try2)
-                                                           (good,tgood)
-                                               else snail testit bad
-                                                        (good,tgood)
-          snail testit bad (g:good,tgood) =
-              do ok <- testit (g:bad)
+                 bs -> do let (try,try2) =
+                                 case (take (length bs `div` 2) bs)
+                                          `notIn` (bad++dependon) of
+                                   x -> case good `notIn` (x++bad++dependon) of
+                                          [] -> ([],[]) -- skip to snail
+                                          y -> (x,y)
+                          oktry <- if null try then return Nothing
+                                               else testit (bad++try)
+                          oktry2 <- if null try2 then return Nothing
+                                                 else testit (bad++try2)
+                          case (oktry, oktry2) of
+                            (Just ttry, Nothing) ->
+                                 do debugMessage "bisect with half"
+                                    bisect testit dependon bad (bad++try,ttry)
+                            (Nothing, Just ttry2) ->
+                                 do debugMessage "bisect with other half"
+                                    bisect testit dependon bad (bad++try2,ttry2)
+                            (Nothing, Nothing) ->
+                                 do debugMessage "resorting to snail..."
+                                    snail testit dependon bad (good,tgood)
+                            (Just ttry, Just _) ->
+                                 do debugMessage "weird situation..."
+                                    bisect testit dependon bad (bad++try,ttry)
+          snail testit dependon bad (g0:good0,tgood) =
+              do let g = findprim g0
+                     good = filter (/= g) (g0:good0)
+                 ok <- testit (g:bad)
                  case ok of Just tgbad -> return (g:bad, tgbad)
-                            Nothing -> bisect testit (g:bad) (good,tgood)
-          snail _ bad ([],tgood) =
+                            Nothing ->
+                                bisect testit dependon (g:bad) (good,tgood)
+              where findprim x = case filter (/=x) ([x] `notIn` bad) of
+                                   [] -> x
+                                   y:_ -> findprim y
+          snail _ _ bad ([],tgood) =
                do putStrLn "Weird business in snail!!!"
                   return (bad, tgood)
 
