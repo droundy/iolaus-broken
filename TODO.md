@@ -53,10 +53,3 @@
   silly.  For a few things it makes sense (probably for test scripts),
   but for most others, it's much nicer to be able to work with a
   single file.
-
-- Fix `simplifyParents` to use commutation that is properly inverted
-  by the new `mergeCommits`.  At the same time, I'd like to fix it to
-  work more smoothly with bisection, so we can eliminate (make
-  default) the `--test-parents` option, and instead do a true
-  bisection when the tests pass with the `--cauterize-all` merge, but
-  fail with the patch in its minimal context.
