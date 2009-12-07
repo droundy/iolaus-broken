@@ -54,8 +54,7 @@ import Iolaus.DeltaDebug ( largestPassingSet )
 
 import Git.LocateRepo ( amInRepository )
 import Git.Plumbing ( lsfiles, heads )
-import Git.Helpers ( testCommits, testMessage, commitTreeNicely,
-                     writeSlurpTree, simplifyParents )
+import Git.Helpers ( writeSlurpTree, simplifyParents )
 
 record :: Command
 record = Command {command_name = "record",
@@ -97,17 +96,9 @@ record_cmd opts args = do
            (name, my_log, _) <- get_log opts Nothing ch
                               (world_readable_temp "iolaus-record")
            hs <- heads
-           (hs', Sealed newtree') <-
-               simplifyParents (testByDefault opts) hs newtree
-           testedby <- testMessage (testByDefault opts)
-           let -- FIXME join with Signed-off-by:
-               cleanup ("":"":r) = cleanup ("":r)
-               cleanup (a:b) = a : cleanup b
-               cleanup [] = []
-               message = (unlines $ cleanup $ name:my_log++testedby)
-           com <- commitTreeNicely opts newtree' hs' message
+           com <- simplifyParents (testByDefault opts) hs (name:my_log) newtree
            debugMessage "Recording the new commit..."
-           add_heads opts [Sealed com]
+           add_heads opts [com]
            putStrLn ("Finished recording patch '"++ name ++"'")
 
  -- check that what we treat as the patch name is not accidentally a command

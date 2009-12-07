@@ -225,11 +225,10 @@ writeSlurpTree (Slurpy _ (SlurpDir Nothing ccc)) =
 writeSlurpTree x = writeSlurpTree (Slurpy (fp2fn ".")
                                     (SlurpDir Nothing $ slurpies_to_map [x]))
 
-simplifyParents :: [Flag] -> [Sealed (Hash Commit)] -> Hash Tree C(x)
-                -> IO ([Sealed (Hash Commit)], Sealed (Hash Tree))
-simplifyParents opts pars rec
-    | CauterizeAllHeads `elem` opts = return (cauterizeHeads pars,Sealed rec)
-simplifyParents opts pars0 rec0 =
+simplifyParents :: [Flag] -> [Sealed (Hash Commit)]
+                -> [String] -> Hash Tree C(x)
+                -> IO (Sealed (Hash Commit))
+simplifyParents opts pars0 log0 rec0 =
     do dependon0 <- concat `fmap` mapM remoteHeads [for | RecordFor for <- opts]
        let dependon = cauterizeHeads $
                       filter (\x -> x `elem` pars0 || any (x `iao`) pars0)
@@ -238,6 +237,7 @@ simplifyParents opts pars0 rec0 =
        Sealed t0 <- mergeCommits (pars0++dependon)
        srec <- slurpTree rec0
        p <- (\s0 -> diff opts s0 srec) `fmap` slurpTree t0
+       testedby <- testMessage opts
        let testit xs =
             do Sealed sold <- mergeCommits (dependon++xs) >>= mapSealM slurpTree
                s0 <- slurpTree t0
@@ -246,25 +246,45 @@ simplifyParents opts pars0 rec0 =
                  Just (p' :> _) ->
                    do s' <- apply_to_slurpy p' sold
                       t' <- writeSlurpTree s'
+                      let -- FIXME join with Signed-off-by:
+                          cleanup ("":"":r) = cleanup ("":r)
+                          cleanup (a:b) = a : cleanup b
+                          cleanup [] = []
+                          message = (unlines $ cleanup $ log0++testedby)
+                      com <- commitTreeNicely opts t' (dependon++xs) message
                       if Test `elem` opts
-                        then do tr <- testPredicate opts t'
-                                case tr of
-                                  Pass -> return (Just $ Sealed t')
-                                  _ -> return Nothing
-                        else return $ Just $ Sealed t'
+                        then do tr <- testC [Sealed com]
+                                if tr then return (Just $ Sealed com)
+                                      else return Nothing
+                        else return $ Just $ Sealed com
        allok <- testit pars
-       case allok of
-         Nothing -> fail "test fails!"
-         Just tall ->
-             do noneok <- testit []
-                case noneok of
-                  Just tnone -> return (dependon,tnone)
-                  Nothing -> do (a,b) <- bisect testit dependon [] (pars, tall)
-                                return (cauterizeHeads $ dependon++a,b)
-    where bisect testit dependon bad (good,tgood) =
+       c <- case allok of
+            Nothing -> fail "test fails!"
+            Just call ->
+              if CauterizeAllHeads `elem` opts
+              then return call
+              else
+                do noneok <- testit []
+                   case noneok of
+                     Just cnone -> return cnone
+                     Nothing -> bisect testit dependon [] (pars, call)
+       -- the following test should be redundant, and once I'm
+       -- confident with this code, I should replace it with the
+       -- creation of this merge commit without testing.  It might be
+       -- better to add a caching of tests by tree hash, so that we
+       -- could leave this code here, but it wouldn't actually re-test
+       -- the same tree with a different history.  In fact, perhaps I
+       -- should separate the cache of tested trees from the cache of
+       -- merge commits, since they really are orthogonal.
+       merg <- testC (c:pars0)
+       if merg then return c
+               else fail "Unexpected test failure in simplifyParents!"
+    where testC cs = fmap (const True) (testCommits opts "Merge" cs)
+                     `catch` \_ -> return False
+          bisect testit dependon bad (good,cgood) =
                case good `notIn` (bad++dependon) of
-                 [] -> return (cauterizeHeads $ bad ++ good,tgood)
-                 [_] -> return (cauterizeHeads $ bad ++ good,tgood)
+                 [] -> return cgood
+                 [_] -> return cgood
                  bs -> do let (try,try2) =
                                  case (take (length bs `div` 2) bs)
                                           `notIn` (bad++dependon) of
@@ -283,24 +303,26 @@ simplifyParents opts pars0 rec0 =
                                  do debugMessage "bisect with other half"
                                     bisect testit dependon bad (bad++try2,ttry2)
                             (Nothing, Nothing) ->
-                                 do debugMessage "resorting to snail..."
-                                    snail testit dependon bad (good,tgood)
+                                 do debugMessage ("resorting to snail... "++
+                                                  show (length good)++"/"++
+                                                  show (length bad))
+                                    snail testit dependon bad (good,cgood)
                             (Just ttry, Just _) ->
                                  do debugMessage "weird situation..."
                                     bisect testit dependon bad (bad++try,ttry)
-          snail testit dependon bad (g0:good0,tgood) =
+          snail testit dependon bad (g0:good0,cgood) =
               do let g = findprim g0
                      good = filter (/= g) (g0:good0)
                  ok <- testit (g:bad)
-                 case ok of Just tgbad -> return (g:bad, tgbad)
+                 case ok of Just tgbad -> return tgbad
                             Nothing ->
-                                bisect testit dependon (g:bad) (good,tgood)
+                                bisect testit dependon (g:bad) (good,cgood)
               where findprim x = case filter (/=x) ([x] `notIn` bad) of
                                    [] -> x
                                    y:_ -> findprim y
-          snail _ _ bad ([],tgood) =
+          snail _ _ _ ([],cgood) =
                do putStrLn "Weird business in snail!!!"
-                  return (bad, tgood)
+                  return cgood
 
 mergeCommits :: [Sealed (Hash Commit)] -> IO (Sealed (Hash Tree))
 mergeCommits hs0 =
