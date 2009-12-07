@@ -12,6 +12,7 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag, emptyCommit,
                       checkoutCopy,
                       lsfiles, lssomefiles, lsothers,
                       revList, revListHashes, RevListOption(..), nameRevs,
+                      formatRev,
                       updateindex, updateIndexForceRemove, updateIndexCacheInfo,
                       writetree, mkTree, readTree, checkoutIndex,
                       updateref,
@@ -444,6 +445,21 @@ nameRevs =
                        [sha,n] | '~' `elem` n -> [sha]
                                | otherwise -> [sha,n]
                        _ -> error "bad stuff in nameRevs"
+
+formatRev :: String -> Hash Commit C(x) -> IO String
+formatRev fmt c =
+    do debugMessage $ unwords ["calling git rev-list --pretty=format:",fmt,
+                               show c]
+       (Nothing, Just stdout, Nothing, pid) <-
+           createProcess (proc "git" ["rev-list","--max-count=1",
+                                      "--pretty=format:"++fmt,show c])
+                             { std_out = CreatePipe }
+       out <- hGetContents stdout
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitSuccess -> return $ reverse $ dropWhile (=='\n') $ reverse $
+                                 drop 1 $ dropWhile (/='\n') out
+         ExitFailure _ -> fail "git rev-list failed"
 
 revList :: [String] -> [RevListOption] -> IO String
 revList version opts =

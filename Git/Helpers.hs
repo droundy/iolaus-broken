@@ -31,7 +31,7 @@ import Git.Dag ( chokePoints, parents,
 import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
                       uname, committer, remoteHeads,
                       setConfig, unsetConfig, ConfigOption(Global, System),
-                      catCommit, catCommitRaw, CommitEntry(..),
+                      catCommit, catCommitRaw, CommitEntry(..), formatRev,
                       commitTree, updateref, parseRev,
                       mkTree, hashObject, lsothers,
                       diffFiles, DiffOption( NameOnly ),
@@ -446,9 +446,12 @@ isTrivialMerge (Sealed c) =
 showCommit :: [Flag] -> Hash Commit C(x) -> IO Doc
 showCommit opts c =
     do commit <- catCommit c
+       subjauthordat <- formatRev "%s%n%aN <%ae>  %ad" c
        let x = if ShowHash `elem` opts then text (show c) $$
+                                            text subjauthordat $$
                                             text (mypretty commit)
-                                       else text (mypretty commit)
+                                       else text subjauthordat $$
+                                            text (mypretty commit)
        d <- if Summary `elem` opts
             then do FlippedSeal ch <- diffCommit opts c
                     return $ prefix "    " (summarize ch)
@@ -465,13 +468,8 @@ showCommit opts c =
                 else empty
        return (x $$ ps $$ d)
     where
-      mypretty ce
-          | myAuthor ce == myCommitter ce =
-              myAuthor ce++"\n  * "++n++"\n"++unlines (map ("    "++) cl)
-          | otherwise =
-              myAuthor ce++"\n"++myCommitter ce++
-                  "\n  * "++n++"\n"++unlines (map ("    "++) cl)
-          where n:cl0 = lines $ myMessage ce
+      mypretty ce = unlines (map ("    "++) cl)
+          where _:cl0 = lines $ myMessage ce
                 cl = if ShowTested `elem` opts
                      then cl0
                      else reverse $ clearout $ reverse cl0
