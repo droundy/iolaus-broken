@@ -30,7 +30,7 @@ import System.Exit ( exitWith, ExitCode(ExitSuccess) )
 import Control.Monad ( filterM )
 
 import Iolaus.Flags ( Flag( All, SeveralPatch, Verbose, Summary, DryRun,
-                            ShowMerges, Graph ) )
+                            ShowMerges, Graph, DateRelative ) )
 import Iolaus.Utils ( promptCharFancy )
 import Iolaus.Sealed ( Sealed( Sealed ), mapSealM, unseal )
 import Iolaus.Printer ( putDocLn )
@@ -72,7 +72,7 @@ select_commit jn opts cs0 =
           then do if null cs
                      then putStrLn ("No commit to "++jn++".")
                      else putStrLn ("Would "++jn++" the following commit:")
-                  putGraph (Graph:opts) (`elem` cs) $ take 1 cs
+                  putGraph (Graph:opts++[DateRelative]) (`elem` cs) $ take 1 cs
                   exitWith ExitSuccess
           else do xs <- text_select One [] jn opts cs []
                   case xs of
@@ -87,7 +87,7 @@ select_commits jn opts cs0 =
           then do if null cs
                      then putStrLn ("No commits to "++jn++".")
                      else putStrLn ("Would "++jn++" the following commits:")
-                  putGraph (Graph:opts) (`elem` cs) cs
+                  putGraph (Graph:opts++[DateRelative]) (`elem` cs) cs
                   exitWith ExitSuccess
           else text_select First [] jn opts cs []
 
@@ -99,7 +99,7 @@ select_last_commits jn opts cs0 =
           then do if null cs
                      then putStrLn ("No commits to "++jn++".")
                      else putStrLn ("Would "++jn++" the following commits:")
-                  putGraph (Graph:opts) (`elem` cs) cs
+                  putGraph (Graph:opts++[DateRelative]) (`elem` cs) cs
                   exitWith ExitSuccess
           else text_select Last [] jn opts cs []
 
@@ -111,7 +111,7 @@ text_select w sofar _ opts cs _
     | All `elem` opts && w == One = return (take 1 $ sofar++cs)
     | All `elem` opts = return (sofar++cs)
 text_select w sofar jn opts (c:cs) showopts =
-    do showCommit showopts `unseal` c >>= putDocLn
+    do showCommit (showopts++opts++[DateRelative]) `unseal` c >>= putDocLn
        doKey prompt options
     where
         Sealed a `iao` Sealed b = a `isAncestorOf` b

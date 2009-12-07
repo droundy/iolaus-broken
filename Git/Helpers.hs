@@ -41,6 +41,7 @@ import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
 
 import Iolaus.Global ( debugMessage )
 import Iolaus.Flags ( Flag( Test, Build, Sign, Verify, VerifyAny,
+                            DateRelative, DateIso, DateRfc, DateDefault,
                             RecordFor, Summary, Verbose,
                             CauterizeAllHeads, ShowHash, Nice,
                             ShowParents, GlobalConfig, SystemConfig,
@@ -446,7 +447,13 @@ isTrivialMerge (Sealed c) =
 showCommit :: [Flag] -> Hash Commit C(x) -> IO Doc
 showCommit opts c =
     do commit <- catCommit c
-       subjauthordat <- formatRev "%s%n%aN <%ae>  %ad" c
+       let dateform = head (concatMap dform opts++["%ad"])
+           dform DateRelative = ["%ar"]
+           dform DateIso = ["%ai"]
+           dform DateRfc = ["%aD"]
+           dform DateDefault = ["%ad"]
+           dform _ = []
+       subjauthordat <- formatRev ("%s%n%aN <%ae>  "++dateform) c
        let x = if ShowHash `elem` opts then text (show c) $$
                                             text subjauthordat $$
                                             text (mypretty commit)

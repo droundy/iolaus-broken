@@ -46,7 +46,9 @@ data Flag = Help | ListOptions | NoTest | Test | Build
           | Interactive
           | Summary | NoSummary
           | ShowMerges | HideMerges
-          | ShowParents | ShowHash | NoShowHash | ShowTested | HideTested
+          | DateRelative | DateDefault | DateIso | DateRfc
+          | ShowParents | HideParents
+          | ShowHash | NoShowHash | ShowTested | HideTested
           | Unified | Reverse | Graph
           | FixFilePath AbsolutePath AbsolutePath
           | DryRun | ConfigDefault | GlobalConfig | SystemConfig

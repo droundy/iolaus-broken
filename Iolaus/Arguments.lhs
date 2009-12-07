@@ -71,7 +71,12 @@ getContent CauterizeAllHeads = NoContent
 getContent DeltaDebugWorkingSubset = NoContent
 getContent ShowMerges = NoContent
 getContent HideMerges = NoContent
+getContent DateRelative = NoContent
+getContent DateDefault = NoContent
+getContent DateRfc = NoContent
+getContent DateIso = NoContent
 getContent ShowParents = NoContent
+getContent HideParents = NoContent
 getContent ShowHash = NoContent
 getContent NoShowHash = NoContent
 getContent ShowTested = NoContent
@@ -733,7 +738,18 @@ commit_format =
      IolausMultipleChoiceOption
      [IolausNoArgOption ['s'] ["summary"] Summary "summarize commit changes",
       IolausNoArgOption ['u'] ["show-patch"] Verbose "show commit changes"],
-     IolausNoArgOption [] ["show-parents"] ShowParents "show commit parents"]
+     IolausMultipleChoiceOption
+     [IolausNoArgOption [] ["show-parents"] ShowParents "show commit parents",
+      IolausNoArgOption [] ["hide-parents"] HideParents "hide commit parents"],
+     IolausMultipleChoiceOption
+     [IolausNoArgOption [] ["date-relative"] DateRelative
+      "show dates relative to the current time, e.g. \"2 hours ago\"",
+     IolausNoArgOption [] ["date-default"] DateDefault
+      "show dates in user's local timezone",
+     IolausNoArgOption [] ["date-iso"] DateIso
+      "show dates in ISO 8601 format",
+     IolausNoArgOption [] ["date-rfc"] DateRfc
+      "show dates in RFC 2822 format, often found in E-mail messages"]]
 
 changes_format :: [IolausOption]
 changes_format =
