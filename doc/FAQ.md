@@ -26,5 +26,10 @@ What is your favorite Platonic dialogue?
 Although I am partial to *Euthydemus*, which has reference to Iolaus,
 I must admit that I prefer *Laches*.  It doesn't have the same
 side-splitting humor, but I prefer the friendlier atmosphere and the
-characters are awesome---especially Laches himself, although Nicias is
+characters are awesome--especially Laches himself, although Nicias is
 pretty cool, too.
+
+Wait... have you really been frequently asked all these questions?!
+-------------------------------------------------------------------
+
+No, I just made them up because I wanted to feel more like Socrates.
