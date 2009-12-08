@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 #include "gadts.h"
 
-module Git.Helpers ( test, testCommits, testMessage,
+module Git.Helpers ( testCommits, testMessage,
                      testPredicate, TestResult(..),
                      commitTreeNicely, verifyCommit,
                      revListHeads, revListHeadsHashes,
@@ -71,11 +71,9 @@ commitTreeNicely :: [Flag] -> Hash Tree C(x) -> [Sealed (Hash Commit)] -> String
                  -> IO (Hash Commit C(x))
 commitTreeNicely opts t hs0 msg =
     do let hs1 = cauterizeHeads hs0
-       hs <- if length hs1 < 2
-             then return hs1
-             else do k <- hashObject (`hPutStrLn` show (sort hs1))
-                     ((:[]) `fmap` parseRev ("refs/tested/"++show k))
-                            `catch` (\_ -> return hs1)
+       mc <- testCommits opts "Merge" hs1 `catch` \_ -> return Nothing
+       hs <- case mc of Just c | length hs1 > 1 -> return [c]
+                        _ -> return hs1
        x <- commitTree t hs msg
        if Sign `elem` opts 
            then do raw <- catCommitRaw x
@@ -101,34 +99,28 @@ testCommits :: [Flag] -> String -> [Sealed (Hash Commit)]
             -> IO (Maybe (Sealed (Hash Commit)))
 testCommits opts msg hs0 =
     do let hs = sort $ cauterizeHeads hs0
-       k <- hashObject (`hPutStrLn` show hs)
-       mt <- (Just `fmap` parseRev ("refs/tested/"++show k))
+       Sealed t <- mergeCommits hs
+       mc <- (Just `fmap` parseRev ("refs/tested/"++show t))
              `catch` (\_ -> return Nothing)
-       case mt of
-         Just c -> return $ Just c
+       m <- testMessage opts
+       let msg' = case m of [] -> [msg]
+                            _ -> msg:"":m
+       c <- commitTree t hs (unlines msg')
+       case mc of
+         Just c' | unseal parents c' == hs -> return $ Just c'
+         Just _ -> do updateref ("refs/tested/"++show t) (Sealed c) Nothing
+                                    `catch` (\_ -> return ())
+                      return $ Just $ Sealed c
          Nothing ->
-             do Sealed t <- mergeCommits hs
-                x <- testPredicate opts t
+             do x <- testPredicate opts c
                 case x of
-                  Pass -> do m <- testMessage opts
-                             let msg' = case m of [] -> [msg]
-                                                  _ -> msg:"":m
-                             c <- commitTree t hs (unlines msg')
-                             updateref ("refs/tested/"++show k) (Sealed c)
+                  Pass -> do updateref ("refs/tested/"++show t) (Sealed c)
                                                                 Nothing
                                  `catch` (\_ -> return ())
                              return $ if null m then Nothing
                                                 else Just (Sealed c)
                   Fail -> fail "test failed"
                   Unresolved -> fail "build failed"
-
-test :: [Flag] -> Hash Tree C(x) -> IO [String]
-test opts t =
-    do x <- testPredicate opts t
-       case x of
-         Pass -> testMessage opts
-         Fail -> fail "test failed"
-         Unresolved -> fail "build failed"
 
 testMessage :: [Flag] -> IO [String]
 testMessage opts | any (`elem` opts) [Build, Test] =
@@ -148,11 +140,14 @@ testMessage _ = return []
 data TestResult = Pass | Fail | Unresolved
                   deriving ( Show, Eq )
 
-testPredicate :: [Flag] -> Hash Tree C(x) -> IO TestResult
-testPredicate opts t =
+testPredicate :: [Flag] -> Hash Commit C(x) -> IO TestResult
+testPredicate opts c =
  do msg <- testMessage opts
+    t <- catCommitTree c
+    alreadytested <- (const True `fmap` parseRev ("refs/tested/"++show t))
+             `catch` (\_ -> return False)
     here <- getCurrentDirectory
-    if null msg
+    if null msg || alreadytested
      then return Pass
      else withTempDir "testing" $ \tdir -> do
        setCurrentDirectory here
@@ -173,8 +168,13 @@ testPredicate opts t =
          ExitSuccess | Build `elem` opts -> return Pass
          ExitSuccess -> do ec <- runIfPresent "./.test"
                            setCurrentDirectory here
-                           case ec of ExitFailure _ -> return Fail
-                                      ExitSuccess -> return Pass
+                           case ec of
+                             ExitFailure _ -> return Fail
+                             ExitSuccess ->
+                                 do updateref ("refs/tested/"++show t)
+                                                  (Sealed c) Nothing
+                                                  `catch` (\_ -> return ())
+                                    return Pass
     where runIfPresent x = do e <- doesFileExist x
                               if e then system x
                                    else return ExitSuccess

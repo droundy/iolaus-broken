@@ -17,7 +17,7 @@ import Iolaus.PatchChoices ( TaggedPatch, Tag, tag, tp_patch, get_choices,
                              force_matching_first, force_matching_last,
                              separate_first_from_middle_last)
 
-import Git.Plumbing ( Hash, Tree )
+import Git.Plumbing ( Hash, Tree, commitTree )
 import Git.Helpers ( writeSlurpTree, slurpTree, testPredicate, TestResult(..) )
 
 
@@ -26,7 +26,9 @@ largestPassingSet :: (Effect p, Patchy p) => Hash Tree C(x) -> FL p C(x y)
 largestPassingSet _ NilFL = return (NilFL :> NilFL)
 largestPassingSet t0 xs0 =
     do t <- slurpTree t0 >>= apply_to_slurpy xs0 >>= writeSlurpTree
-       p <- testPredicate [Test] t
+       c <- commitTree t []
+            "If you can see this, largestPassingSet is being abused"
+       p <- testPredicate [Test] c
        case p of
          Pass -> return (xs0 :> NilFL)
          _ -> lps t0 xs0
@@ -77,7 +79,9 @@ ddpatches t ps = return (tps, unsafePerformIO . testtags)
                             do putStrLn ("Testing: "++ unwords (map show ts))
                                t' <- slurpTree t >>= apply_to_slurpy xs
                                      >>= writeSlurpTree
-                               testPredicate [Test] t'
+                               c' <- commitTree t' []
+                                   "If you can see this, ddpatches is misused"
+                               testPredicate [Test] c'
                 _ -> return Unresolved
 
 dd2 :: (Show a, Eq a) => ([a] -> TestResult) -> [a] -> [a] -> Int -> ([a],[a])
