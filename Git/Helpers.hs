@@ -29,7 +29,7 @@ import Data.ByteString as B ( hPutStr )
 import Git.Dag ( chokePoints, parents,
                  cauterizeHeads, iao, notIn )
 import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
-                      uname, committer, remoteHeads,
+                      uname, committer, quickRemoteHeads,
                       setConfig, unsetConfig, ConfigOption(Global, System),
                       catCommit, catCommitRaw, CommitEntry(..), formatRev,
                       commitTree, updateref, parseRev,
@@ -230,7 +230,8 @@ simplifyParents :: [Flag] -> [Sealed (Hash Commit)]
                 -> [String] -> Hash Tree C(x)
                 -> IO (Sealed (Hash Commit))
 simplifyParents opts pars0 log0 rec0 =
-    do dependon0 <- concat `fmap` mapM remoteHeads [for | RecordFor for <- opts]
+    do dependon0 <- (cauterizeHeads . concat) `fmap`
+                    mapM quickRemoteHeads [for | RecordFor for <- opts]
        let dependon = cauterizeHeads $
                       filter (\x -> x `elem` pars0 || any (x `iao`) pars0)
                              dependon0

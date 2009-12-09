@@ -49,7 +49,7 @@ import Iolaus.Sealed ( Sealed(Sealed), unseal, mapSealM )
 import Iolaus.DeltaDebug ( largestPassingSet )
 
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( lsfiles, heads, catCommit, myMessage, remoteHeads )
+import Git.Plumbing ( lsfiles, heads, catCommit, myMessage, quickRemoteHeads )
 import Git.Helpers ( writeSlurpTree, simplifyParents )
 import Git.Dag ( parents, notIn )
 
@@ -83,7 +83,7 @@ amend_record_cmd :: [Flag] -> [String] -> IO ()
 amend_record_cmd opts args = do
     check_name_is_not_option opts
     files <- sort `fmap` fixSubPaths opts args
-    rf <- concat `fmap` mapM remoteHeads [c | RecordFor c <- opts]
+    rf <- concat `fmap` mapM quickRemoteHeads [c | RecordFor c <- opts]
     hs0 <- heads
     toamend <- select_commit "amend" opts (hs0 `notIn` rf)
     (old, Unrecorded allchs0 _) <- get_recorded_and_unrecorded

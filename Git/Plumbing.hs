@@ -6,7 +6,7 @@ module Git.Plumbing ( Hash, mkHash, Tree, Commit, Blob(Blob), Tag, emptyCommit,
                       catTree, TreeEntry(..),
                       catCommit, catCommitRaw, CommitEntry(..),
                       catCommitTree, parseRev, maybeParseRev,
-                      heads, remoteHeads, headNames, tagNames,
+                      heads, remoteHeads, quickRemoteHeads, headNames, tagNames,
                       remoteHeadNames, remoteTagNames,
                       remoteAdd, gitInit, sendPack, listRemotes,
                       checkoutCopy,
@@ -30,7 +30,8 @@ import System.Exit ( ExitCode(..) )
 import System.IO.Error ( isDoesNotExistError )
 import System.Directory ( removeFile )
 import Control.Exception ( catchJust, ioErrors )
-import Control.Monad ( unless )
+import Control.Monad ( unless, when )
+import Control.Concurrent ( forkIO )
 import Data.List ( isInfixOf )
 #ifdef HAVE_REDIRECTS
 import System.Process.Redirects ( createProcess, waitForProcess, proc,
@@ -265,20 +266,44 @@ heads =
          ExitSuccess -> return $ map (mkSHash Commit) $ lines out
          ExitFailure _ -> fail "parseRev failed"
 
-remoteHeads :: String -> IO [Sealed (Hash Commit)]
-remoteHeads repo = map fst `fmap` remoteHeadNames repo
-{-
-    do debugMessage ("calling git ls-remote --heads "++repo)
+-- | like `remoteHeads`, but tries to avoid using the network if
+-- possible.
+quickRemoteHeads :: String -> IO [Sealed (Hash Commit)]
+quickRemoteHeads repo = map fst `fmap` quickRemoteHeadNames repo
+
+quickRemoteHeadNames :: String -> IO [(Sealed (Hash Commit), String)]
+quickRemoteHeadNames repo =
+    do rhns <- sloppyRemoteHeadNames repo
+       case rhns of
+         [] -> remoteHeadNames repo
+         hs -> do -- There is a danger is that if we never pull
+                  -- or push from repo, then the
+                  -- refs/remotes/repo/master* might never be
+                  -- updated.  This forkIO addresses that.
+                  forkIO $ fetchRemote repo `catch` \_ -> return ()
+                  return hs
+
+sloppyRemoteHeadNames :: String -> IO [(Sealed (Hash Commit), String)]
+sloppyRemoteHeadNames repo =
+    do debugMessage "calling git show-ref"
+       reporef <- remoteRemote repo
+       let parse l
+               | (reporef++"master") `isInfixOf` l =
+                   [(mkSHash Commit l,
+                     "refs/heads/"++reverse (takeWhile (/= '/') $ reverse l))]
+           parse _ = []
+                     
        (Nothing, Just stdout, Nothing, pid) <-
-           createProcess (proc "git" ["ls-remote", "--heads",repo])
+           createProcess (proc "git" ["show-ref"])
                              { std_out = CreatePipe }
        out <- hGetContents stdout
-       length out `seq` waitForProcess pid
-       let hs = map (mkSHash Commit) $ lines out
-       -- FIXME we should avoid running fetchPack redundantly!
-       unless (null hs) $ fetchPack repo
-       return hs
--}
+       ec <- length out `seq` waitForProcess pid
+       case ec of
+         ExitFailure _ -> return []
+         ExitSuccess -> return $ concatMap parse $ lines out
+
+remoteHeads :: String -> IO [Sealed (Hash Commit)]
+remoteHeads repo = map fst `fmap` remoteHeadNames repo
 
 headNames :: IO [(Sealed (Hash Commit), String)]
 headNames =
@@ -306,8 +331,12 @@ tagNames =
     where parse l = (mkSHash Tag l, drop 41 l)
 
 remoteHeadNames :: String -> IO [(Sealed (Hash Commit), String)]
-remoteHeadNames repo =
-    do debugMessage "calling git ls-remote"
+remoteHeadNames repo = do fetchRemote repo
+                          sloppyRemoteHeadNames repo
+
+rawRemoteHeadNames :: String -> IO [(Sealed (Hash Commit), String)]
+rawRemoteHeadNames repo =
+    do debugMessage (unwords ["calling git ls-remote","--heads",repo])
        (Nothing, Just stdout, Nothing, pid) <-
            createProcess (proc "git" ["ls-remote", "--heads",repo])
                              { std_out = CreatePipe }
@@ -315,10 +344,7 @@ remoteHeadNames repo =
        ec <- length out `seq` waitForProcess pid
        case ec of
          ExitFailure _ -> fail "git ls-remote failed"
-         ExitSuccess -> do let ns = filter ismaster $ map parse $ lines out
-                           -- FIXME we should avoid fetchPacking redundantly!
-                           unless (null ns) $ fetchPack repo
-                           return ns
+         ExitSuccess -> return $ filter ismaster $ map parse $ lines out
     where parse l = (mkSHash Commit l, drop 41 l)
           ismaster = ("master" `isInfixOf`) . snd
 
@@ -334,7 +360,7 @@ remoteTagNames repo =
          ExitFailure _ -> return []
          ExitSuccess -> do let ts = map parse $ filter ('^' `notElem`) $
                                     lines out
-                           unless (null ts) $ fetchPack repo
+                           unless (null ts) $ fetchRemote repo
                            return ts
     where parse l = (mkSHash Tag l, drop 41 l)
 
@@ -747,6 +773,40 @@ parseRemote r = do xs <- remoteUrls
                    case lookup r xs of
                      Just u -> return u
                      Nothing -> return r
+
+fetchRemote :: String -> IO ()
+fetchRemote repo =
+    do debugMessage "am in fetchRemote"
+       nhs <- map sw `fmap` rawRemoteHeadNames repo
+       nhs0 <- map sw `fmap` sloppyRemoteHeadNames repo
+       when (nhs /= nhs0) $
+            do debugMessage "need to actually update the remote..."
+               fetchPack repo
+               r <- remoteRemote repo
+               -- the following "drop 11" cuts off the string
+               -- "refs/heads/" so we can replace it with
+               -- "refs/remotes/remotename/".
+               let upd (n,h) = updateref (r++drop 11 n) h (lookup n nhs0)
+               mapM_ upd nhs
+               let upd2 (n,h) = case lookup n nhs of
+                                  Nothing -> updateref (r++drop 11 n)
+                                             (Sealed emptyCommit) (Just h)
+                                  Just _ -> return ()
+               mapM_ upd2 nhs0
+    where sw (a,b) = (b,a)
+
+remoteRemote :: String -> IO String
+remoteRemote repo0 =
+    do repo <- parseRemote repo0
+       if repo /= repo0
+          then return ("refs/remotes/"++repo0++"/")
+          else return $ "refs/remotes/"++concatMap cleanup repo0++"/"
+    where cleanup '/' = "-"
+          cleanup ':' = "_"
+          cleanup '.' = "-"
+          cleanup '\\' = "-"
+          cleanup '@' = "_"
+          cleanup c = [c]
 
 fetchPack :: String -> IO ()
 fetchPack repo0 =
