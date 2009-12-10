@@ -301,8 +301,15 @@ simplifyParents opts pars0 log0 rec0 =
                                  do debugMessage "bisect with half"
                                     bisect testit dependon bad (bad++try,ttry)
                             (Nothing, Just ttry2) ->
-                                 do debugMessage "bisect with other half"
-                                    bisect testit dependon bad (bad++try2,ttry2)
+                                case try2 `notIn` (bad++dependon) of
+                                  x | length x <
+                                      length (good `notIn` (bad++dependon))
+                                    -> do debugMessage ("bisect with other half: "++
+                                                        show try2)
+                                          bisect testit dependon bad
+                                                     (bad++x,ttry2)
+                                  _ -> do debugMessage "crazy snail..."
+                                          snail testit dependon bad (good,cgood)
                             (Nothing, Nothing) ->
                                  do debugMessage ("resorting to snail... "++
                                                   show (length good)++"/"++
