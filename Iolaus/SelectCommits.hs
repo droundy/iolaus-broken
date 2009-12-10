@@ -36,7 +36,7 @@ import Iolaus.Sealed ( Sealed( Sealed ), mapSealM, unseal )
 import Iolaus.Printer ( putDocLn )
 import Iolaus.Graph ( putGraph )
 
-import Git.Dag ( isAncestorOf )
+import Git.Dag ( isAncestorOf, iao )
 import Git.Plumbing ( Hash, Commit, catCommit, myMessage, myParents )
 import Git.Helpers ( showCommit )
 
@@ -67,7 +67,12 @@ select_commit :: String -> [Flag] -> [Sealed (Hash Commit)]
 select_commit jn _ [] = do putStrLn ("There is no commit to "++jn++"!")
                            exitWith ExitSuccess
 select_commit jn opts cs0 =
-    do cs <- filterM (match opts) cs0
+    do -- in select_commit, we want a commit that has no descendents.
+       -- select_commit is used in commands like amend-record and
+       -- unrecord, and it always should return a commit that could be
+       -- removed without touching any other commits.
+       let islast x = not $ any (x `iao`) cs0
+       cs <- filterM (match opts) $ filter islast cs0
        if DryRun `elem` opts
           then do if null cs
                      then putStrLn ("No commit to "++jn++".")

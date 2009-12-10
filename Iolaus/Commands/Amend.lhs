@@ -29,7 +29,7 @@ import Iolaus.Command ( Command(..), nodefaults )
 import Iolaus.Arguments ( Flag( Quiet, PatchName, All, RecordFor,
                                 DeltaDebugWorkingSubset ),
                           sign, working_repo_dir, commitApproach,
-                          fixSubPaths, testByDefault,
+                          fixSubPaths, testByDefault, dryrun,
                           ask_long_comment, recordDeltaDebug,
                           all_interactive, notest,
                           author, patchname_option,
@@ -76,8 +76,9 @@ amend_record = Command {command_name = "amend-record",
                                                 notest++recordDeltaDebug++
                                                 [commitApproach,
                                                  all_interactive,
-                                                 sign, ask_long_comment,
-                                                 working_repo_dir]}
+                                                 sign, ask_long_comment]++
+                                                 dryrun "amend"++
+                                                [working_repo_dir]}
 
 amend_record_cmd :: [Flag] -> [String] -> IO ()
 amend_record_cmd opts args = do
