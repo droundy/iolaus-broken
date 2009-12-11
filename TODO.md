@@ -54,3 +54,6 @@
    pretty silly.  For a few things it makes sense (probably for test
    scripts), but for most others, it's much nicer to be able to work
    with a single file.
+
+9. Add a timeout option for the tests, so that we can handle test
+   suites that involve an infinite list.
