@@ -29,7 +29,7 @@ import Data.ByteString as B ( hPutStr )
 import Git.Dag ( chokePoints, parents,
                  cauterizeHeads, iao, notIn )
 import Git.Plumbing ( Hash, Tree, Commit, TreeEntry(..),
-                      uname, committer, remoteHeads,
+                      uname, committer, quickRemoteHeads,
                       setConfig, unsetConfig, ConfigOption(Global, System),
                       catCommit, catCommitRaw, CommitEntry(..), formatRev,
                       commitTree, updateref, parseRev,
@@ -230,7 +230,8 @@ simplifyParents :: [Flag] -> [Sealed (Hash Commit)]
                 -> [String] -> Hash Tree C(x)
                 -> IO (Sealed (Hash Commit))
 simplifyParents opts pars0 log0 rec0 =
-    do dependon0 <- concat `fmap` mapM remoteHeads [for | RecordFor for <- opts]
+    do dependon0 <- (cauterizeHeads . concat) `fmap`
+                    mapM quickRemoteHeads [for | RecordFor for <- opts]
        let dependon = cauterizeHeads $
                       filter (\x -> x `elem` pars0 || any (x `iao`) pars0)
                              dependon0
@@ -301,8 +302,15 @@ simplifyParents opts pars0 log0 rec0 =
                                  do debugMessage "bisect with half"
                                     bisect testit dependon bad (bad++try,ttry)
                             (Nothing, Just ttry2) ->
-                                 do debugMessage "bisect with other half"
-                                    bisect testit dependon bad (bad++try2,ttry2)
+                                case try2 `notIn` (bad++dependon) of
+                                  x | length x <
+                                      length (good `notIn` (bad++dependon))
+                                    -> do debugMessage ("bisect with other half: "++
+                                                        show try2)
+                                          bisect testit dependon bad
+                                                     (bad++x,ttry2)
+                                  _ -> do debugMessage "crazy snail..."
+                                          snail testit dependon bad (good,cgood)
                             (Nothing, Nothing) ->
                                  do debugMessage ("resorting to snail... "++
                                                   show (length good)++"/"++

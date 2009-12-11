@@ -26,7 +26,7 @@ import Iolaus.SelectCommits ( select_last_commits )
 
 import Git.Dag ( notIn )
 import Git.LocateRepo ( amInRepository )
-import Git.Plumbing ( heads, remoteHeads )
+import Git.Plumbing ( heads, quickRemoteHeads )
 
 unrecord_description :: String
 unrecord_description =
@@ -59,7 +59,7 @@ unrecord = Command {command_name = "unrecord",
 
 unrecord_cmd :: [Flag] -> [String] -> IO ()
 unrecord_cmd opts _ =
-    do rf <- concat `fmap` mapM remoteHeads [c | RecordFor c <- opts]
+    do rf <- concat `fmap` mapM quickRemoteHeads [c | RecordFor c <- opts]
        hs0 <- heads
        toremove <- select_last_commits "unrecord" opts (hs0 `notIn` rf)
        decapitate opts toremove
