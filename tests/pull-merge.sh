@@ -28,6 +28,7 @@ iolaus changes --count | grep 3
 
 cd ../temp2
 
+iolaus pull --dry-run ../temp1
 echo yy | iolaus pull ../temp1
 
 iolaus changes --graph

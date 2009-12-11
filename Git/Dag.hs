@@ -41,11 +41,15 @@ Sealed a `iao` Sealed b = a `isAncestorOf` b
 
 notIn ::  [Sealed (Hash Commit)] ->  [Sealed (Hash Commit)]
       -> [Sealed (Hash Commit)]
+-- "us as an empty list is a special case, because the result of
+-- chokePoints (them++us) is not present in us.
+notIn them [] = S.toList (S.unions $ S.fromList them :
+                          map (unseal ancestors) them)
 notIn them us = newestFirst $ S.toList justhem
     where (allus,allthem) =
               case chokePoints (them++us) of
-                c:_ -> (S.fromList $ us++lazyAncestorsTo us c,
-                        S.fromList $ them++lazyAncestorsTo them c)
+                c:_ -> (S.fromList $ filter (/=c) us++lazyAncestorsTo us c,
+                        S.fromList $ filter (/=c) them++lazyAncestorsTo them c)
                 [] ->(S.unions $ S.fromList us : map (unseal ancestors) us,
                       S.unions $ S.fromList them : map (unseal ancestors) them)
           justhem = S.difference allthem allus
@@ -92,7 +96,7 @@ ancestors h = unsafePerformIO $ findAncestors $ Sealed h
 
 lazyAncestorsTo :: [Sealed (Hash Commit)] -> Sealed (Hash Commit)
                 -> [Sealed (Hash Commit)]
-lazyAncestorsTo hs0 downto = la (S.singleton downto) hs0
+lazyAncestorsTo hs0 downto = la (S.singleton downto) $ filter (/= downto) hs0
     where la _ [] = []
           la sofar (h:hs) =
               case filter (not . (`S.member` sofar)) $ unseal parents h of
