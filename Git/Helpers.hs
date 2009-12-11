@@ -244,7 +244,8 @@ simplifyParents opts pars0 log0 rec0 =
             do Sealed sold <- mergeCommits (dependon++xs) >>= mapSealM slurpTree
                s0 <- slurpTree t0
                case commute (diff opts sold s0 :> p) of
-                 Nothing -> return Nothing
+                 Nothing -> do debugMessage "Commute fails..."
+                               return Nothing
                  Just (p' :> _) ->
                    do s' <- apply_to_slurpy p' sold
                       t' <- writeSlurpTree s'
@@ -259,6 +260,7 @@ simplifyParents opts pars0 log0 rec0 =
                                 if tr then return (Just $ Sealed com)
                                       else return Nothing
                         else return $ Just $ Sealed com
+       debugMessage "Trying with all commits..."
        allok <- testit pars
        c <- case allok of
             Nothing -> fail "test fails!"
@@ -266,7 +268,8 @@ simplifyParents opts pars0 log0 rec0 =
               if CauterizeAllHeads `elem` opts
               then return call
               else
-                do noneok <- testit []
+                do debugMessage "Trying in minimal context..."
+                   noneok <- testit []
                    case noneok of
                      Just cnone -> return cnone
                      Nothing -> bisect testit dependon [] (pars, call)
@@ -282,7 +285,8 @@ simplifyParents opts pars0 log0 rec0 =
        if merg then return c
                else fail "Unexpected test failure in simplifyParents!"
     where testC cs = fmap (const True) (testCommits opts "Merge" cs)
-                     `catch` \_ -> return False
+                     `catch` \e -> do debugMessage ("test problem: "++show e)
+                                      return False
           bisect testit dependon bad (good,cgood) =
                case good `notIn` (bad++dependon) of
                  [] -> return cgood
