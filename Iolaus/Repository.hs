@@ -18,7 +18,7 @@
 #include "gadts.h"
 
 module Iolaus.Repository
-    ( add_heads, decapitate, push_heads,
+    ( add_heads, decapitate, push_heads, decapitate_remote,
       get_unrecorded_changes, get_recorded_and_unrecorded,
       get_unrecorded, Unrecorded(..), slurp_recorded, slurp_working,
       checkout_recorded ) where
@@ -102,6 +102,17 @@ decapitate _ xs =
                  (zip masters oldmasters)
                  (hs'++take (length hs-length hs')
                             (repeat $ Sealed emptyCommit))
+
+decapitate_remote :: String -> [Sealed (Hash Commit)] -> IO ()
+decapitate_remote repo xs =
+    do hs <- remoteHeads repo
+       let pars = concatMap (unseal parents) xs
+           hs' = cauterizeHeads (filter (`notElem` xs) (hs++pars))
+           paddedhs' = hs'++
+                       take (length hs-length hs') (repeat (Sealed emptyCommit))
+       -- FIXME: sendPack should specify both old and new, so that
+       -- locking is done properly...
+       sendPack repo (zip paddedhs' masters) []
 
 push_heads :: String -> [Sealed (Hash Commit)] -> IO ()
 push_heads repo cs =

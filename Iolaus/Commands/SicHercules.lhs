@@ -23,7 +23,7 @@ import System.Exit ( ExitCode(..), exitWith )
 import Iolaus.Command ( Command(..) )
 import Iolaus.Arguments ( Flag( RecordFor ), working_repo_dir, modifySafely,
                           all_interactive, match_several_or_last )
-import Iolaus.Repository ( decapitate )
+import Iolaus.Repository ( decapitate_remote )
 import Iolaus.SelectCommits ( select_last_commits )
 import Iolaus.Printer ( wrap_text )
 import Iolaus.Utils ( askUser )
@@ -75,7 +75,7 @@ sic_hercules_cmd opts [repo] =
        case yorn of 'y':_ -> return ()
                     _ -> do putStrLn "Cancelled destructive rage."
                             exitWith $ ExitSuccess
-       decapitate opts toremove
+       decapitate_remote repo toremove
 sic_hercules_cmd _ _ = fail "impossible case in sic_hercules_cmd"
 \end{code}
 

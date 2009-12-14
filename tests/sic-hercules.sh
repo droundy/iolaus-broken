@@ -1,22 +1,36 @@
 set -ev
 
-mkdir temp
-cd temp
+mkdir trunk
+cd trunk
 iolaus init
 date > foo
 iolaus record -am addfoo
 cd ..
 
-iolaus get temp temp1
-cd temp
-echo hello > foo
+iolaus get trunk proposed
+iolaus get trunk local
+
+cd local
+echo hello world > foo
+iolaus record -am hellofoo
+git remote add proposed ../proposed
+iolaus push -a proposed
+
+echo goodbye world > foo
+# fix the hellofoo patch
 iolaus amend-record -a
 
-# test-fails because sic-hercules hasn't yet been debugged.
-echo yy | iolaus sic-hercules --debug ../temp1
+# now we can kill 
+echo yy | iolaus sic-hercules --debug proposed
 
-iolaus push -a ../temp1
-cd ../temp1
+iolaus push -a proposed
+cd ../proposed
+iolaus changes --graph
 iolaus revert -a
 cd ..
-diff temp/foo temp1/foo
+diff proposed/foo local/foo
+
+cd proposed
+iolaus changes | grep addfoo
+iolaus changes -v | grep 'hello world' && exit 1
+iolaus changes -v | grep 'goodbye world'
