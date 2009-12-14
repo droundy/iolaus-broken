@@ -830,7 +830,7 @@ sendPack repo0 xs ts =
            createProcess (proc "git" ("send-pack":"--force":repo:revs++ts))
        ec <- waitForProcess pid
        case ec of
-         ExitSuccess -> return ()
+         ExitSuccess -> fetchRemote repo0
          ExitFailure _ -> fail "git send-pack failed"
 
 getColor :: String -> IO String
