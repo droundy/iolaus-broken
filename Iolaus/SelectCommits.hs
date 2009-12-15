@@ -36,7 +36,7 @@ import Iolaus.Sealed ( Sealed( Sealed ), mapSealM, unseal )
 import Iolaus.Printer ( putDocLn )
 import Iolaus.Graph ( putGraph )
 
-import Git.Dag ( isAncestorOf, iao )
+import Git.Dag ( iao )
 import Git.Plumbing ( Hash, Commit, catCommit, myMessage, myParents )
 import Git.Helpers ( showCommit )
 
@@ -119,7 +119,6 @@ text_select w sofar jn opts (c:cs) showopts =
     do showCommit (showopts++opts++[DateRelative]) `unseal` c >>= putDocLn
        doKey prompt options
     where
-        Sealed a `iao` Sealed b = a `isAncestorOf` b
         options_basic =
            [ KeyPress 'y' (jn++" this patch") $
              case w of
