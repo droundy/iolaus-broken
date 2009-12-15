@@ -330,7 +330,8 @@ simplifyParents opts pars0 log0 rec0 =
                  case ok of Just tgbad -> return tgbad
                             Nothing ->
                                 bisect testit dependon (g:bad) (good,cgood)
-              where findprim x = case filter (/=x) ([x] `notIn` bad) of
+              where findprim x = case filter (/=x) $
+                                              [x] `notIn` (bad++dependon) of
                                    [] -> x
                                    y:_ -> findprim y
           snail _ _ _ ([],cgood) =
