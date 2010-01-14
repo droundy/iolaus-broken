@@ -466,7 +466,7 @@ showCommit opts c =
            dform DateRfc = ["%aD"]
            dform DateDefault = ["%ad"]
            dform _ = []
-       subjauthordat <- formatRev ("%s%n%aN <%ae>  "++dateform) c
+       subjauthordat <- formatRev ("%s%n%an <%ae>  "++dateform) c
        let x = if ShowHash `elem` opts then text (show c) $$
                                             text subjauthordat $$
                                             text (mypretty commit)

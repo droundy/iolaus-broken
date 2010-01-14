@@ -343,7 +343,7 @@ rawRemoteHeadNames repo =
        out <- hGetContents stdout
        ec <- length out `seq` waitForProcess pid
        case ec of
-         ExitFailure _ -> fail "git ls-remote failed"
+         ExitFailure _ -> return [] -- failure may mean an empty repository
          ExitSuccess -> return $ filter ismaster $ map parse $ lines out
     where parse l = (mkSHash Commit l, drop 41 l)
           ismaster = ("master" `isInfixOf`) . snd
