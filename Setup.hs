@@ -30,6 +30,7 @@ doc =
                mkFile "manual/manual.md" (prefix "" "# Iolaus manual"++x)
        mdToHtml "README.md" "index.html"
        mdToHtml "TODO.md" "TODO.html"
+       mdToHtml "INSTALL.md" "install.html"
        mdToHtml "doc/FAQ.md" "FAQ.html"
        mapM_ docToManual ["local-changes","querying","remote","basic-usage"]
        markdownToHtml ".iolaus.css" "manual/manual.md" "manual.html"
@@ -69,6 +70,7 @@ doc =
               "\n[about]("++toroot++"index.html) | "++
               "[manual]("++toroot++"manual.html) | "++
               "[download](http://github.com/droundy/iolaus/downloads) | "++
+              "[install]("++toroot++"INSTALL.html) | "++
               "[TODO]("++toroot++"TODO.html) | "++
               "[FAQ]("++toroot++"FAQ.html)\n\n"
           commandPage lhs =
