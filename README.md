@@ -8,6 +8,15 @@
 What is Iolaus?
 ---------------
 
+If you're considering installing iolaus, you should first be aware
+that iolaus is *completely unstable* and *completely unsupported*.
+You are considering using experimental software that its author does
+not consider to be fit for general consumption (and has therefore
+never publicly announced) and has no time and little desire to make
+fit for your consumption.  Not only that, but its build process
+depends on software that is also unstable, which is also is not yet
+intended for general use.
+
 Iolaus is a [git](http://git-scm.org) porcelain which uses some code
 and ideas from an older SCM I created called
 [darcs](http://darcs.net).  Thus Iolaus is kin to Easy Git, Yap,
