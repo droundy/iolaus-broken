@@ -8,8 +8,10 @@
 config.d
 *.depend
 iolaus
+bin/iolaus
 idiff
 preproc
+bin/preproc
 git-imof
 *.log
 .package.conf
