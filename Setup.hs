@@ -14,19 +14,20 @@ main = build [configurableProgram "shell" "bash" ["shsh","sh"],
           ghcFlags ["-Wall","-threaded"]
           withDirectory "etc" $ etc "bash_completion.d/iolaus"
           withModule "System.Process.Redirects" $ define "HAVE_REDIRECTS"
-          executable "iolaus" "iolaus.hs" []
+          mkdir "bin"
+          executable "bin/iolaus" "iolaus.hs" []
           enforceAllPrivacy
           doc
           allTests
 
 doc =
-    do privateExecutable "preproc" "preproc.hs" []
+    do privateExecutable "bin/preproc" "preproc.hs" []
        xs <- (filter (/= "Show.lhs") .
               filter (".lhs" `isSuffixOf`)) `fmap` ls "Iolaus/Commands"
        hs <- mapM commandPage $ xs
        mkdir "manual"
-       rule ["manual/manual.md"] ("preproc":"doc/iolaus.md":map fst hs) $
-            do x <- systemOut "./preproc" ["doc/iolaus.md"]
+       rule ["manual/manual.md"] ("bin/preproc":"doc/iolaus.md":map fst hs) $
+            do x <- systemOut "bin/preproc" ["doc/iolaus.md"]
                mkFile "manual/manual.md" (prefix "" "# Iolaus manual"++x)
        mdToHtml "README.md" "index.html"
        mdToHtml "TODO.md" "TODO.html"
@@ -75,11 +76,11 @@ doc =
               "[FAQ]("++toroot++"FAQ.html)\n\n"
           commandPage lhs =
            do rule ["manual/"++lhs2md lhs, "manual/"++lhs2manmd lhs]
-                   ["preproc", "Iolaus/Commands/"++lhs] $
-                do x <- systemOut "./preproc" [nam lhs,
-                                               "Iolaus/Commands/"++lhs]
-                   h <- systemOut "./preproc" ["--html", nam lhs,
-                                               "Iolaus/Commands/"++lhs]
+                   ["bin/preproc", "Iolaus/Commands/"++lhs] $
+                do x <- systemOut "bin/preproc" [nam lhs,
+                                                 "Iolaus/Commands/"++lhs]
+                   h <- systemOut "bin/preproc" ["--html", nam lhs,
+                                                 "Iolaus/Commands/"++lhs]
                    mkdir "manual"
                    mkdir "man"
                    mkdir "man/man1"
@@ -114,7 +115,7 @@ allTests =
                                        else prefix++f
                         testScript testname "shell" ("../../"++f)
                         addToRule testname $
-                            do addToPath here
+                            do addToPath (here++"/bin")
                                mapM_ (uncurry setEnv)
                                          [("EMAIL", "tester")]
                                pwd >>= setEnv "HOME"
