@@ -38,7 +38,3 @@ sort ch > sch
 
 diff -u srch sch
 
-# Reality check that the -p flag successfully limits the list of changes. 
-iolaus changes -p hello > changes_p_hello.txt
-grep bye changes_p_hello.txt && false
-
