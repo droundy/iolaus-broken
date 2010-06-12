@@ -78,7 +78,8 @@ pull = Command {command_name = "pull",
 pull_cmd :: [Flag] -> [String] -> IO ()
 
 pull_cmd opts repodirs@(_:_) =
-    do old <- slurp_recorded
+    do let putInfo = if Quiet `elem` opts then const (return ()) else putStrLn
+       old <- slurp_recorded
        Sealed work <- slurp_working
        hs <- heads
        allnewhs <- map (`notIn` hs) `fmap` mapM remoteHeads repodirs
@@ -88,7 +89,7 @@ pull_cmd opts repodirs@(_:_) =
        mapM_ (verifyCommit opts) newhs
        merges <- filterM isMerge newhs
        newhs' <- select_commits "pull" opts (reverse $ newhs `notIn` hs)
-       when (null newhs') $ do putStrLn "No patches to pull!"
+       when (null newhs') $ do putInfo "No patches to pull!"
                                exitWith ExitSuccess
        Sealed new <- mergeCommits (hs++newhs') >>= mapSealM slurpTree
        let workp = diff opts old work
