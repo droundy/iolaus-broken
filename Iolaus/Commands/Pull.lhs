@@ -24,7 +24,7 @@ import Data.List ( union, intersect )
 
 import Iolaus.Command ( Command(..) )
 import Iolaus.Arguments
-    ( Flag(All, NoAllowConflicts, Intersection), pull_conflict_options, verify,
+    ( Flag(All, Quiet, NoAllowConflicts, Intersection), pull_conflict_options, verify,
       all_interactive, repo_combinator, match_several_or_first, dryrun,
       notest, testByDefault, working_repo_dir, remote_repo )
 import Iolaus.Patch ( apply, merge, mergeNamed, infopatch, patchcontents,
